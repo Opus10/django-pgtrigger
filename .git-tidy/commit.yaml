@@ -1,0 +1,22 @@
+- label: type
+  name: Type
+  help: The type of change.
+  type: string
+  choices:
+      - api-break
+      - bug
+      - feature
+      - trivial
+
+- label: summary
+  name: Summary
+  help: A high-level summary of the changes.
+  type: string
+
+- label: description
+  name: Description
+  help: An in-depth description of the changes.
+  type: string
+  condition: ['!=', 'type', 'trivial']
+  multiline: True
+  required: False

@@ -1,0 +1,79 @@
+version: 2.1
+
+executors:
+  python:
+    working_directory: ~/django-pgtrigger
+    docker:
+      - image: jyve/circleci-public-django-app
+        environment:
+          DATABASE_URL: postgres://root@localhost/circle_test?sslmode=disable
+      - image: circleci/postgres:11-ram
+        environment:
+          POSTGRES_USER: root
+          POSTGRES_DB: circle_test
+          POSTGRES_PASSWORD: password
+
+jobs:
+  test:
+    executor: python
+    steps:
+      - checkout
+      - restore_cache:
+          key: v1-{{ checksum "poetry.lock" }}
+      - run: make ci_setup
+      - run: make test
+      - save_cache:
+          key: v1-{{ checksum "poetry.lock" }}
+          paths:
+            - /home/circleci/.local
+            - /home/circleci/.cache/pypoetry/virtualenvs
+            - /home/circleci/.cache/pipx
+            - /home/circleci/django-pgtrigger/.tox
+
+  lint:
+    executor: python
+    steps:
+      - checkout
+      - restore_cache:
+          key: v1-{{ checksum "poetry.lock" }}
+      - run: make ci_setup
+      - run: make lint
+
+  check_changelog:
+    executor: python
+    steps:
+      - checkout
+      - restore_cache:
+          key: v1-{{ checksum "poetry.lock" }}
+      - run: make ci_setup
+      - run: make check_changelog
+
+  deploy:
+    executor: python
+    steps:
+      - checkout
+      - run: ssh-add -D
+      - run: echo "${GITHUB_JYVE_DEVOPS_PRIVATE_SSH_KEY_BASE64}" | base64 --decode | ssh-add - > /dev/null
+      - restore_cache:
+          key: v1-{{ checksum "poetry.lock" }}
+      - run: make ci_setup
+      - run: poetry run python devops.py deploy
+
+workflows:
+  version: 2
+  on_commit:
+    jobs:
+      - test
+      - lint
+      - check_changelog:
+          filters:
+            branches:
+              ignore: master
+      - deploy:
+          context: public-django-app
+          requires:
+            - test
+            - lint
+          filters:
+            branches:
+              only: master

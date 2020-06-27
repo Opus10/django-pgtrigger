@@ -1,0 +1,61 @@
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
+
+[tool.black]
+line-length = 79
+target-version = ['py36']
+skip-string-normalization = true
+
+[tool.poetry]
+name = "django-pgtrigger"
+packages = [
+  { include = "pgtrigger" }
+]
+version = "0.0.0"
+description = "Postgres trigger support integrated with Django models."
+authors = ["Jyve Engineering"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3 :: Only",
+  "Framework :: Django",
+]
+license = "BSD-3-Clause"
+readme = "README.rst"
+homepage = "https://github.com/jyveapp/django-pgtrigger"
+repository = "https://github.com/jyveapp/django-pgtrigger"
+documentation = "https://django-pgtrigger.readthedocs.io"
+
+[tool.poetry.dependencies]
+python = ">=3.6,<4"
+django = ">=2"
+
+[tool.poetry.dev-dependencies]
+black = "=19.10b0"
+boto3 = "=1.9.243"
+dj-database-url = "^0.5.0"
+flake8 = "=3.7.9"
+flake8-bugbear = "=19.8.0"
+flake8-comprehensions = "=2.2.0"
+flake8-import-order = "=0.18.1"
+flake8-logging-format = "=0.6.0"
+flake8-mutable = "=1.2.0"
+packaging = "19.2"
+pip = "*"
+pre-commit = "1.18.3"
+psycopg2-binary = "^2.8.4"
+pytest = "=5.4.1"
+pytest-cov = "=2.10.0"
+pytest-django = "^3.8.0"
+pytest-dotenv = "^0.4.0"
+python-magic = "=0.4.15"
+requests = "^2.22.0"
+Sphinx = "=3.0.3"
+sphinx-rtd-theme = "=0.4.3"
+temple = "*"
+tox = "=3.15.2"
