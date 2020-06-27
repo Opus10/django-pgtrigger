@@ -6,5 +6,7 @@ Table of Contents
 
    index
    installation
+   quick_start
+   package
    release_notes
    contributing
