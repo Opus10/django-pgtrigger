@@ -1,5 +1,9 @@
 # Changelog
-## 1.0.0 (2020-06-26)
+## 1.0.1 (2020-06-28)
+### Trivial
+  - Updated README and updated with the latest public django app template. [Wes Kendall, 001ef68]
+
+## 1.0.0 (2020-06-27)
 ### Api-Break
   - Initial release of django-pgtrigger. [Wes Kendall, 1f737f0]
 
