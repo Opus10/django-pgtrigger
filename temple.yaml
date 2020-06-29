@@ -1,7 +1,7 @@
 _extensions:
 - jinja2_time.TimeExtension
 _template: git@github.com:jyveapp/public-django-app-template.git
-_version: 9ae71a807024c76f05bdd47d357d9d1a30ef25f4
+_version: 51c0c983206e8312a2fabbfd3dff72449d43c94c
 module_name: pgtrigger
 repo_name: django-pgtrigger
 short_description: Postgres trigger support integrated with Django models.
