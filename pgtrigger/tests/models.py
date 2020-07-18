@@ -13,6 +13,36 @@ class TestModel(models.Model):
         unique_together = ('int_field', 'char_field')
 
 
+class LogEntry(models.Model):
+    """Created when ToLogModel is updated"""
+    level = models.CharField(max_length=16)
+
+
+@pgtrigger.register(
+    pgtrigger.Trigger(
+        level=pgtrigger.Statement,
+        operation=pgtrigger.Update,
+        when=pgtrigger.After,
+        func=(
+            f'INSERT INTO {LogEntry._meta.db_table}(level)'
+            ' VALUES (\'STATEMENT\'); RETURN NULL;'
+        )
+    ),
+    pgtrigger.Trigger(
+        level=pgtrigger.Row,
+        operation=pgtrigger.Update,
+        when=pgtrigger.After,
+        func=(
+            f'INSERT INTO {LogEntry._meta.db_table}(level) VALUES (\'ROW\');'
+            ' RETURN NULL;'
+        )
+    )
+)
+class ToLogModel(models.Model):
+    """For testing triggers that log records at statement and row level"""
+    field = models.CharField(max_length=16)
+
+
 class CharPk(models.Model):
     custom_pk = models.CharField(primary_key=True, max_length=32)
 

@@ -10,6 +10,25 @@ from pgtrigger.tests import models
 
 
 @pytest.mark.django_db
+def test_statement_row_level_logging():
+    """
+    Updates "ToLogModel" entries, which have statement and row-level
+    triggers that create log entries.
+    """
+    ddf.G(models.ToLogModel, n=5)
+
+    assert not models.LogEntry.objects.exists()
+
+    models.ToLogModel.objects.update(field='something')
+
+    # The statement-level trigger should have produced 1 log entry
+    assert models.LogEntry.objects.filter(level='STATEMENT').count() == 1
+
+    # The row-level trigger should have produced 5 entries
+    assert models.LogEntry.objects.filter(level='ROW').count() == 5
+
+
+@pytest.mark.django_db
 def test_soft_delete():
     """
     Verifies the SoftDelete test model has the "is_active" flag set to false
@@ -210,6 +229,9 @@ def test_arg_checks():
     with pytest.raises(ValueError, match='Must provide at least one'):
         pgtrigger.UpdateOf()
 
+    with pytest.raises(ValueError, match='Invalid "level"'):
+        pgtrigger.Trigger(level='invalid')
+
     with pytest.raises(ValueError, match='Invalid "when"'):
         pgtrigger.Trigger(when='invalid')
 
@@ -227,7 +249,7 @@ def test_registry():
     Tests dynamically registering and unregistering triggers
     """
     # The trigger registry should already be populated with our test triggers
-    assert len(pgtrigger.core.registry) == 2
+    assert len(pgtrigger.core.registry) == 4
 
     # Add a trigger to the registry
     trigger = pgtrigger.Trigger(
@@ -239,14 +261,14 @@ def test_registry():
     # Register/unregister in context managers. The state should be the same
     # at the end as the beginning
     with trigger.register(models.TestModel):
-        assert len(pgtrigger.core.registry) == 3
+        assert len(pgtrigger.core.registry) == 5
         assert (models.TestModel, trigger) in pgtrigger.core.registry
 
         with trigger.unregister(models.TestModel):
-            assert len(pgtrigger.core.registry) == 2
+            assert len(pgtrigger.core.registry) == 4
             assert (models.TestModel, trigger) not in pgtrigger.core.registry
 
-    assert len(pgtrigger.core.registry) == 2
+    assert len(pgtrigger.core.registry) == 4
     assert (models.TestModel, trigger) not in pgtrigger.core.registry
 
 
@@ -302,6 +324,17 @@ def test_custom_trigger_definitions():
 
         with pytest.raises(InternalError, match='no no no!'):
             test_model.save(update_fields=['int_field'])
+
+    # Protect statement-level creates
+    trigger = pgtrigger.Trigger(
+        level=pgtrigger.Statement,
+        when=pgtrigger.Before,
+        operation=pgtrigger.Update,
+        func="RAISE EXCEPTION 'bad statement!';",
+    )
+    with trigger.install(models.TestTrigger):
+        with pytest.raises(InternalError, match='bad statement!'):
+            test_model.save()
 
 
 @pytest.mark.django_db

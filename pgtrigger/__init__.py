@@ -14,7 +14,9 @@ from pgtrigger.core import Protect
 from pgtrigger.core import prune
 from pgtrigger.core import Q
 from pgtrigger.core import register
+from pgtrigger.core import Row
 from pgtrigger.core import SoftDelete
+from pgtrigger.core import Statement
 from pgtrigger.core import Trigger
 from pgtrigger.core import Truncate
 from pgtrigger.core import uninstall
@@ -41,7 +43,9 @@ __all__ = [
     'prune',
     'Q',
     'register',
+    'Row',
     'SoftDelete',
+    'Statement',
     'Trigger',
     'Truncate',
     'uninstall',

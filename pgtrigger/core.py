@@ -32,6 +32,21 @@ def register(*triggers):
     return _model_wrapper
 
 
+class _Level:
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+
+#: For specifying row-level triggers (the default)
+Row = _Level('ROW')
+
+#: For specifying statement-level triggers
+Statement = _Level('STATEMENT')
+
+
 class _When:
     def __init__(self, name):
         self.name = name
@@ -253,18 +268,29 @@ class Trigger:
     creating derived trigger classes.
     """
 
+    level = Row
     when = None
     operation = None
     condition = None
     func = None
 
     def __init__(
-        self, *, when=None, operation=None, condition=None, func=None
+        self,
+        *,
+        level=None,
+        when=None,
+        operation=None,
+        condition=None,
+        func=None,
     ):
+        self.level = level or self.level
         self.when = when or self.when
         self.operation = operation or self.operation
         self.condition = condition or self.condition
         self.func = func or self.func
+
+        if not self.level or not isinstance(self.level, _Level):
+            raise ValueError(f'Invalid "level" attribute: {self.level}')
 
         if not self.when or not isinstance(self.when, _When):
             raise ValueError(f'Invalid "when" attribute: {self.when}')
@@ -373,7 +399,8 @@ class Trigger:
             DO $$ BEGIN
                 CREATE TRIGGER {self.name}
                     {self.when} {self.operation} ON {table}
-                    FOR EACH ROW {self.render_condition(model)} EXECUTE PROCEDURE {self.name}();
+                    FOR EACH {self.level} {self.render_condition(model)}
+                    EXECUTE PROCEDURE {self.name}();
             EXCEPTION
                 -- Ignore issues if the trigger already exists
                 WHEN others THEN null;
