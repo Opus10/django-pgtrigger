@@ -8,6 +8,7 @@ from pgtrigger.core import F
 from pgtrigger.core import get
 from pgtrigger.core import Insert
 from pgtrigger.core import install
+from pgtrigger.core import InsteadOf
 from pgtrigger.core import IsDistinctFrom
 from pgtrigger.core import IsNotDistinctFrom
 from pgtrigger.core import Protect
@@ -37,6 +38,7 @@ __all__ = [
     'get',
     'Insert',
     'install',
+    'InsteadOf',
     'IsDistinctFrom',
     'IsNotDistinctFrom',
     'Protect',

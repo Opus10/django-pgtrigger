@@ -61,6 +61,9 @@ Before = _When('BEFORE')
 #: For specifying "AFTER" in the "when" clause of a trigger
 After = _When('AFTER')
 
+#: For specifying "INSTEAD OF" in the "when" clause of a trigger
+InsteadOf = _When('INSTEAD OF')
+
 
 class _Operation:
     def __init__(self, name):

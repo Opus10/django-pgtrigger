@@ -23,6 +23,16 @@ When declaring a trigger, one must provide the following required attributes:
     When the trigger should happen. Can be one of
     `pgtrigger.Before` or `pgtrigger.After`
     to execute the trigger before or after an operation.
+    One can use `pgtrigger.InsteadOf` for row-level operations of a
+    view.
+
+    .. note::
+
+        `pgtrigger.Before` and `pgtrigger.After` can be used on SQL views
+        as well as tables under some circumstances. See
+        `the docs <https://www.postgresql.org/docs/12/sql-createtrigger.html>`__
+        for a breakdown of when these constructs can be used for various types of
+        operations.
 
 * **operation**
 
