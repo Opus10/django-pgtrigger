@@ -6,9 +6,10 @@ django-pgtrigger
 on Django models.
 
 Triggers can solve a
-wide variety of database-level problems more elegantly, simply, and reliably
+wide variety of database-level problems more elegantly and reliably
 than in the application-level of Django. Here are some common
-problems that can be solved with triggers:
+problems that can be solved with triggers, many of which we later show how to
+solve in the docs:
 
 1. Protecting updates and deletes or rows or columns.
 2. Soft deleting models (e.g. setting an "is_active" flag to False on delete).

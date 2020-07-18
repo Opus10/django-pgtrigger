@@ -47,6 +47,30 @@ Row = _Level('ROW')
 Statement = _Level('STATEMENT')
 
 
+class Referencing:
+    """For specifying the REFERENCING construct of a statement-level trigger"""
+
+    def __init__(self, *, old=None, new=None):
+        if not old and not new:
+            raise ValueError(
+                'Must provide either "old" and/or "new" to the referencing'
+                ' construct of a trigger'
+            )
+
+        self.old = old
+        self.new = new
+
+    def __str__(self):
+        ref = 'REFERENCING'
+        if self.old:
+            ref += f' OLD TABLE AS {self.old} '
+
+        if self.new:
+            ref += f' NEW TABLE AS {self.new} '
+
+        return ref
+
+
 class _When:
     def __init__(self, name):
         self.name = name
@@ -275,6 +299,7 @@ class Trigger:
     when = None
     operation = None
     condition = None
+    referencing = None
     func = None
 
     def __init__(
@@ -284,12 +309,14 @@ class Trigger:
         when=None,
         operation=None,
         condition=None,
+        referencing=None,
         func=None,
     ):
         self.level = level or self.level
         self.when = when or self.when
         self.operation = operation or self.operation
         self.condition = condition or self.condition
+        self.referencing = referencing or self.referencing
         self.func = func or self.func
 
         if not self.level or not isinstance(self.level, _Level):
@@ -301,6 +328,11 @@ class Trigger:
         if not self.operation or not isinstance(self.operation, _Operation):
             raise ValueError(
                 f'Invalid "operation" attribute: {self.operation}'
+            )
+
+        if self.level == Row and self.referencing:
+            raise ValueError(
+                'Row-level triggers cannot have a "referencing" attribute'
             )
 
     def __str__(self):
@@ -402,6 +434,7 @@ class Trigger:
             DO $$ BEGIN
                 CREATE TRIGGER {self.name}
                     {self.when} {self.operation} ON {table}
+                    {self.referencing or ''}
                     FOR EACH {self.level} {self.render_condition(model)}
                     EXECUTE PROCEDURE {self.name}();
             EXCEPTION

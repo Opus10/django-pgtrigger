@@ -70,16 +70,16 @@ When declaring a trigger, one must provide the following required attributes:
     For example, a condition of ``pgtrigger.Q(old__value='hello')``
     will only trigger when the old row's ``value`` field is ``hello``.
 
-.. note::
+    .. note::
 
-    Be sure to familiarize yourself with ``OLD`` and ``NEW`` when
-    writing conditions by consulting the `Postgres docs <https://www.postgresql.org/docs/current/plpgsql-trigger.html>`__.
-    For example,
-    the ``OLD`` row in `pgtrigger.Insert` triggers is always ``NULL`` and the
-    ``NEW`` row in `pgtrigger.Delete` triggers is always ``NULL``. ``OLD``
-    and ``NEW`` is always ``NULL`` for `pgtrigger.Statement` triggers as well.
-    One must keep these caveats in mind when constructing triggers
-    to avoid unexpected behavior.
+        Be sure to familiarize yourself with ``OLD`` and ``NEW`` when
+        writing conditions by consulting the `Postgres docs <https://www.postgresql.org/docs/current/plpgsql-trigger.html>`__.
+        For example,
+        the ``OLD`` row in `pgtrigger.Insert` triggers is always ``NULL`` and the
+        ``NEW`` row in `pgtrigger.Delete` triggers is always ``NULL``. ``OLD``
+        and ``NEW`` is always ``NULL`` for `pgtrigger.Statement` triggers as well.
+        One must keep these caveats in mind when constructing triggers
+        to avoid unexpected behavior.
 
 
 By default, all triggers are row-level triggers, meaning they fire on
@@ -100,13 +100,15 @@ attribute for statement-level triggers:
     ``pgtrigger.Referencing(old='old_table_name', new='new_table_name')``
     will make an ``old_table_name`` and ``new_table_name`` table available
     as transition tables in the statement-level trigger. See
-    `this <https://dba.stackexchange.com/a/177468>`__ for an example.
+    `this <https://dba.stackexchange.com/a/177468>`__ for an additional
+    explanation on the referncing construct and read the trigger cookbook
+    later for an example.
 
 
-.. note::
+  .. note::
 
-    The referencing construct for statement-level triggers is only available
-    in Postgres10 and up.
+      The "referencing" construct for statement-level triggers is only available
+      in Postgres10 and up.
 
 
 Installing triggers for models
@@ -183,9 +185,11 @@ or insert to ensure that two fields remain in sync.
 
 .. note::
 
-    When writing a "BEFORE" trigger, be sure to return the row over which
-    the operation should be applied. Returning no row will prevent the
-    operation from happening.
+    When writing a `pgtrigger.Before` trigger, be sure to return the row over
+    which the operation should be applied. Returning no row will prevent the
+    operation from happening (which can be useful for certain behavior).
+    See `the docs here <https://www.postgresql.org/docs/current/plpgsql-trigger.html>`__
+    for more information about this behavior.
 
 Soft-delete models
 ------------------
@@ -301,6 +305,7 @@ row with the exact same values? Here's how:
         redundant_field1 = models.BooleanField(default=False)
         redundant_field2 = models.BooleanField(default=False)
 
+
 Configuring triggers on external models
 ---------------------------------------
 
@@ -322,3 +327,103 @@ decorator:
     ``ready()`` method so that the registration happens!
     More information on this
     `here <https://docs.djangoproject.com/en/3.0/ref/applications/#django.apps.apps.ready>`__.
+
+
+Statement-level triggers and transition tables
+----------------------------------------------
+
+Most of the terminology and examples around Postgres triggers have been
+centered around "row-level" triggers, i.e. triggers that fire on events
+for every row. However, row-level triggers can be expensive in some
+circumstances. For example, imagine we are doing a bulk Django update
+over a table with 10,000 rows:
+
+.. code-block:: python
+
+    MyLargeModel.objects.update(is_active=False)
+
+If we had any row-level triggers configured for ``MyLargeModel``, they
+would fire 10,000 times for every updated row even though the query above
+is only issuing one single update statement.
+
+Although triggers are issued at the database level and will not induce
+expensive round trips to the database, it can still be unnecessarily expensive
+to do row-level triggers for certain situations.
+
+Statement-level triggers, in contrast to row-level triggers, are executed
+once per statement. One only needs to provide ``level=pgtrigger.Statement`` to
+the trigger to configure this. However,
+keep in mind that trigger conditions and are largely not applicable to
+statement-level triggers since the ``OLD`` and ``NEW`` row variables are
+always ``NULL``.
+
+Postgres10 introduced the notion of "transition tables"
+to allow users to access old and new rows in a statement-level trigger
+(see `this <https://dba.stackexchange.com/a/177468>`__ for an example).
+One can use the `pgtrigger.Referencing` construct to write a statement-level trigger
+that references the old and new rows.
+
+For example, imagine we have a log model that logs changes to a table
+and keeps track of an old field and new field for every update.
+We can create a statement-level trigger that logs the old and new
+fields from a transition table to this persisted log model like so:
+
+.. code-block:: python
+
+    from django.db import models
+    import pgtrigger
+
+
+    class LogModel(models.Model):
+        old_field = models.CharField(max_length=32)
+        new_field = models.CharField(max_length=32)
+
+
+    @pgtrigger.register(
+        pgtrigger.Trigger(
+            level=pgtrigger.Statement,
+            when=pgtrigger.After,
+            operation=pgtrigger.Update,
+            referencing=pgtrigger.Referencing(old='old_values', new='new_values'),
+            func=f'''
+                INSERT INTO {LogModel._meta.db_table}(level, old_field, new_field)
+                SELECT
+                    'STATEMENT' AS level,
+                    old_values.field AS old_field,
+                    new_values.field AS new_field
+                FROM old_values
+                    JOIN new_values ON old_values.id = new_values.id;
+                RETURN NULL;
+            ''',
+        )
+    )
+    class LoggedModel(models.Model):
+        field = models.CharField(max_length=32)
+
+
+With this trigger definition, we'll now have the following happen with only
+one additional query in the trigger:
+
+.. code-block:: python
+
+    LoggedModel.objects.bulk_create([LoggedModel(field='old'), LoggedModel(field='old')])
+
+    # Update all fields to "new"
+    LoggedModel.objects.update(field='new')
+
+    # The trigger should have persisted these updates
+    print(LogModel.values('old_field', 'new_field'))
+
+    >>> [{
+      'old_field': 'old',
+      'new_field': 'new'
+    }, {
+      'old_field': 'old',
+      'new_field': 'new'
+    }]
+
+.. note::
+
+    Check out `django-pghistory <https://django-pghistory.readthedocs.io>`__
+    if you want automated history tracking built on top of
+    ``django-pgtrigger``.

@@ -14,6 +14,7 @@ from pgtrigger.core import IsNotDistinctFrom
 from pgtrigger.core import Protect
 from pgtrigger.core import prune
 from pgtrigger.core import Q
+from pgtrigger.core import Referencing
 from pgtrigger.core import register
 from pgtrigger.core import Row
 from pgtrigger.core import SoftDelete
@@ -44,6 +45,7 @@ __all__ = [
     'Protect',
     'prune',
     'Q',
+    'Referencing',
     'register',
     'Row',
     'SoftDelete',

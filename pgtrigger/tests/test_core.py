@@ -12,19 +12,40 @@ from pgtrigger.tests import models
 @pytest.mark.django_db
 def test_statement_row_level_logging():
     """
-    Updates "ToLogModel" entries, which have statement and row-level
-    triggers that create log entries.
+    Updates "ToLogModel" entries, which have statement, row-level,
+    and referencing statement triggers that create log entries.
     """
-    ddf.G(models.ToLogModel, n=5)
+    ddf.G(models.ToLogModel, n=5, field='old_field')
 
     assert not models.LogEntry.objects.exists()
 
-    models.ToLogModel.objects.update(field='something')
+    models.ToLogModel.objects.update(field='new_field')
 
-    # The statement-level trigger should have produced 1 log entry
-    assert models.LogEntry.objects.filter(level='STATEMENT').count() == 1
+    # The statement-level trigger without references should have produced
+    # one log entry
+    assert (
+        models.LogEntry.objects.filter(
+            level='STATEMENT', old_field__isnull=True
+        ).count()
+        == 1
+    )
 
-    # The row-level trigger should have produced 5 entries
+    # The statement-level trigger with references should have made log
+    # entries for all of the old values and the new updated values
+    assert (
+        models.LogEntry.objects.filter(
+            level='STATEMENT', old_field__isnull=False
+        ).count()
+        == 5
+    )
+    assert (
+        models.LogEntry.objects.filter(
+            level='STATEMENT', old_field='old_field', new_field='new_field'
+        ).count()
+        == 5
+    )
+
+    # The row-level trigger should have produced five entries
     assert models.LogEntry.objects.filter(level='ROW').count() == 5
 
 
@@ -217,11 +238,32 @@ def test_complex_conditions():
             test_model.save()
 
 
+def test_referencing_rendering():
+    """Verifies the rendering of the Referencing construct"""
+    assert (
+        str(pgtrigger.Referencing(old='old_table')).strip()
+        == 'REFERENCING OLD TABLE AS old_table'
+    )
+    assert (
+        str(pgtrigger.Referencing(new='new_table')).strip()
+        == 'REFERENCING NEW TABLE AS new_table'
+    )
+    assert (
+        str(pgtrigger.Referencing(old='old_table', new='new_table')).strip()
+        == 'REFERENCING OLD TABLE AS old_table  NEW TABLE AS new_table'
+    )
+
+
 def test_arg_checks():
     """
     There are quite a few places that check arguments in the trigger module.
     Enumerate these cases here to make sure they work
     """
+
+    with pytest.raises(
+        ValueError, match='Must provide either "old" and/or "new"'
+    ):
+        pgtrigger.Referencing()
 
     with pytest.raises(ValueError, match='Must provide SQL'):
         pgtrigger.Condition()
@@ -238,6 +280,13 @@ def test_arg_checks():
     with pytest.raises(ValueError, match='Invalid "operation"'):
         pgtrigger.Trigger(when=pgtrigger.Before, operation='invalid')
 
+    with pytest.raises(ValueError, match='Row-level triggers cannot have'):
+        pgtrigger.Trigger(
+            when=pgtrigger.Before,
+            operation=pgtrigger.Update,
+            referencing=pgtrigger.Referencing(old='old_table'),
+        )
+
     with pytest.raises(ValueError, match='Must define func'):
         pgtrigger.Trigger(
             when=pgtrigger.Before, operation=pgtrigger.Update
@@ -249,7 +298,7 @@ def test_registry():
     Tests dynamically registering and unregistering triggers
     """
     # The trigger registry should already be populated with our test triggers
-    assert len(pgtrigger.core.registry) == 4
+    assert len(pgtrigger.core.registry) == 5
 
     # Add a trigger to the registry
     trigger = pgtrigger.Trigger(
@@ -261,14 +310,14 @@ def test_registry():
     # Register/unregister in context managers. The state should be the same
     # at the end as the beginning
     with trigger.register(models.TestModel):
-        assert len(pgtrigger.core.registry) == 5
+        assert len(pgtrigger.core.registry) == 6
         assert (models.TestModel, trigger) in pgtrigger.core.registry
 
         with trigger.unregister(models.TestModel):
-            assert len(pgtrigger.core.registry) == 4
+            assert len(pgtrigger.core.registry) == 5
             assert (models.TestModel, trigger) not in pgtrigger.core.registry
 
-    assert len(pgtrigger.core.registry) == 4
+    assert len(pgtrigger.core.registry) == 5
     assert (models.TestModel, trigger) not in pgtrigger.core.registry
 
 

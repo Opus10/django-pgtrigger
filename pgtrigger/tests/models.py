@@ -15,7 +15,10 @@ class TestModel(models.Model):
 
 class LogEntry(models.Model):
     """Created when ToLogModel is updated"""
+
     level = models.CharField(max_length=16)
+    old_field = models.CharField(max_length=16, null=True)
+    new_field = models.CharField(max_length=16, null=True)
 
 
 @pgtrigger.register(
@@ -23,10 +26,26 @@ class LogEntry(models.Model):
         level=pgtrigger.Statement,
         operation=pgtrigger.Update,
         when=pgtrigger.After,
-        func=(
-            f'INSERT INTO {LogEntry._meta.db_table}(level)'
-            ' VALUES (\'STATEMENT\'); RETURN NULL;'
-        )
+        func=f'''
+            INSERT INTO {LogEntry._meta.db_table}(level)
+            VALUES ('STATEMENT');
+            RETURN NULL;
+        ''',
+    ),
+    pgtrigger.Trigger(
+        level=pgtrigger.Statement,
+        operation=pgtrigger.Update,
+        when=pgtrigger.After,
+        referencing=pgtrigger.Referencing(old='old_values', new='new_values'),
+        func=f'''
+            INSERT INTO {LogEntry._meta.db_table}(level, old_field, new_field)
+            SELECT 'STATEMENT' AS level,
+                   old_values.field AS old_field,
+                   new_values.field AS new_field
+                 FROM old_values
+                 JOIN new_values ON old_values.id = new_values.id;
+            RETURN NULL;
+        ''',
     ),
     pgtrigger.Trigger(
         level=pgtrigger.Row,
@@ -35,11 +54,12 @@ class LogEntry(models.Model):
         func=(
             f'INSERT INTO {LogEntry._meta.db_table}(level) VALUES (\'ROW\');'
             ' RETURN NULL;'
-        )
-    )
+        ),
+    ),
 )
 class ToLogModel(models.Model):
     """For testing triggers that log records at statement and row level"""
+
     field = models.CharField(max_length=16)
 
 
