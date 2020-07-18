@@ -1,7 +1,7 @@
-.. _quick_start:
+.. _tutorial:
 
-Quick Start
-===========
+Tutorial
+========
 
 Postgres triggers provide the ability to specify database actions
 that should occur when operations happen in the database (INSERT, UPDATE,
@@ -16,7 +16,7 @@ helper classes, like `pgtrigger.Protect`, that implement some core
 triggers you can configure without having to write ``PL/pgSQL``
 syntax.
 
-When declaring a trigger, one must provide the following attributes:
+When declaring a trigger, one must provide the following required attributes:
 
 * **when**
 
@@ -59,6 +59,45 @@ When declaring a trigger, one must provide the following attributes:
     on the affected rows.
     For example, a condition of ``pgtrigger.Q(old__value='hello')``
     will only trigger when the old row's ``value`` field is ``hello``.
+
+.. note::
+
+    Be sure to familiarize yourself with ``OLD`` and ``NEW`` when
+    writing conditions by consulting the `Postgres docs <https://www.postgresql.org/docs/current/plpgsql-trigger.html>`__.
+    For example,
+    the ``OLD`` row in `pgtrigger.Insert` triggers is always ``NULL`` and the
+    ``NEW`` row in `pgtrigger.Delete` triggers is always ``NULL``. ``OLD``
+    and ``NEW`` is always ``NULL`` for `pgtrigger.Statement` triggers as well.
+    One must keep these caveats in mind when constructing triggers
+    to avoid unexpected behavior.
+
+
+By default, all triggers are row-level triggers, meaning they fire on
+operations to individual rows. One can define statement-level triggers
+with the ``level`` attribute. The ``referencing`` attribute is a special
+attribute for statement-level triggers:
+
+* **level**
+
+    Declares if the trigger is row (`pgtrigger.Row`) or statement
+    level (`pgtrigger.Statement`). Defaults to `pgtrigger.Row`.
+
+* **referencing**
+
+    When constructing a statement-level trigger, allows one to reference
+    the ``OLD`` and ``NEW`` rows as transition tables using
+    the `pgtrigger.Referencing` construct. For example,
+    ``pgtrigger.Referencing(old='old_table_name', new='new_table_name')``
+    will make an ``old_table_name`` and ``new_table_name`` table available
+    as transition tables in the statement-level trigger. See
+    `this <https://dba.stackexchange.com/a/177468>`__ for an example.
+
+
+.. note::
+
+    The referencing construct for statement-level triggers is only available
+    in Postgres10 and up.
+
 
 Installing triggers for models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

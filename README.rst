@@ -5,23 +5,80 @@ django-pgtrigger
 `Postgres triggers <https://www.postgresql.org/docs/current/sql-createtrigger.html>`__
 on Django models.
 
-Models can be decorated with `pgtrigger.register` and supplied with
-`pgtrigger.Trigger` objects. These will automatically be installed after
-migrations. Users can use Django idioms such as ``Q`` and ``F`` objects to
-declare trigger conditions, alleviating the need to write raw SQL for a large
-amount of use cases.
+Triggers can solve a
+wide variety of database-level problems more elegantly, simply, and reliably
+than in the application-level of Django. Here are some common
+problems that can be solved with triggers:
 
-``django-pgtrigger`` comes built with some derived triggers for expressing
-common patterns. For example, ``pgtrigger.Protect`` can protect operations
-on a model, such as deletions or updates (e.g. an append-only model). The
-``pgtrigger.Protect`` trigger can even target protecting operations on
-specific updates of fields (e.g. don't allow updates if ``is_active`` is
-``False`` on a model). Another derived trigger, ``pgtrigger.SoftDelete``,
-can soft-delete models by setting a field to ``False`` when a deletion
-happens on the model.
+1. Protecting updates and deletes or rows or columns.
+2. Soft deleting models (e.g. setting an "is_active" flag to False on delete).
+3. Tracking changes to models or columns change, or when specific conditions
+   happen.
+4. Keeping fields in sync with other fields.
+5. Ensuring that engineers use a common interface
+   (e.g. engineers must use ``User.objects.create_user`` and not
+   ``User.objects.create``).
+6. Only allowing a status field of a model to transition through certain
+   states.
 
-Read the `pgtrigger docs <https://django-pgtrigger.readthedocs.io/>`__ for
-examples of how to use triggers in your application.
+Quick Start
+===========
+
+Install ``django-pgtrigger`` with ``pip install django-pgtrigger`` and
+add ``pgtrigger`` to ``settings.INSTALLED_APPS``.
+
+Models are decorated with ``@pgtrigger.register`` and supplied with
+``pgtrigger.Trigger`` objects. If you don't have access to the model definition,
+you can still call ``pgtrigger.register`` programmatically.
+
+Users declare the plpgsql code manually
+in a ``pgtrigger.Trigger`` object or can use the derived triggers in
+``django-pgtrigger`` that implement common scenarios. For example,
+``pgtrigger.Protect`` can protect operations on a model, such as deletions:
+
+.. code-block:: python
+
+    from django.db import models
+    import pgtrigger
+
+
+    @pgtrigger.register(pgtrigger.Protect(operation=pgtrigger.Delete))
+    class CannotBeDeletedModel(models.Model):
+        """This model cannot be deleted!"""
+
+``django-pgtrigger`` aims to alleviate the boilerplate of triggers and
+having to write raw SQL by using common Django idioms. For example, users
+can use ``pgtrigger.Q`` and ``pgtrigger.F`` objects to
+conditionally execute triggers based on the ``OLD`` and ``NEW`` row
+being modified. For example, let's only protect deletes
+against "active" rows of a model:
+
+.. code-block:: python
+
+    from django.db import models
+    import pgtrigger
+
+
+    @pgtrigger.register(
+        pgtrigger.Protect(
+            operation=pgtrigger.Delete,
+            # Protect deletes when the OLD row of the trigger is still active
+            condition=pgtrigger.Q(old__is_active=True)
+        )
+    )
+    class CannotBeDeletedModel(models.Model):
+        """Active model object cannot be deleted!"""
+        is_active = models.BooleanField(default=True)
+
+
+Combining ``pgtrigger.Q``, ``pgtrigger.F``, and derived ``pgtrigger.Trigger``
+objects can solve a wide array of Django problems without ever having to
+write raw SQL. Users, however, can still customize
+triggers and write as much raw SQL as needed for their use case.
+
+For a complete run-through of ``django-pgtrigger`` and all derived
+triggers (along with a trigger cookbook!), read the
+`pgtrigger docs <https://django-pgtrigger.readthedocs.io/>`__
 
 
 Documentation
