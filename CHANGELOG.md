@@ -1,5 +1,20 @@
 # Changelog
-## 1.0.1 (2020-06-28)
+## 1.1.0 (2020-07-21)
+### Feature
+  - Added "Referencing" construct for statement-level triggers. [Wes Kendall, 20d958e]
+
+    The ``pgtrigger.Referencing`` construct allows one to reference
+    transition tables in statement-level triggers.
+  - Added statement-level triggers. [Wes Kendall, c0cc365]
+
+    django-pgtrigger now has a "level" construct for specifying
+    row and statement-level triggers. All triggers default to being
+    row-level triggers.
+### Trivial
+  - Support the "INSTEAD OF" construct for views on SQL triggers. [Wes Kendall, 79f9d54]
+  - Updated docs and added a quick start section [Wes Kendall, 9ce7b29]
+
+## 1.0.1 (2020-06-29)
 ### Trivial
   - Updated README and updated with the latest public django app template. [Wes Kendall, 001ef68]
 
