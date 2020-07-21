@@ -8,13 +8,17 @@ from pgtrigger.core import F
 from pgtrigger.core import get
 from pgtrigger.core import Insert
 from pgtrigger.core import install
+from pgtrigger.core import InsteadOf
 from pgtrigger.core import IsDistinctFrom
 from pgtrigger.core import IsNotDistinctFrom
 from pgtrigger.core import Protect
 from pgtrigger.core import prune
 from pgtrigger.core import Q
+from pgtrigger.core import Referencing
 from pgtrigger.core import register
+from pgtrigger.core import Row
 from pgtrigger.core import SoftDelete
+from pgtrigger.core import Statement
 from pgtrigger.core import Trigger
 from pgtrigger.core import Truncate
 from pgtrigger.core import uninstall
@@ -35,13 +39,17 @@ __all__ = [
     'get',
     'Insert',
     'install',
+    'InsteadOf',
     'IsDistinctFrom',
     'IsNotDistinctFrom',
     'Protect',
     'prune',
     'Q',
+    'Referencing',
     'register',
+    'Row',
     'SoftDelete',
+    'Statement',
     'Trigger',
     'Truncate',
     'uninstall',

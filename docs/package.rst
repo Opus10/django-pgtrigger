@@ -1,10 +1,17 @@
 Package
 =======
 
+Level clause
+------------
+
+.. autodata:: pgtrigger.Row
+.. autodata:: pgtrigger.Statement
+
 When clause
 -----------
 .. autodata:: pgtrigger.After
 .. autodata:: pgtrigger.Before
+.. autodata:: pgtrigger.InsteadOf
 
 Operation clause
 ----------------
@@ -13,6 +20,11 @@ Operation clause
 .. autodata:: pgtrigger.Insert
 .. autoclass:: pgtrigger.Update
 .. autoclass:: pgtrigger.UpdateOf
+
+Referencing clause
+------------------
+
+.. autoclass:: pgtrigger.Referencing
 
 Conditions
 ----------
