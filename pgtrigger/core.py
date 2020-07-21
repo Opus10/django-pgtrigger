@@ -15,7 +15,7 @@ LOGGER = logging.getLogger('pgtrigger')
 
 
 # All registered triggers for each model
-registry = set()
+registry = {}
 
 
 def register(*triggers):
@@ -276,9 +276,9 @@ class Q(models.Q, Condition):
         return sql
 
 
-def _drop_trigger(table, trigger_name):
+def _drop_trigger(table, trigger_pgid):
     with connection.cursor() as cursor:
-        cursor.execute(f'DROP TRIGGER IF EXISTS {trigger_name} ON {table};')
+        cursor.execute(f'DROP TRIGGER IF EXISTS {trigger_pgid} ON {table};')
 
 
 # Allows Trigger methods to be used as context managers, mostly for
@@ -295,6 +295,7 @@ class Trigger:
     creating derived trigger classes.
     """
 
+    name = None
     level = Row
     when = None
     operation = None
@@ -305,6 +306,7 @@ class Trigger:
     def __init__(
         self,
         *,
+        name=None,
         level=None,
         when=None,
         operation=None,
@@ -312,6 +314,7 @@ class Trigger:
         referencing=None,
         func=None,
     ):
+        self._name = name
         self.level = level or self.level
         self.when = when or self.when
         self.operation = operation or self.operation
@@ -342,15 +345,30 @@ class Trigger:
         return hash(self.name)
 
     def get_key(self):
-        """The unique key for the trigger when installing"""
+        """The unique key for the trigger when generating an alias"""
         return list(self.__dict__.values())
 
     @property
     def name(self):
-        hash = hashlib.sha1(
-            ''.join(str(k) for k in self.get_key()).encode()
-        ).hexdigest()[:16]
-        return f'pgtrigger_{self.__class__.__name__.lower()}_'[:55] + str(hash)
+        if not self._name:
+            hash = hashlib.sha1(
+                ''.join(str(k) for k in self.get_key()).encode()
+            ).hexdigest()[:16]
+            return f'{self.__class__.__name__.lower()}_'[:37] + str(hash)
+        else:
+            return self._name
+
+    @property
+    def pgid(self):
+        """The ID of the trigger and function object in postgres
+
+        All objects are prefixed with "pgtrigger_" in order to be
+        discovered/managed by django-pgtrigger
+        """
+        if len(self.name) > 53:
+            raise ValueError(f'Trigger name "{self.name}" > 53 characters. ')
+
+        return f'pgtrigger_{self.name}'
 
     def get_condition(self, model):
         return self.condition
@@ -373,23 +391,30 @@ class Trigger:
         """
         if not self.func:
             raise ValueError(
-                'Must define func attribute or implement' ' get_func'
+                'Must define func attribute or implement get_func'
             )
         return self.func
 
-    def register(self, *model_classes):
+    def register(self, *models):
         """Register model classes with the trigger"""
-        for model_class in model_classes:
-            registry.add((model_class, self))
+        for model in models:
+            uri = (
+                f'{model._meta.app_label}.{model._meta.object_name}'
+                f':{self.name}')
+            registry[uri] = (model, self)
 
-        return _cleanup_on_exit(lambda: self.unregister(*model_classes))
+        return _cleanup_on_exit(lambda: self.unregister(*models))
 
-    def unregister(self, *model_classes):
+    def unregister(self, *models):
         """Unregister model classes with the trigger"""
-        for model_class in model_classes:
-            registry.remove((model_class, self))
+        for model in models:
+            uri = (
+                f'{model._meta.app_label}.{model._meta.object_name}'
+                f':{self.name}'
+            )
+            del registry[uri]
 
-        return _cleanup_on_exit(lambda: self.register(*model_classes))
+        return _cleanup_on_exit(lambda: self.register(*models))
 
     def render_condition(self, model):
         """Renders the condition SQL in the trigger declaration"""
@@ -418,7 +443,7 @@ class Trigger:
     def render_func(self, model):
         """Renders the trigger function SQL statement"""
         return f'''
-            CREATE OR REPLACE FUNCTION {self.name}()
+            CREATE OR REPLACE FUNCTION {self.pgid}()
             RETURNS TRIGGER AS $$
                 {self.render_declare(model)}
                 BEGIN
@@ -432,11 +457,11 @@ class Trigger:
         table = model._meta.db_table
         return f'''
             DO $$ BEGIN
-                CREATE TRIGGER {self.name}
+                CREATE TRIGGER {self.pgid}
                     {self.when} {self.operation} ON {table}
                     {self.referencing or ''}
                     FOR EACH {self.level} {self.render_condition(model)}
-                    EXECUTE PROCEDURE {self.name}();
+                    EXECUTE PROCEDURE {self.pgid}();
             EXCEPTION
                 -- Ignore issues if the trigger already exists
                 WHEN others THEN null;
@@ -457,7 +482,7 @@ class Trigger:
 
     def uninstall(self, model):
         """Uninstalls the trigger for a model"""
-        _drop_trigger(model._meta.db_table, self.name)
+        _drop_trigger(model._meta.db_table, self.pgid)
 
         return _cleanup_on_exit(  # pragma: no branch
             lambda: self.install(model)
@@ -467,7 +492,7 @@ class Trigger:
         """Enables the trigger for a model"""
         with connection.cursor() as cursor:
             cursor.execute(
-                f'ALTER TABLE {model._meta.db_table} ENABLE TRIGGER {self.name};'
+                f'ALTER TABLE {model._meta.db_table} ENABLE TRIGGER {self.pgid};'
             )
 
         return _cleanup_on_exit(  # pragma: no branch
@@ -478,7 +503,7 @@ class Trigger:
         """Disables the trigger for a model"""
         with connection.cursor() as cursor:
             cursor.execute(
-                f'ALTER TABLE {model._meta.db_table} DISABLE TRIGGER {self.name};'
+                f'ALTER TABLE {model._meta.db_table} DISABLE TRIGGER {self.pgid};'
             )
 
         return _cleanup_on_exit(  # pragma: no branch
@@ -525,27 +550,43 @@ class SoftDelete(Trigger):
         '''
 
 
-def get():
+def get(*uris):
     """
-    Get all triggers registered to models
+    Get triggers matching URIs or all triggers registered to models
 
-    Note: Triggers can also be added to models with the pgtrigger.config
-    decorator
+    A URI is in the format of "app_label.model_name:trigger_name"
     """
-    return registry
+    if uris:
+        for uri in uris:
+            if uri and len(uri.split(':')) == 1:
+                raise ValueError(
+                    'Trigger URI must be in the format of'
+                    ' "app_label.model_name:trigger_name"'
+                )
+            elif uri and uri not in registry:
+                raise ValueError(
+                    f'URI "{uri}" not found in pgtrigger registry'
+                )
+
+        return [registry[uri] for uri in uris]
+    else:
+        return list(registry.values())
 
 
-def install():
+def install(*uris):
     """
-    Install all triggers registered to models
+    Install registered triggers matching URIs or all triggers if URIs aren't
+    provided. If URIs aren't provided, prune any orphaned triggers from the
+    database
     """
-    for model, trigger in get():
+    for model, trigger in get(*uris):
         LOGGER.info(
             f'pgtrigger: Installing "{trigger}" trigger for {model._meta.db_table} table.'
         )
         trigger.install(model)
 
-    prune()
+    if not uris:  # pragma: no branch
+        prune()
 
 
 def prune():
@@ -555,7 +596,7 @@ def prune():
     it is removed from the database
     """
     installed = {
-        (model._meta.db_table, trigger.name) for model, trigger in get()
+        (model._meta.db_table, trigger.pgid) for model, trigger in get()
     }
 
     with connection.cursor() as cursor:
@@ -575,9 +616,10 @@ def prune():
             _drop_trigger(*trigger)
 
 
-def enable():
+def enable(*uris):
     """
-    Enables all registered triggers
+    Enables registered triggers matching URIs or all triggers if no URIs
+    are provided
     """
     for model, trigger in get():
         LOGGER.info(
@@ -586,9 +628,10 @@ def enable():
         trigger.enable(model)
 
 
-def uninstall():
+def uninstall(*uris):
     """
-    Uninstalls all registered triggers.
+    Uninstalls registered triggers matching URIs or all triggers if no
+    URIs are provided.
 
     Running migrations will re-install any existing triggers. This
     behavior is overridable with ``settings.PGTRIGGER_INSTALL_ON_MIGRATE``
@@ -596,7 +639,7 @@ def uninstall():
     Note: This will not uninstall triggers when deleting a model.
     This operation is performed by the "prune" command.
     """
-    for model, trigger in get():
+    for model, trigger in get(*uris):
         LOGGER.info(
             f'pgtrigger: Uninstalling "{trigger}" trigger for {model._meta.db_table} table.'
         )
@@ -605,11 +648,12 @@ def uninstall():
     prune()
 
 
-def disable():
+def disable(*uris):
     """
-    Disables all registered triggers
+    Disables registered triggers matching URIs or all triggers if no URIs are
+    provided
     """
-    for model, trigger in get():
+    for model, trigger in get(*uris):
         LOGGER.info(
             f'pgtrigger: Disabling "{trigger}" trigger for {model._meta.db_table} table.'
         )

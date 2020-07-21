@@ -292,6 +292,12 @@ def test_arg_checks():
             when=pgtrigger.Before, operation=pgtrigger.Update
         ).get_func(None)
 
+    with pytest.raises(ValueError, match='> 53'):
+        pgtrigger.Trigger(
+            when=pgtrigger.Before, operation=pgtrigger.Update,
+            name='1'*54
+        ).pgid
+
 
 def test_registry():
     """
@@ -303,6 +309,7 @@ def test_registry():
     # Add a trigger to the registry
     trigger = pgtrigger.Trigger(
         when=pgtrigger.Before,
+        name='my_aliased_trigger',
         operation=pgtrigger.Insert | pgtrigger.Update,
         func="RAISE EXCEPTION 'no no no!';",
     )
@@ -311,14 +318,22 @@ def test_registry():
     # at the end as the beginning
     with trigger.register(models.TestModel):
         assert len(pgtrigger.core.registry) == 6
-        assert (models.TestModel, trigger) in pgtrigger.core.registry
+        assert f'tests.TestModel:{trigger.name}' in pgtrigger.core.registry
 
         with trigger.unregister(models.TestModel):
             assert len(pgtrigger.core.registry) == 5
             assert (models.TestModel, trigger) not in pgtrigger.core.registry
 
+        # Try obtaining trigger by alias
+        assert pgtrigger.get('tests.TestModel:my_aliased_trigger')
+
     assert len(pgtrigger.core.registry) == 5
     assert (models.TestModel, trigger) not in pgtrigger.core.registry
+    with pytest.raises(ValueError, match='not found'):
+        pgtrigger.get('tests.TestModel:my_aliased_trigger')
+
+    with pytest.raises(ValueError, match='must be in the format'):
+        pgtrigger.get('tests.TestMode')
 
 
 def test_operations():

@@ -67,7 +67,9 @@ class CharPk(models.Model):
     custom_pk = models.CharField(primary_key=True, max_length=32)
 
 
-@pgtrigger.register(pgtrigger.Protect(operation=pgtrigger.Delete))
+@pgtrigger.register(
+    pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete)
+)
 class TestTrigger(models.Model):
     """
     For testing triggers
