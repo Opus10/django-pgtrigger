@@ -16,7 +16,7 @@ solve in the docs:
 3. Tracking changes to models or columns change, or when specific conditions
    happen.
 4. Keeping fields in sync with other fields.
-5. Ensuring that engineers use a common interface
+5. Ensuring that engineers use an official interface
    (e.g. engineers must use ``User.objects.create_user`` and not
    ``User.objects.create``).
 6. Only allowing a status field of a model to transition through certain

@@ -2,6 +2,7 @@ import contextlib
 import copy
 import hashlib
 import logging
+import threading
 
 from django.db import connection
 from django.db import models
@@ -9,6 +10,7 @@ from django.db.models.expressions import Col
 from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
 from django.db.models.sql.datastructures import BaseTable
+import pgconnection
 
 
 LOGGER = logging.getLogger('pgtrigger')
@@ -16,6 +18,46 @@ LOGGER = logging.getLogger('pgtrigger')
 
 # All registered triggers for each model
 registry = {}
+
+# All triggers currently being ignored
+_ignore = threading.local()
+
+
+def _is_concurrent_statement(sql):
+    """
+    True if the sql statement is concurrent and cannot be ran in a transaction
+    """
+    sql = sql.strip().lower() if sql else ''
+    return sql.startswith('create') and 'concurrently' in sql
+
+
+def _inject_pgtrigger_ignore(sql, sql_vars, cursor):  # pragma: no cover
+    """
+    A pgconnection pre_execute hook that sets a pgtrigger.ignore
+    variable in the executed SQL. This lets other triggers know when
+    they should ignore execution
+    """
+    if cursor.name:
+        # A named cursor automatically prepends
+        # "NO SCROLL CURSOR WITHOUT HOLD FOR" to the query, which
+        # causes invalid SQL to be generated. There is no way
+        # to override this behavior in psycopg2, so context tracking
+        # is ignored for named cursors. Django only names cursors
+        # for iterators and other statements that read the database,
+        # so it seems to be safe to ignore named cursors.
+        # TODO(@wesleykendall): Find a way to generate valid SQL
+        # for local variables within a named cursor declaration.
+        return None
+    elif _is_concurrent_statement(sql):
+        # Concurrent index creation is incompatible with local variable
+        # setting. Ignore this specific statement for now
+        return None
+
+    sql = (
+        'SET LOCAL pgtrigger.ignore=\'{' + ','.join(_ignore.value) + '}\';'
+    ) + sql
+
+    return sql, sql_vars
 
 
 def register(*triggers):
@@ -395,24 +437,24 @@ class Trigger:
             )
         return self.func
 
+    def get_uri(self, model):
+        """The URI for the trigger in the registry"""
+        return (
+            f'{model._meta.app_label}.{model._meta.object_name}'
+            f':{self.name}'
+        )
+
     def register(self, *models):
         """Register model classes with the trigger"""
         for model in models:
-            uri = (
-                f'{model._meta.app_label}.{model._meta.object_name}'
-                f':{self.name}')
-            registry[uri] = (model, self)
+            registry[self.get_uri(model)] = (model, self)
 
         return _cleanup_on_exit(lambda: self.unregister(*models))
 
     def unregister(self, *models):
         """Unregister model classes with the trigger"""
         for model in models:
-            uri = (
-                f'{model._meta.app_label}.{model._meta.object_name}'
-                f':{self.name}'
-            )
-            del registry[uri]
+            del registry[self.get_uri(model)]
 
         return _cleanup_on_exit(lambda: self.register(*models))
 
@@ -440,6 +482,20 @@ class Trigger:
 
         return rendered_declare
 
+    def render_ignore(self, model):
+        """
+        Renders the clause that can dynamically ignore the trigger's execution
+        """
+        return '''
+            IF (_pgtrigger_should_ignore(TG_TABLE_NAME, TG_NAME) IS TRUE) THEN
+                IF (TG_OP = 'DELETE') THEN
+                    RETURN OLD;
+                ELSE
+                    RETURN NEW;
+                END IF;
+            END IF;
+        '''
+
     def render_func(self, model):
         """Renders the trigger function SQL statement"""
         return f'''
@@ -447,6 +503,7 @@ class Trigger:
             RETURNS TRIGGER AS $$
                 {self.render_declare(model)}
                 BEGIN
+                    {self.render_ignore(model)}
                     {self.get_func(model)}
                 END;
             $$ LANGUAGE plpgsql;
@@ -470,6 +527,9 @@ class Trigger:
 
     def install(self, model):
         """Installs the trigger for a model"""
+
+        # Ensure we have the function to ignore execution of triggers
+        install_ignore_func()
 
         rendered_func = self.render_func(model)
         rendered_trigger = self.render_trigger(model)
@@ -510,6 +570,34 @@ class Trigger:
             lambda: self.enable(model)
         )
 
+    @contextlib.contextmanager
+    def ignore(self, model):
+        """Ignores the trigger in a single thread of execution"""
+        with contextlib.ExitStack() as pre_execute_hook:
+
+            # Create the table name / trigger name URI to pass down to the
+            # trigger.
+            ignore_uri = f'{model._meta.db_table}:{self.pgid}'
+
+            if not hasattr(_ignore, 'value'):
+                _ignore.value = set()
+
+            if not _ignore.value:
+                # If this is the first time we are ignoring trigger execution,
+                # register the pre_execute_hook
+                pre_execute_hook.enter_context(
+                    pgconnection.pre_execute_hook(_inject_pgtrigger_ignore)
+                )
+
+            if ignore_uri not in _ignore.value:
+                try:
+                    _ignore.value.add(ignore_uri)
+                    yield
+                finally:
+                    _ignore.value.remove(ignore_uri)
+            else:  # The trigger is already being ignored
+                yield
+
 
 class Protect(Trigger):
     """A trigger that raises an exception"""
@@ -531,13 +619,13 @@ class SoftDelete(Trigger):
     operation = Delete
     field = None
 
-    def __init__(self, *, condition=None, field=None):
+    def __init__(self, *, name=None, condition=None, field=None):
         self.field = field or self.field
 
         if not self.field:  # pragma: no cover
             raise ValueError('Must provide "field" for soft delete')
 
-        super().__init__(condition=condition)
+        super().__init__(name=name, condition=condition)
 
     def get_func(self, model):
         soft_field = model._meta.get_field(self.field).column
@@ -658,3 +746,56 @@ def disable(*uris):
             f'pgtrigger: Disabling "{trigger}" trigger for {model._meta.db_table} table.'
         )
         trigger.disable(model)
+
+
+@contextlib.contextmanager
+def ignore(*uris):
+    """
+    Dynamically ignore registered triggers matching URIs from executing in
+    an individual thread.
+    If no URIs are provided, ignore all pgtriggers from executing in an
+    individual thread.
+    """
+    with contextlib.ExitStack() as stack:
+        for model, trigger in get(*uris):
+            stack.enter_context(trigger.ignore(model))
+
+        yield
+
+
+def install_ignore_func():
+    """
+    pgtrigger uses a special postgres function to determine when a trigger
+    should be ignored. This installs the function.
+
+    This function is automatically installed when all triggers are installed
+    with pgtrigger.install()
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            '''
+            CREATE OR REPLACE FUNCTION _pgtrigger_should_ignore(
+                table_name NAME,
+                trigger_name NAME
+            )
+            RETURNS BOOLEAN AS $$
+                DECLARE
+                    _pgtrigger_ignore TEXT[];
+                    _result BOOLEAN;
+                BEGIN
+                    BEGIN
+                        SELECT INTO _pgtrigger_ignore
+                            CURRENT_SETTING('pgtrigger.ignore');
+                        EXCEPTION WHEN OTHERS THEN
+                    END;
+                    IF _pgtrigger_ignore IS NOT NULL THEN
+                        SELECT CONCAT(table_name, ':', trigger_name) = ANY(_pgtrigger_ignore)
+                        INTO _result;
+                        RETURN _result;
+                    ELSE
+                        RETURN FALSE;
+                    END IF;
+                END;
+            $$ LANGUAGE plpgsql;
+            '''
+        )

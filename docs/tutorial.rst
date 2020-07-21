@@ -3,20 +3,24 @@
 Tutorial
 ========
 
+Overview
+~~~~~~~~
+
 Postgres triggers provide the ability to specify database actions
 that should occur when operations happen in the database (INSERT, UPDATE,
 DELETE, TRUNCATE) on certain conditions of the affected rows.
 
 The `pgtrigger.Trigger` object is the base class for all triggers.
-Attributes of this class mirror the syntax required for making a Postgres
-trigger, and one has the ability to input the exact
+Attributes of this class mirror the syntax required for
+`making a Postgres trigger <https://www.postgresql.org/docs/current/sql-createtrigger.html>`__,
+and one has the ability to input the exact
 `PL/pgSQL code <https://www.postgresql.org/docs/current/plpgsql.html>`__
 that is executed by Postgres in the trigger. ``pgtrigger`` also has several
 helper classes, like `pgtrigger.Protect`, that implement some core
 triggers you can configure without having to write ``PL/pgSQL``
 syntax.
 
-When declaring a trigger, one must provide the following required attributes:
+When declaring a trigger, one can provide the following core attributes:
 
 * **when**
 
@@ -58,7 +62,7 @@ When declaring a trigger, one must provide the following required attributes:
         example, `pgtrigger.UpdateOf` cannot be combined with other
         operations.
 
-* **condition**
+* **condition** *(optional)*
 
     An optional condition on which the trigger is executed based on the ``OLD``
     and ``NEW`` row variables that are part of the trigger.
@@ -81,18 +85,18 @@ When declaring a trigger, one must provide the following required attributes:
         One must keep these caveats in mind when constructing triggers
         to avoid unexpected behavior.
 
+* **name** *(optional)*
 
-By default, all triggers are row-level triggers, meaning they fire on
-operations to individual rows. One can define statement-level triggers
-with the ``level`` attribute. The ``referencing`` attribute is a special
-attribute for statement-level triggers:
+    Registers the trigger with a human-readable name so that it can
+    be referenced in other ``django-pgtrigger`` functionality
+    such as `pgtrigger.ignore`.
 
-* **level**
+* **level** *(optional, default=pgtrigger.Row)*
 
-    Declares if the trigger is row (`pgtrigger.Row`) or statement
-    level (`pgtrigger.Statement`). Defaults to `pgtrigger.Row`.
+    Declares if the trigger fires for every row (`pgtrigger.Row`) or
+    every statement (`pgtrigger.Statement`). Defaults to `pgtrigger.Row`.
 
-* **referencing**
+* **referencing** *(optional)*
 
     When constructing a statement-level trigger, allows one to reference
     the ``OLD`` and ``NEW`` rows as transition tables using
@@ -101,14 +105,14 @@ attribute for statement-level triggers:
     will make an ``old_table_name`` and ``new_table_name`` table available
     as transition tables in the statement-level trigger. See
     `this <https://dba.stackexchange.com/a/177468>`__ for an additional
-    explanation on the referncing construct and read the trigger cookbook
+    explanation on the referencing construct and read the trigger cookbook
     later for an example.
 
 
-  .. note::
+    .. note::
 
-      The "referencing" construct for statement-level triggers is only available
-      in Postgres10 and up.
+        The ``REFERENCING`` construct for statement-level triggers is only available
+        in Postgres10 and up.
 
 
 Installing triggers for models
@@ -144,16 +148,88 @@ To turn off creating triggers in migrations, configure the
 ``PGTRIGGER_INSTALL_ON_MIGRATE`` setting to ``False``.
 Triggers can manually be configured with the following code:
 
-* `pgtrigger.install`: Installs all triggers
-* `pgtrigger.uninstall`: Uninstalls all triggers
-* `pgtrigger.enable`: Enables all triggers
-* `pgtrigger.disable`: Disables all triggers
+* `pgtrigger.install`: Install triggers
+* `pgtrigger.uninstall`: Uninstall triggers
+* `pgtrigger.enable`: Enable triggers
+* `pgtrigger.disable`: Disable triggers
 
 .. note::
 
     If triggers are disabled (as opposed to uninstalled), they have
     to be re-enabled again and will not be re-enabled automatically
     during migrations.
+
+.. warning::
+
+    Installing, uninstalling, enabling, and disabling are table-level
+    operations that call ``ALTER`` on the table. This is a global
+    operation and will affect all running processing. Do not use these
+    methods in application code. If you want to ignore a trigger dynamically
+    in an application, using `pgtrigger.ignore`, which is covered in the
+    next section.
+
+Ignoring trigger execution dynamically
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As mentioned previously, one should avoid using `pgtrigger.install`,
+`pgtrigger.uninstall`, `pgtrigger.enable`, and `pgtrigger.disable` in
+application code. Use `pgtrigger.ignore` to dynamically ignore a trigger
+in a single thread of execution.
+
+When using `pgtrigger.ignore`, `django-pgconnection <https://django-pgconnection.readthedocs.io>`__
+is used to dynamically set a Postgres variable that trigger objects parse
+and determine if they should proceed.
+
+Because of this, the user needs to additionally set up their project
+with `django-pgconnection <https://django-pgconnection.readthedocs.io>`__
+to use this feature. To do this, make sure ``settings.DATABASES``
+is wrapped in ``pgconnection.configure()`` in ``settings.py`` like so:
+
+.. code-block:: python
+
+    import pgconnection
+
+    DATABASES = pgconnection.configure({
+        'default': {
+            # default database config..
+        }
+    })
+
+
+To ignore a trigger, first be sure that a ``name`` has been provided to
+the trigger, and then reference the model and the trigger name with
+the ``pgtrigger.ignore`` context manager. Here's an example of a model
+that is protected against deletes and uses `pgtrigger.ignore` to ignore
+the trigger:
+
+.. code-block:: python
+
+    from django.db import models
+    import pgtrigger
+
+
+    @pgtrigger.register(
+        pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
+    )
+    class CannotDelete(models.Model):
+        pass
+
+
+    # Bypass deletion protection
+    with pgtrigger.ignore('my_app.CannotDelete:protect_deletes'):
+        CannotDelete.objects.all().delete()
+
+
+As shown above, `pgtrigger.ignore` takes a trigger URI that is formatted as
+``{app_label}.{model_name}:{trigger_name}``. Multiple trigger URIs can
+be given to `pgtrigger.ignore`, and `pgtrigger.ignore` can be nested.
+If no triggers are provided, all triggers are ignored.
+
+Although one should strive to create triggers that produce a consistent
+database (and thus use `pgtrigger.ignore` sparingly), one practical
+use case of `pgtrigger.ignore` is making an "official" interface for
+doing an operation. See ``Official interfaces`` in the
+trigger cookbook for an example.
 
 Trigger cookbook
 ~~~~~~~~~~~~~~~~
@@ -258,6 +334,41 @@ utility and registering it for the ``UPDATE`` and ``DELETE`` operations:
     This table can still be truncated, although this is not an operation
     supported by Django. One can still protect against this by adding the
     `pgtrigger.Truncate` operation.
+
+Official interfaces
+-------------------
+
+`pgtrigger.Protect` triggers can be combined with `pgtrigger.ignore` to create
+"official" interfaces for doing database operations in your application.
+
+For example, let's protect inserts on our custom
+``User`` model and force all engineers to use one common interface to
+create users:
+
+.. code-block:: python
+
+    from django.db import models
+
+
+    @pgtrigger.ignore('my_app.User:protect_inserts')
+    def create_user(**kwargs):
+        """
+        This is the "official" interface for creating users. Any code
+        that tries to create users and does not go through this interface
+        will fail
+        """
+        return User.objects.create(**kwargs)
+
+
+    @pgtrigger.register(
+        pgtrigger.Protect(name='protect_inserts', operation=pgtrigger.Insert)
+    )
+    class User(models.Model):
+        pass
+
+Users of this application must call ``create_user`` to create users. Any
+other pieces of the application that bypass this interface when creating
+users will have errors.
 
 
 Dynamic deletion protection
@@ -386,9 +497,8 @@ fields from a transition table to this persisted log model like so:
             operation=pgtrigger.Update,
             referencing=pgtrigger.Referencing(old='old_values', new='new_values'),
             func=f'''
-                INSERT INTO {LogModel._meta.db_table}(level, old_field, new_field)
+                INSERT INTO {LogModel._meta.db_table}(old_field, new_field)
                 SELECT
-                    'STATEMENT' AS level,
                     old_values.field AS old_field,
                     new_values.field AS new_field
                 FROM old_values
