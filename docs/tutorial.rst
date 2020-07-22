@@ -241,7 +241,7 @@ Only allowing specific transitions of a field
 ---------------------------------------------
 
 Similar to how one can configure a finite state machine on
-a model field with `django-fsm <https://django-fsm.readthedocs.io>`__,
+a model field with `django-fsm <https://github.com/viewflow/django-fsm>`__,
 the `pgtrigger.FSM` ensures that a field can only do configured
 transitions on update.
 
@@ -309,13 +309,13 @@ or insert to ensure that two fields remain in sync.
 Soft-delete models
 ------------------
 
-A soft-delete model is one that sets a field on the model to ``False``
-instead of deleting the model from the database. For example, it is
+A soft-delete model is one that sets a field on the model to a value
+upon delete instead of deleting the model from the database. For example, it is
 common is set an ``is_active`` field on a model to ``False`` to soft
 delete it.
 
 The `pgtrigger.SoftDelete` trigger takes the field as an argument and
-sets it to ``False`` whenever a deletion happens on the model. For example:
+a value to set on delete. The value defaults to ``False``. For example:
 
 .. code-block:: python
 
@@ -332,6 +332,11 @@ sets it to ``False`` whenever a deletion happens on the model. For example:
 
     # The model will still exist, but it is no longer active
     assert not SoftDeleteModel.objects.get().is_active
+
+
+In the above example, the boolean field "is_active" is set to ``False``
+upon deletion. `pgtrigger.SoftDelete` works with nullable
+``CharField``, ``IntField``, and ``BooleanField`` fields.
 
 The `pgtrigger.SoftDelete` trigger allows one to do soft deletes at the
 database level with no instrumentation in code at the application level.

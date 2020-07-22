@@ -62,6 +62,29 @@ def test_soft_delete():
     assert not models.FkToSoftDelete.objects.exists()
 
 
+@pytest.mark.django_db
+def test_soft_delete_different_values():
+    """
+    Tests SoftDelete with different types of fields and values
+    """
+    # Make the LogEntry model a soft delete model where
+    # "level" is set to "inactive"
+    trigger = pgtrigger.SoftDelete(field='level', value='inactive')
+    with trigger.install(models.LogEntry):
+        le = ddf.G(models.LogEntry, level='active')
+        le.delete()
+        assert models.LogEntry.objects.get().level == 'inactive'
+    models.LogEntry.objects.all().delete()
+
+    # Make the LogEntry model a soft delete model where
+    # "old_field" is set to None
+    trigger = pgtrigger.SoftDelete(field='old_field', value=None)
+    with trigger.install(models.LogEntry):
+        le = ddf.G(models.LogEntry, old_field='something')
+        le.delete()
+        assert models.LogEntry.objects.get().old_field is None
+
+
 @pytest.mark.django_db(transaction=True)
 def test_fsm():
     """
