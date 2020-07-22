@@ -461,6 +461,64 @@ row with the exact same values? Here's how:
         redundant_field2 = models.BooleanField(default=False)
 
 
+Freezing published models
+-------------------------
+
+A common pattern is allowing edits to model before it is "published"
+and restricting edits once it is live. This can be accomplished
+with the `pgtrigger.Protect` trigger and a well-placed condition.
+
+Let's assume we have a ``Post`` model with a ``status`` field that
+we want to freeze once it is published:
+
+.. code-block::
+
+    import pgtrigger
+    from django.db import models
+
+
+    @pgtrigger.register(
+        pgtrigger.Protect(
+            operation=pgtrigger.Update,
+            condition=pgtrigger.Q(old__status='published')
+        )
+    )
+    class Post(models.Model):
+        status = models.CharField(default='unpublished')
+        content = models.TextField()
+
+
+With the above, we've set a condition so that the ``Post`` model
+can no longer be updated once the status field is ``published``.
+
+What if we want published posts to be able to be deactivated? With the
+current example, we would never let it go into an inactive status
+since any updates after publishing are protected.
+We can change the condition a bit more to allow this:
+
+.. code-block::
+
+    import pgtrigger
+    from django.db import models
+
+
+    @pgtrigger.register(
+        pgtrigger.Protect(
+            operation=pgtrigger.Update,
+            condition=(
+              pgtrigger.Q(old__status='published')
+              & ~pgtrigger.Q(new__status='inactive')
+        )
+    )
+    class Post(models.Model):
+        status = models.CharField(default='unpublished')
+        content = models.TextField()
+
+
+In the above, we protect updates on any published posts unless
+the update is transitioning the published post into an inactive state.
+
+
 Configuring triggers on external models
 ---------------------------------------
 
