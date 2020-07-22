@@ -5,6 +5,7 @@ from pgtrigger.core import Delete
 from pgtrigger.core import disable
 from pgtrigger.core import enable
 from pgtrigger.core import F
+from pgtrigger.core import FSM
 from pgtrigger.core import get
 from pgtrigger.core import ignore
 from pgtrigger.core import Insert
@@ -37,6 +38,7 @@ __all__ = [
     'disable',
     'enable',
     'F',
+    'FSM',
     'get',
     'ignore',
     'Insert',

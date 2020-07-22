@@ -11,16 +11,16 @@ than in the application-level of Django. Here are some common
 problems that can be solved with triggers, many of which we later show how to
 solve in the docs:
 
-1. Protecting updates and deletes or rows or columns.
-2. Soft deleting models (e.g. setting an "is_active" flag to False on delete).
+1. Protecting updates and deletes or rows or columns (``pgtrigger.Protect``).
+2. Soft deleting models by setting a field to a value on delete (``pgtrigger.SoftDelete``).
 3. Tracking changes to models or columns change, or when specific conditions
-   happen.
+   happen (`django-pghistory <https://django-pghistory.readthedocs.io>`__ uses ``django-pgtrigger`` to do this).
 4. Keeping fields in sync with other fields.
 5. Ensuring that engineers use an official interface
    (e.g. engineers must use ``User.objects.create_user`` and not
    ``User.objects.create``).
 6. Only allowing a status field of a model to transition through certain
-   states.
+   states (``pgtrigger.FSM``).
 
 Quick Start
 ===========

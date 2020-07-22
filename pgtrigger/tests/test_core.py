@@ -62,6 +62,30 @@ def test_soft_delete():
     assert not models.FkToSoftDelete.objects.exists()
 
 
+@pytest.mark.django_db(transaction=True)
+def test_fsm():
+    """
+    Verifies the FSM test model cannot make invalid transitions
+    """
+    fsm = ddf.G(models.FSM, transition='unpublished')
+    fsm.transition = 'inactive'
+    with pytest.raises(InternalError, match='Invalid transition'):
+        fsm.save()
+
+    fsm.transition = 'published'
+    fsm.save()
+
+    # Be sure we ignore FSM when there is no transition
+    fsm.save()
+
+    with pytest.raises(InternalError, match='Invalid transition'):
+        fsm.transition = 'unpublished'
+        fsm.save()
+
+    fsm.transition = 'inactive'
+    fsm.save()
+
+
 def test_declaration_rendering():
     """Verifies that triggers with a DECLARE are rendered correctly"""
 
@@ -302,8 +326,9 @@ def test_registry():
     """
     Tests dynamically registering and unregistering triggers
     """
+    init_registry_size = len(pgtrigger.core.registry)
     # The trigger registry should already be populated with our test triggers
-    assert len(pgtrigger.core.registry) == 6
+    assert init_registry_size >= 6
 
     # Add a trigger to the registry
     trigger = pgtrigger.Trigger(
@@ -316,20 +341,20 @@ def test_registry():
     # Register/unregister in context managers. The state should be the same
     # at the end as the beginning
     with trigger.register(models.TestModel):
-        assert len(pgtrigger.core.registry) == 7
+        assert len(pgtrigger.core.registry) == init_registry_size + 1
         assert f'tests.TestModel:{trigger.name}' in pgtrigger.core.registry
 
         with trigger.unregister(models.TestModel):
-            assert len(pgtrigger.core.registry) == 6
-            assert (models.TestModel, trigger) not in pgtrigger.core.registry
+            assert len(pgtrigger.core.registry) == init_registry_size
+            assert f'tests.TestModel:{trigger.name}' not in pgtrigger.core.registry
 
         # Try obtaining trigger by alias
         assert pgtrigger.get('tests.TestModel:my_aliased_trigger')
 
-    assert len(pgtrigger.core.registry) == 6
-    assert (models.TestModel, trigger) not in pgtrigger.core.registry
+    assert len(pgtrigger.core.registry) == init_registry_size
+    assert f'tests.TestModel:{trigger.name}' not in pgtrigger.core.registry
     with pytest.raises(ValueError, match='not found'):
-        pgtrigger.get('tests.TestModel:my_aliased_trigger')
+        pgtrigger.get(f'tests.TestModel:{trigger.name}')
 
     with pytest.raises(ValueError, match='must be in the format'):
         pgtrigger.get('tests.TestMode')

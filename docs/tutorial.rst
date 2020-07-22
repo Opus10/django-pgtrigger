@@ -237,6 +237,45 @@ Trigger cookbook
 Here are a few more examples of how you can configure triggers
 using the utilities in ``pgtrigger``.
 
+Only allowing specific transitions of a field
+---------------------------------------------
+
+Similar to how one can configure a finite state machine on
+a model field with `django-fsm <https://django-fsm.readthedocs.io>`__,
+the `pgtrigger.FSM` ensures that a field can only do configured
+transitions on update.
+
+For example, this trigger ensures that the "status" field of a model
+can only transition from "unpublished" to "published" and from
+"published" to "inactive". Any other updates on the "status" field
+will result in an exception:
+
+.. code-block:: python
+
+    @pgtrigger.register(
+        pgtrigger.FSM(
+            field='status',
+            transitions=[
+                ('unpublished', 'published'),
+                ('published', 'inactive'),
+            ]
+        )
+    )
+    class MyModel(models.Model):
+        """Enforce valid transitions of a 'status' field"""
+        status = models.CharField(max_length=32, default='unpublished')
+
+.. note::
+
+    Similar to other triggers, `pgtrigger.FSM` can be supplied with
+    a condition to only enforce the state transitions when a condition
+    is met.
+
+.. note::
+
+    The `pgtrigger.FSM` trigger currently only works for non-null
+    ``CharField`` fields.
+
 Keeping a field in-sync with another
 ------------------------------------
 

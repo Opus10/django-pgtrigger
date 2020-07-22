@@ -40,6 +40,7 @@ Triggers
 .. autoclass:: pgtrigger.Trigger
 .. autoclass:: pgtrigger.Protect
 .. autoclass:: pgtrigger.SoftDelete
+.. autoclass:: pgtrigger.FSM
 
 Management
 ----------
