@@ -692,6 +692,23 @@ one additional query in the trigger:
     ``django-pgtrigger``.
 
 
+Tracking model history and changes
+----------------------------------
+
+``django-pgtrigger`` can be used to snapshot all model changes, snapshot
+changes whenever a particular change happens, and even attach context from
+your application (e.g. the authenticated user) to the triggered event.
+
+Historical tracking and auditing is a problem that is going to be different
+for every organization's needs. Because of the scope of this problem, we
+have created an entire history tracking library called
+`django-pghistory <https://django-pghistory.readthedocs.io>`__
+that solves common needs for doing history tracking. It is implemented
+using ``django-pgtrigger``. Check out
+the `docs here <https://django-pghistory.readthedocs.io>`__ for how you
+can integrate and configure these history tracking triggers into your
+application.
+
 More trigger examples
 ~~~~~~~~~~~~~~~~~~~~~
 
