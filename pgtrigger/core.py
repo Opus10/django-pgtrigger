@@ -383,9 +383,6 @@ class Trigger:
     def __str__(self):
         return self.name
 
-    def __hash__(self):
-        return hash(self.name)
-
     def get_key(self):
         """The unique key for the trigger when generating an alias"""
         return list(self.__dict__.values())

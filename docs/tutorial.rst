@@ -519,6 +519,57 @@ In the above, we protect updates on any published posts unless
 the update is transitioning the published post into an inactive state.
 
 
+Versioned models
+----------------
+
+We've shown a few `pgtrigger.Before` triggers so far, which are triggers that
+operate before the execution of an operation (e.g. `pgtrigger.SoftDelete`
+and `pgtrigger.Protect`). Here we are going to write a custom `pgtrigger.Trigger`
+class that dynamically increments a model version before an update is
+applied. The example is as follows:
+
+.. code-block:: python
+
+    @pgtrigger.register(
+        # Protect anyone editing the version field directly
+        pgtrigger.Protect(
+            operation=pgtrigger.Update,
+            condition=pgtrigger.Q(old__version__df=pgtrigger.F('new__version'))
+        ),
+        # Increment the version field on changes
+        pgtrigger.Trigger(
+            when=pgtrigger.Before,
+            operation=pgtrigger.Update,
+            func='NEW.version = NEW.version + 1; RETURN NEW;',
+            # Don't increment version on redundant updates.
+            condition=pgtrigger.Condition('OLD.* IS DISTINCT FROM NEW.*')
+        )
+    )
+    class Versioned(models.Model):
+        """
+        This model is versioned. The "version" field is incremented on every
+        update, and users cannot directly update the "version" field.
+        """
+        version = models.IntegerField(default=0)
+        char_field = models.CharField(max_length=32)
+
+In the above, we've registered two triggers:
+
+1. One that protects updating the "version" field of the model. We don't
+   want people tampering with this field.
+2. A trigger that increments the "version" of the ``NEW`` row before
+   an update is applied.
+
+As you can see, we return the ``NEW`` row in this trigger definition. Postgres
+takes this return value and uses this as the row on which to apply the operation.
+We don't have to actually perform the update ourselves. The return value
+from `pgtrigger.Before` triggers is very important. If you return ``NULL``,
+it will tell Postgres to ignore the operation.
+
+In the example, we've also ensured that the versioning trigger only
+fires when anything in the row has changed. We've written a raw SQL condition
+to express this.
+
 Configuring triggers on external models
 ---------------------------------------
 
@@ -639,3 +690,13 @@ one additional query in the trigger:
     Check out `django-pghistory <https://django-pghistory.readthedocs.io>`__
     if you want automated history tracking built on top of
     ``django-pgtrigger``.
+
+
+More trigger examples
+~~~~~~~~~~~~~~~~~~~~~
+
+The fun doesn't stop here. There is an entire tutorial repository for
+using ``django-pgtrigger`` at
+`<https://wesleykendall.github.io/django-pgtrigger-tutorial/>`__.
+This tutorial covers many of the examples we've already covered, and it
+has interactive code examples you can run locally. Go check it out!

@@ -369,7 +369,10 @@ def test_registry():
 
         with trigger.unregister(models.TestModel):
             assert len(pgtrigger.core.registry) == init_registry_size
-            assert f'tests.TestModel:{trigger.name}' not in pgtrigger.core.registry
+            assert (
+                f'tests.TestModel:{trigger.name}'
+                not in pgtrigger.core.registry
+            )
 
         # Try obtaining trigger by alias
         assert pgtrigger.get('tests.TestModel:my_aliased_trigger')

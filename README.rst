@@ -77,9 +77,20 @@ objects can solve a wide array of Django problems without ever having to
 write raw SQL. Users, however, can still customize
 triggers and write as much raw SQL as needed for their use case.
 
+
+Tutorial
+========
+
 For a complete run-through of ``django-pgtrigger`` and all derived
 triggers (along with a trigger cookbook!), read the
-`pgtrigger docs <https://django-pgtrigger.readthedocs.io/>`__
+`pgtrigger docs <https://django-pgtrigger.readthedocs.io/>`__. The docs
+have a full tutorial of how to configure triggers and lots of code examples.
+
+After you have gone through the
+tutorial in the docs, check out
+`<https://wesleykendall.github.io/django-pgtrigger-tutorial/>`__, which
+is an interactive tutorial written for a Django meetup talk about
+``django-pgtrigger``.
 
 
 Documentation
