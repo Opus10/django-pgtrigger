@@ -1,5 +1,26 @@
 # Changelog
-## 1.2.0 (2020-07-22)
+## 1.3.0 (2020-07-23)
+### Feature
+  - Extend the ``pgtrigger.SoftDelete`` trigger to support more field types. [Wes Kendall, 4dd8cf8]
+
+    ``pgtrigger.SoftDelete`` takes an optional "value" argument to assign to
+    the soft-deleted attribute upon deletion. This allows for more flexibility
+    in soft-delete models that might, for example, set a ``CharField`` to
+    "inactive".
+  - ``pgtrigger.FSM`` enforces a finite state machine on a field. [Wes Kendall, bd3980e]
+
+    The ``pgtrigger.FSM`` trigger allows a user to configure a field and
+    a set of valid transitions for the field. An error will be raised
+    if any transitions happen that are not part of the valid transitions
+    list.
+
+    The docs were updated with an example of how to use ``pgtrigger.FSM``.
+### Trivial
+  - Added trigger cookbook example for how to track history and model changes. [Wes Kendall, 114a70a]
+  - Add "versioning" example to trigger cookbook. [Wes Kendall, 842ad5b]
+  - Added trigger cookbook example of freezing a published model [Wes Kendall, 994e9da]
+
+## 1.2.0 (2020-07-23)
 ### Feature
   - Added ``pgtrigger.ignore`` for dynamically ignoring triggers. [Wes Kendall, b3557bb]
 
