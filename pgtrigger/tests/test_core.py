@@ -292,17 +292,23 @@ def test_arg_checks():
             when=pgtrigger.Before, operation=pgtrigger.Update
         ).get_func(None)
 
+    with pytest.raises(ValueError, match='> 53'):
+        pgtrigger.Trigger(
+            when=pgtrigger.Before, operation=pgtrigger.Update, name='1' * 54
+        ).pgid
+
 
 def test_registry():
     """
     Tests dynamically registering and unregistering triggers
     """
     # The trigger registry should already be populated with our test triggers
-    assert len(pgtrigger.core.registry) == 5
+    assert len(pgtrigger.core.registry) == 6
 
     # Add a trigger to the registry
     trigger = pgtrigger.Trigger(
         when=pgtrigger.Before,
+        name='my_aliased_trigger',
         operation=pgtrigger.Insert | pgtrigger.Update,
         func="RAISE EXCEPTION 'no no no!';",
     )
@@ -310,15 +316,23 @@ def test_registry():
     # Register/unregister in context managers. The state should be the same
     # at the end as the beginning
     with trigger.register(models.TestModel):
-        assert len(pgtrigger.core.registry) == 6
-        assert (models.TestModel, trigger) in pgtrigger.core.registry
+        assert len(pgtrigger.core.registry) == 7
+        assert f'tests.TestModel:{trigger.name}' in pgtrigger.core.registry
 
         with trigger.unregister(models.TestModel):
-            assert len(pgtrigger.core.registry) == 5
+            assert len(pgtrigger.core.registry) == 6
             assert (models.TestModel, trigger) not in pgtrigger.core.registry
 
-    assert len(pgtrigger.core.registry) == 5
+        # Try obtaining trigger by alias
+        assert pgtrigger.get('tests.TestModel:my_aliased_trigger')
+
+    assert len(pgtrigger.core.registry) == 6
     assert (models.TestModel, trigger) not in pgtrigger.core.registry
+    with pytest.raises(ValueError, match='not found'):
+        pgtrigger.get('tests.TestModel:my_aliased_trigger')
+
+    with pytest.raises(ValueError, match='must be in the format'):
+        pgtrigger.get('tests.TestMode')
 
 
 def test_operations():
@@ -384,6 +398,80 @@ def test_custom_trigger_definitions():
     with trigger.install(models.TestTrigger):
         with pytest.raises(InternalError, match='bad statement!'):
             test_model.save()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_basic_ignore():
+    """Verify basic dynamic ignore functionality"""
+    deletion_protected_model = ddf.G(models.TestTrigger)
+    with pytest.raises(InternalError, match='Cannot delete rows'):
+        deletion_protected_model.delete()
+
+    with pgtrigger.ignore('tests.TestTrigger:protect_delete'):
+        deletion_protected_model.delete()
+
+    assert not models.TestTrigger.objects.exists()
+
+    deletion_protected_model = ddf.G(models.TestTrigger)
+    with pytest.raises(InternalError, match='Cannot delete rows'):
+        deletion_protected_model.delete()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_nested_ignore():
+    """Test nesting pgtrigger.ignore()"""
+    deletion_protected_model1 = ddf.G(models.TestTrigger)
+    deletion_protected_model2 = ddf.G(models.TestTrigger)
+    with pytest.raises(InternalError, match='Cannot delete rows'):
+        deletion_protected_model1.delete()
+
+    with pgtrigger.ignore('tests.TestTrigger:protect_delete'):
+        with pgtrigger.ignore('tests.TestTrigger:protect_delete'):
+            deletion_protected_model1.delete()
+        deletion_protected_model2.delete()
+
+    assert not models.TestTrigger.objects.exists()
+
+    deletion_protected_model = ddf.G(models.TestTrigger)
+    with pytest.raises(InternalError, match='Cannot delete rows'):
+        deletion_protected_model.delete()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_multiple_ignores():
+    """Tests multiple pgtrigger.ignore()"""
+    deletion_protected_model1 = ddf.G(models.TestTrigger)
+    ddf.G(models.TestTrigger)
+    with pytest.raises(InternalError, match='Cannot delete rows'):
+        deletion_protected_model1.delete()
+
+    ddf.G(models.TestTrigger, field='hi!')
+    with pytest.raises(InternalError, match='no no no!'):
+        models.TestTrigger.objects.create(field='misc_insert')
+
+    with pgtrigger.ignore('tests.TestTrigger:protect_delete'):
+        deletion_protected_model1.delete()
+        with pytest.raises(InternalError, match='no no no!'):
+            models.TestTrigger.objects.create(field='misc_insert')
+
+        with pgtrigger.ignore('tests.TestTrigger:protect_misc_insert'):
+            m = models.TestTrigger.objects.create(field='misc_insert')
+            m.delete()
+
+        models.TestTrigger.objects.all().delete()
+
+    assert not models.TestTrigger.objects.exists()
+
+    deletion_protected_model = ddf.G(models.TestTrigger)
+    with pytest.raises(InternalError, match='Cannot delete rows'):
+        deletion_protected_model.delete()
+
+    # Ignore all triggers
+    with pgtrigger.ignore():
+        m = models.TestTrigger.objects.create(field='misc_insert')
+        models.TestTrigger.objects.all().delete()
+
+    assert not models.TestTrigger.objects.exists()
 
 
 @pytest.mark.django_db

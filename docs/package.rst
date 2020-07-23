@@ -49,3 +49,4 @@ Management
 .. autofunction:: pgtrigger.enable
 .. autofunction:: pgtrigger.disable
 .. autofunction:: pgtrigger.prune
+.. autofunction:: pgtrigger.ignore

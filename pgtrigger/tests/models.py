@@ -67,7 +67,16 @@ class CharPk(models.Model):
     custom_pk = models.CharField(primary_key=True, max_length=32)
 
 
-@pgtrigger.register(pgtrigger.Protect(operation=pgtrigger.Delete))
+@pgtrigger.register(
+    pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete),
+    pgtrigger.Trigger(
+        name='protect_misc_insert',
+        when=pgtrigger.Before,
+        operation=pgtrigger.Insert,
+        func="RAISE EXCEPTION 'no no no!';",
+        condition=pgtrigger.Q(new__field='misc_insert'),
+    ),
+)
 class TestTrigger(models.Model):
     """
     For testing triggers

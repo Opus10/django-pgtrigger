@@ -34,6 +34,7 @@ documentation = "https://django-pgtrigger.readthedocs.io"
 [tool.poetry.dependencies]
 python = ">=3.6,<4"
 django = ">=2"
+django-pgconnection = ">=1.0.1"
 
 [tool.poetry.dev-dependencies]
 black = "=19.10b0"

@@ -6,6 +6,7 @@ from pgtrigger.core import disable
 from pgtrigger.core import enable
 from pgtrigger.core import F
 from pgtrigger.core import get
+from pgtrigger.core import ignore
 from pgtrigger.core import Insert
 from pgtrigger.core import install
 from pgtrigger.core import InsteadOf
@@ -37,6 +38,7 @@ __all__ = [
     'enable',
     'F',
     'get',
+    'ignore',
     'Insert',
     'install',
     'InsteadOf',
