@@ -237,6 +237,45 @@ Trigger cookbook
 Here are a few more examples of how you can configure triggers
 using the utilities in ``pgtrigger``.
 
+Only allowing specific transitions of a field
+---------------------------------------------
+
+Similar to how one can configure a finite state machine on
+a model field with `django-fsm <https://github.com/viewflow/django-fsm>`__,
+the `pgtrigger.FSM` ensures that a field can only do configured
+transitions on update.
+
+For example, this trigger ensures that the "status" field of a model
+can only transition from "unpublished" to "published" and from
+"published" to "inactive". Any other updates on the "status" field
+will result in an exception:
+
+.. code-block:: python
+
+    @pgtrigger.register(
+        pgtrigger.FSM(
+            field='status',
+            transitions=[
+                ('unpublished', 'published'),
+                ('published', 'inactive'),
+            ]
+        )
+    )
+    class MyModel(models.Model):
+        """Enforce valid transitions of a 'status' field"""
+        status = models.CharField(max_length=32, default='unpublished')
+
+.. note::
+
+    Similar to other triggers, `pgtrigger.FSM` can be supplied with
+    a condition to only enforce the state transitions when a condition
+    is met.
+
+.. note::
+
+    The `pgtrigger.FSM` trigger currently only works for non-null
+    ``CharField`` fields.
+
 Keeping a field in-sync with another
 ------------------------------------
 
@@ -270,13 +309,13 @@ or insert to ensure that two fields remain in sync.
 Soft-delete models
 ------------------
 
-A soft-delete model is one that sets a field on the model to ``False``
-instead of deleting the model from the database. For example, it is
+A soft-delete model is one that sets a field on the model to a value
+upon delete instead of deleting the model from the database. For example, it is
 common is set an ``is_active`` field on a model to ``False`` to soft
 delete it.
 
 The `pgtrigger.SoftDelete` trigger takes the field as an argument and
-sets it to ``False`` whenever a deletion happens on the model. For example:
+a value to set on delete. The value defaults to ``False``. For example:
 
 .. code-block:: python
 
@@ -293,6 +332,11 @@ sets it to ``False`` whenever a deletion happens on the model. For example:
 
     # The model will still exist, but it is no longer active
     assert not SoftDeleteModel.objects.get().is_active
+
+
+In the above example, the boolean field "is_active" is set to ``False``
+upon deletion. `pgtrigger.SoftDelete` works with nullable
+``CharField``, ``IntField``, and ``BooleanField`` fields.
 
 The `pgtrigger.SoftDelete` trigger allows one to do soft deletes at the
 database level with no instrumentation in code at the application level.
@@ -417,6 +461,115 @@ row with the exact same values? Here's how:
         redundant_field2 = models.BooleanField(default=False)
 
 
+Freezing published models
+-------------------------
+
+A common pattern is allowing edits to model before it is "published"
+and restricting edits once it is live. This can be accomplished
+with the `pgtrigger.Protect` trigger and a well-placed condition.
+
+Let's assume we have a ``Post`` model with a ``status`` field that
+we want to freeze once it is published:
+
+.. code-block::
+
+    import pgtrigger
+    from django.db import models
+
+
+    @pgtrigger.register(
+        pgtrigger.Protect(
+            operation=pgtrigger.Update,
+            condition=pgtrigger.Q(old__status='published')
+        )
+    )
+    class Post(models.Model):
+        status = models.CharField(default='unpublished')
+        content = models.TextField()
+
+
+With the above, we've set a condition so that the ``Post`` model
+can no longer be updated once the status field is ``published``.
+
+What if we want published posts to be able to be deactivated? With the
+current example, we would never let it go into an inactive status
+since any updates after publishing are protected.
+We can change the condition a bit more to allow this:
+
+.. code-block::
+
+    import pgtrigger
+    from django.db import models
+
+
+    @pgtrigger.register(
+        pgtrigger.Protect(
+            operation=pgtrigger.Update,
+            condition=(
+              pgtrigger.Q(old__status='published')
+              & ~pgtrigger.Q(new__status='inactive')
+        )
+    )
+    class Post(models.Model):
+        status = models.CharField(default='unpublished')
+        content = models.TextField()
+
+
+In the above, we protect updates on any published posts unless
+the update is transitioning the published post into an inactive state.
+
+
+Versioned models
+----------------
+
+We've shown a few `pgtrigger.Before` triggers so far, which are triggers that
+operate before the execution of an operation (e.g. `pgtrigger.SoftDelete`
+and `pgtrigger.Protect`). Here we are going to write a custom `pgtrigger.Trigger`
+class that dynamically increments a model version before an update is
+applied. The example is as follows:
+
+.. code-block:: python
+
+    @pgtrigger.register(
+        # Protect anyone editing the version field directly
+        pgtrigger.Protect(
+            operation=pgtrigger.Update,
+            condition=pgtrigger.Q(old__version__df=pgtrigger.F('new__version'))
+        ),
+        # Increment the version field on changes
+        pgtrigger.Trigger(
+            when=pgtrigger.Before,
+            operation=pgtrigger.Update,
+            func='NEW.version = NEW.version + 1; RETURN NEW;',
+            # Don't increment version on redundant updates.
+            condition=pgtrigger.Condition('OLD.* IS DISTINCT FROM NEW.*')
+        )
+    )
+    class Versioned(models.Model):
+        """
+        This model is versioned. The "version" field is incremented on every
+        update, and users cannot directly update the "version" field.
+        """
+        version = models.IntegerField(default=0)
+        char_field = models.CharField(max_length=32)
+
+In the above, we've registered two triggers:
+
+1. One that protects updating the "version" field of the model. We don't
+   want people tampering with this field.
+2. A trigger that increments the "version" of the ``NEW`` row before
+   an update is applied.
+
+As you can see, we return the ``NEW`` row in this trigger definition. Postgres
+takes this return value and uses this as the row on which to apply the operation.
+We don't have to actually perform the update ourselves. The return value
+from `pgtrigger.Before` triggers is very important. If you return ``NULL``,
+it will tell Postgres to ignore the operation.
+
+In the example, we've also ensured that the versioning trigger only
+fires when anything in the row has changed. We've written a raw SQL condition
+to express this.
+
 Configuring triggers on external models
 ---------------------------------------
 
@@ -537,3 +690,30 @@ one additional query in the trigger:
     Check out `django-pghistory <https://django-pghistory.readthedocs.io>`__
     if you want automated history tracking built on top of
     ``django-pgtrigger``.
+
+
+Tracking model history and changes
+----------------------------------
+
+``django-pgtrigger`` can be used to snapshot all model changes, snapshot
+changes whenever a particular change happens, and even attach context from
+your application (e.g. the authenticated user) to the triggered event.
+
+Historical tracking and auditing is a problem that is going to be different
+for every organization's needs. Because of the scope of this problem, we
+have created an entire history tracking library called
+`django-pghistory <https://django-pghistory.readthedocs.io>`__
+that solves common needs for doing history tracking. It is implemented
+using ``django-pgtrigger``. Check out
+the `docs here <https://django-pghistory.readthedocs.io>`__ for how you
+can integrate and configure these history tracking triggers into your
+application.
+
+More trigger examples
+~~~~~~~~~~~~~~~~~~~~~
+
+The fun doesn't stop here. There is an entire tutorial repository for
+using ``django-pgtrigger`` at
+`<https://wesleykendall.github.io/django-pgtrigger-tutorial/>`__.
+This tutorial covers many of the examples we've already covered, and it
+has interactive code examples you can run locally. Go check it out!

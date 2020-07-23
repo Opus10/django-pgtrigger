@@ -109,3 +109,15 @@ class FkToSoftDelete(models.Model):
     """Ensures foreign keys to a soft delete model are deleted"""
 
     ref = models.ForeignKey(SoftDelete, on_delete=models.CASCADE)
+
+
+@pgtrigger.register(
+    pgtrigger.FSM(
+        field='transition',
+        transitions=[('unpublished', 'published'), ('published', 'inactive')],
+    )
+)
+class FSM(models.Model):
+    """Tests valid transitions of a field"""
+
+    transition = models.CharField(max_length=32)
