@@ -1,4 +1,20 @@
 # Changelog
+## 1.2.0 (2020-07-22)
+### Feature
+  - Added ``pgtrigger.ignore`` for dynamically ignoring triggers. [Wes Kendall, b3557bb]
+
+    ``pgtrigger.ignore`` can be used to ignore triggers per thread of
+    execution. Docs were updated with examples of how to use
+    ``pgtrigger.ignore`` and how to utilize it to create
+    "official" interfaces.
+  - Allow custom naming of triggers [Wes Kendall, 864d653]
+
+    Triggers can be given a "name" attribute that is used when generating
+    the trigger and obtaining it from the registry. This will not only
+    make trigger management in the future easier, but it will also make
+    it possible to dynamically ignore specific triggers registered to
+    models.
+
 ## 1.1.0 (2020-07-21)
 ### Feature
   - Added "Referencing" construct for statement-level triggers. [Wes Kendall, 20d958e]
