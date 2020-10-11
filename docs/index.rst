@@ -43,7 +43,9 @@ in a `pgtrigger.Trigger` object or can use the derived triggers in
     import pgtrigger
 
 
-    @pgtrigger.register(pgtrigger.Protect(operation=pgtrigger.Delete))
+    @pgtrigger.register(
+        pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
+    )
     class CannotBeDeletedModel(models.Model):
         """This model cannot be deleted!"""
 
@@ -62,6 +64,7 @@ against "active" rows of a model:
 
     @pgtrigger.register(
         pgtrigger.Protect(
+            name='protect_deletes',
             operation=pgtrigger.Delete,
             # Protect deletes when the OLD row of the trigger is still active
             condition=pgtrigger.Q(old__is_active=True)

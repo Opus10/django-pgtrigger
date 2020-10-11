@@ -23,8 +23,9 @@ class LogEntry(models.Model):
 
 @pgtrigger.register(
     pgtrigger.Trigger(
+        name='update_of_statement_test',
         level=pgtrigger.Statement,
-        operation=pgtrigger.Update,
+        operation=pgtrigger.UpdateOf('field'),
         when=pgtrigger.After,
         func=f'''
             INSERT INTO {LogEntry._meta.db_table}(level)
@@ -33,6 +34,7 @@ class LogEntry(models.Model):
         ''',
     ),
     pgtrigger.Trigger(
+        name='after_update_statement_test',
         level=pgtrigger.Statement,
         operation=pgtrigger.Update,
         when=pgtrigger.After,
@@ -48,6 +50,7 @@ class LogEntry(models.Model):
         ''',
     ),
     pgtrigger.Trigger(
+        name='after_update_row_test',
         level=pgtrigger.Row,
         operation=pgtrigger.Update,
         when=pgtrigger.After,
@@ -94,7 +97,9 @@ class TestTrigger(models.Model):
     )
 
 
-@pgtrigger.register(pgtrigger.SoftDelete(field='is_active'))
+@pgtrigger.register(
+    pgtrigger.SoftDelete(name='soft_delete', field='is_active')
+)
 class SoftDelete(models.Model):
     """
     For testing soft deletion. Deletions on this model will set
@@ -113,6 +118,7 @@ class FkToSoftDelete(models.Model):
 
 @pgtrigger.register(
     pgtrigger.FSM(
+        name='fsm',
         field='transition',
         transitions=[('unpublished', 'published'), ('published', 'inactive')],
     )

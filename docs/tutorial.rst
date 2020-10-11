@@ -22,6 +22,12 @@ syntax.
 
 When declaring a trigger, one can provide the following core attributes:
 
+* **name**
+
+    The identifying name of trigger. Is unique for every model and must
+    be less than 53 characters. The trigger name is used for
+    performing trigger management operations and must be provided.
+
 * **when**
 
     When the trigger should happen. Can be one of
@@ -133,7 +139,7 @@ deleted:
 
 
     @pgtrigger.register(
-        pgtrigger.Protect(operation=pgtrigger.Delete)
+        pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
     )
     class CannotDelete(models.Model):
         field = models.CharField(max_length=16)
@@ -144,14 +150,23 @@ the triggers will be removed in the database. If the trigger
 changes, the new one will be created and the old one will be dropped
 during migrations.
 
+There are circumstances when it is undesirable to always install triggers
+after migrations, especially when performing complex multi-step migrations
+where installing a trigger midway could result in errors.
 To turn off creating triggers in migrations, configure the
 ``PGTRIGGER_INSTALL_ON_MIGRATE`` setting to ``False``.
-Triggers can manually be configured with the following code:
+
+Triggers can be programmatically configured with the following code:
 
 * `pgtrigger.install`: Install triggers
 * `pgtrigger.uninstall`: Uninstall triggers
 * `pgtrigger.enable`: Enable triggers
 * `pgtrigger.disable`: Disable triggers
+* `pgtrigger.prune`: Uninstall triggers created by ``django-pgtrigger``
+  that are no longer in the codebase.
+
+Triggers can also be configured with similar management commands.
+See the :ref:`commands` section for more details.
 
 .. note::
 
@@ -254,6 +269,7 @@ will result in an exception:
 
     @pgtrigger.register(
         pgtrigger.FSM(
+            name='status_fsm',
             field='status',
             transitions=[
                 ('unpublished', 'published'),
@@ -289,6 +305,7 @@ or insert to ensure that two fields remain in sync.
 
     @pgtrigger.register(
         pgtrigger.Trigger(
+            name='keep_in_sync',
             operation=pgtrigger.Update | pgtrigger.Insert,
             when=pgtrigger.Before,
             func='NEW.in_sync_int = NEW.int_field; RETURN NEW;',
@@ -322,7 +339,9 @@ a value to set on delete. The value defaults to ``False``. For example:
     import pgtrigger
 
 
-    @pgtrigger.register(pgtrigger.SoftDelete(field='is_active'))
+    @pgtrigger.register(
+        pgtrigger.SoftDelete(name='soft_delete', field='is_active')
+    )
     class SoftDeleteModel(models.Model):
         # This field is set to false when the model is deleted
         is_active = models.BooleanField(default=True)
@@ -367,6 +386,7 @@ utility and registering it for the ``UPDATE`` and ``DELETE`` operations:
 
     @pgtrigger.register(
         pgtrigger.Protect(
+            name='protect_updates_and_deletes',
             operation=(pgtrigger.Update | pgtrigger.Delete)
         )
     )
@@ -428,6 +448,7 @@ Only allow models with a ``deletable`` flag to be deleted:
 
     @pgtrigger.register(
         pgtrigger.Protect(
+            name='protect_deletes',
             operation=pgtrigger.Delete,
             condition=pgtrigger.Q(old__is_deletable=False)
         )
@@ -450,6 +471,7 @@ row with the exact same values? Here's how:
 
     @pgtrigger.register(
         pgtrigger.Protect(
+            name='protect_deletes',
             operation=pgtrigger.Delete,
             condition=pgtrigger.Condition(
                 'OLD.* IS NOT DISTINCT FROM NEW.*'
@@ -533,11 +555,13 @@ applied. The example is as follows:
     @pgtrigger.register(
         # Protect anyone editing the version field directly
         pgtrigger.Protect(
+            name='protect_updates',
             operation=pgtrigger.Update,
             condition=pgtrigger.Q(old__version__df=pgtrigger.F('new__version'))
         ),
         # Increment the version field on changes
         pgtrigger.Trigger(
+            name='versioning',
             when=pgtrigger.Before,
             operation=pgtrigger.Update,
             func='NEW.version = NEW.version + 1; RETURN NEW;',
@@ -645,6 +669,7 @@ fields from a transition table to this persisted log model like so:
 
     @pgtrigger.register(
         pgtrigger.Trigger(
+            name='statement_level_log',
             level=pgtrigger.Statement,
             when=pgtrigger.After,
             operation=pgtrigger.Update,
