@@ -69,7 +69,9 @@ def test_soft_delete_different_values():
     """
     # Make the LogEntry model a soft delete model where
     # "level" is set to "inactive"
-    trigger = pgtrigger.SoftDelete(field='level', value='inactive')
+    trigger = pgtrigger.SoftDelete(
+        name='soft_delete', field='level', value='inactive'
+    )
     with trigger.install(models.LogEntry):
         le = ddf.G(models.LogEntry, level='active')
         le.delete()
@@ -78,7 +80,9 @@ def test_soft_delete_different_values():
 
     # Make the LogEntry model a soft delete model where
     # "old_field" is set to None
-    trigger = pgtrigger.SoftDelete(field='old_field', value=None)
+    trigger = pgtrigger.SoftDelete(
+        name='soft_delete', field='old_field', value=None
+    )
     with trigger.install(models.LogEntry):
         le = ddf.G(models.LogEntry, old_field='something')
         le.delete()
@@ -117,7 +121,7 @@ def test_declaration_rendering():
             return [('var_name', 'UUID')]
 
     rendered = DeclaredTrigger(
-        when=pgtrigger.Before, operation=pgtrigger.Insert
+        name='test', when=pgtrigger.Before, operation=pgtrigger.Insert
     ).render_declare(None)
     assert rendered == 'DECLARE \nvar_name UUID;'
 
@@ -141,6 +145,7 @@ def test_is_distinct_from_condition():
 
     # Protect a field from being updated to a different value
     trigger = pgtrigger.Protect(
+        name='protect',
         when=pgtrigger.Before,
         operation=pgtrigger.Update,
         condition=pgtrigger.Q(old__int_field__df=pgtrigger.F('new__int_field'))
@@ -174,6 +179,7 @@ def test_is_distinct_from_condition_fk_field():
 
     # Protect a foreign key from being updated to a different value
     trigger = pgtrigger.Protect(
+        name='test_is_distinct_from_condition_fk_field1',
         when=pgtrigger.Before,
         operation=pgtrigger.Update,
         condition=pgtrigger.Q(old__fk_field__df=pgtrigger.F('new__fk_field')),
@@ -191,6 +197,7 @@ def test_is_distinct_from_condition_fk_field():
     char_pk = ddf.G(models.CharPk)
     test_char_fk_model = ddf.G(models.TestTrigger, char_pk_fk_field=char_pk)
     trigger = pgtrigger.Protect(
+        name='test_is_distinct_from_condition_fk_field2',
         when=pgtrigger.Before,
         operation=pgtrigger.Update,
         condition=pgtrigger.Q(
@@ -220,6 +227,7 @@ def test_is_not_distinct_from_condition():
     # both int_field and nullable need to change in order for the update to
     # happen
     trigger = pgtrigger.Protect(
+        name='test_is_not_distinct_from_condition1',
         when=pgtrigger.Before,
         operation=pgtrigger.Update,
         condition=pgtrigger.Q(
@@ -252,6 +260,7 @@ def test_complex_conditions():
 
     # Dont let intfield go from 0 -> 1
     trigger = pgtrigger.Protect(
+        name='test_complex_conditions1',
         when=pgtrigger.Before,
         operation=pgtrigger.Update,
         condition=pgtrigger.Q(old__int_field=0, new__int_field=1),
@@ -266,6 +275,7 @@ def test_complex_conditions():
         models.TestTrigger, int_field=0, dt_field=dt.datetime(2020, 1, 1)
     )
     trigger = pgtrigger.Protect(
+        name='test_complex_conditions2',
         when=pgtrigger.Before,
         operation=pgtrigger.Update,
         condition=(
@@ -318,6 +328,9 @@ def test_arg_checks():
     with pytest.raises(ValueError, match='Must provide at least one'):
         pgtrigger.UpdateOf()
 
+    with pytest.raises(ValueError, match='must have "name"'):
+        pgtrigger.Trigger(when=pgtrigger.Before, operation=pgtrigger.Update)
+
     with pytest.raises(ValueError, match='Invalid "level"'):
         pgtrigger.Trigger(level='invalid')
 
@@ -336,7 +349,7 @@ def test_arg_checks():
 
     with pytest.raises(ValueError, match='Must define func'):
         pgtrigger.Trigger(
-            when=pgtrigger.Before, operation=pgtrigger.Update
+            name='test', when=pgtrigger.Before, operation=pgtrigger.Update
         ).get_func(None)
 
     with pytest.raises(ValueError, match='> 53'):
@@ -409,6 +422,7 @@ def test_custom_trigger_definitions():
     # Note: Although we could use the "protect" trigger for this,
     # we manually provide the trigger code to test manual declarations
     trigger = pgtrigger.Trigger(
+        name='test_custom_definition1',
         when=pgtrigger.Before,
         operation=pgtrigger.Insert | pgtrigger.Update,
         func="RAISE EXCEPTION 'no no no!';",
@@ -428,6 +442,7 @@ def test_custom_trigger_definitions():
 
     # Protect updates of a single column
     trigger = pgtrigger.Trigger(
+        name='test_custom_definition2',
         when=pgtrigger.Before,
         operation=pgtrigger.UpdateOf('int_field'),
         func="RAISE EXCEPTION 'no no no!';",
@@ -441,6 +456,7 @@ def test_custom_trigger_definitions():
 
     # Protect statement-level creates
     trigger = pgtrigger.Trigger(
+        name='test_custom_definition3',
         level=pgtrigger.Statement,
         when=pgtrigger.Before,
         operation=pgtrigger.Update,
@@ -540,6 +556,7 @@ def test_trigger_conditions():
 
     # Protect against inserts only when "field" is "hello"
     trigger = pgtrigger.Trigger(
+        name='test_condition1',
         when=pgtrigger.Before,
         operation=pgtrigger.Insert,
         func="RAISE EXCEPTION 'no no no!';",
@@ -552,6 +569,7 @@ def test_trigger_conditions():
 
     # Protect updates where nothing is actually updated
     trigger = pgtrigger.Trigger(
+        name='test_condition2',
         when=pgtrigger.Before,
         operation=pgtrigger.Update,
         func="RAISE EXCEPTION 'no no no!';",
@@ -570,6 +588,7 @@ def test_trigger_conditions():
     non_read_only = ddf.G(models.TestModel, int_field=1)
 
     trigger = pgtrigger.Trigger(
+        name='test_condition3',
         when=pgtrigger.Before,
         operation=pgtrigger.Update | pgtrigger.Delete,
         func="RAISE EXCEPTION 'no no no!';",

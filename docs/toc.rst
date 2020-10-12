@@ -7,6 +7,7 @@ Table of Contents
    index
    installation
    tutorial
+   commands
    package
    release_notes
    contributing
