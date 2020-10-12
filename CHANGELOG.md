@@ -1,4 +1,27 @@
 # Changelog
+## 2.0.0 (2020-10-12)
+### Api-Break
+  - Trigger management commands [Wes Kendall, be26d33]
+
+    Adds the ability to manage triggers by name
+    with the ``manage.py pgtrigger`` management command. This
+    change includes the following subcommands:
+
+    - ``manage.py pgtrigger ls``: List all triggers, their installation
+      status, and whether they are enabled or disabled.
+    - ``manage.py pgtrigger install``: Install triggers.
+    - ``manage.py pgtrigger uninstall``: Uninstall triggers.
+    - ``manage.py pgtrigger enable``: Enable triggers.
+    - ``manage.py pgtrigger disable``: Disable triggers.
+    - ``manage.py pgtrigger prune``: Prune triggers.
+
+    Because of this change, names are now enforced for every trigger
+    and must be unique for every model. Users that wish to
+    upgrade to this version must now supply a ``name`` keyword
+    argument to their triggers.
+
+    Docs were updated with references to the new management commands.
+
 ## 1.3.0 (2020-07-23)
 ### Feature
   - Extend the ``pgtrigger.SoftDelete`` trigger to support more field types. [Wes Kendall, 4dd8cf8]
