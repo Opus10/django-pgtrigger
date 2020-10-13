@@ -117,6 +117,21 @@ class FkToSoftDelete(models.Model):
 
 
 @pgtrigger.register(
+    pgtrigger.SoftDelete(name='soft_delete', field='custom_active')
+)
+class CustomSoftDelete(models.Model):
+    """
+    For testing soft deletion with a custom active field.
+
+    This trigger also helps ensure that triggers can have the same names
+    across multiple models.
+    """
+
+    custom_active = models.BooleanField(default=True)
+    other_field = models.TextField()
+
+
+@pgtrigger.register(
     pgtrigger.FSM(
         name='fsm',
         field='transition',

@@ -16,6 +16,9 @@ def test_full_ls(capsys):
     lines = sorted(captured.out.split('\n'))
     assert lines == [
         '',
+        'tests.CustomSoftDelete:soft_delete'
+        '\t\x1b[92mINSTALLED\x1b[0m'
+        '\t\x1b[92mENABLED\x1b[0m',
         'tests.FSM:fsm'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
@@ -157,7 +160,7 @@ def test_prune(capsys):
         captured = capsys.readouterr()
         lines = sorted(captured.out.split('\n'))
         assert (
-            'tests_softdelete:pgtrigger_soft_delete'
+            'tests_softdelete:pgtrigger_soft_delete_f41be'
             '\t\x1b[96mPRUNE\x1b[0m'
             '\t\x1b[92mENABLED\x1b[0m'
         ) in lines
