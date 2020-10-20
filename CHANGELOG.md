@@ -1,4 +1,20 @@
 # Changelog
+## 2.1.0 (2020-10-20)
+### Bug
+  - Fixed possibility of duplicate trigger function names [Wes Kendall, b9b1552]
+
+    django-pgtrigger previously enforced that no model could have the
+    same trigger name, however, the trigger function being called
+    is a globally unique name that needs to be checked.
+
+    django-pgtrigger now adds a hash to the trigger function and
+    installed trigger name based on the registered model. This
+    prevents a global collision for trigger functions.
+
+    Note that this change will make it appear like no triggers
+    are installed. Upgrading to this version will involve dropping
+    and re-creating existing triggers.
+
 ## 2.0.0 (2020-10-12)
 ### Api-Break
   - Trigger management commands [Wes Kendall, be26d33]
