@@ -388,20 +388,20 @@ class Trigger:
         if not self.name:
             raise ValueError('Trigger must have "name" attribute')
 
-        if len(self.name) > 53:
-            raise ValueError(f'Trigger name "{self.name}" > 53 characters. ')
+        if len(self.name) > 43:
+            raise ValueError(f'Trigger name "{self.name}" > 43 characters. ')
 
     def __str__(self):
         return self.name
 
-    @property
-    def pgid(self):
+    def get_pgid(self, model):
         """The ID of the trigger and function object in postgres
 
         All objects are prefixed with "pgtrigger_" in order to be
         discovered/managed by django-pgtrigger
         """
-        return f'pgtrigger_{self.name}'
+        model_hash = hashlib.sha1(self.get_uri(model).encode()).hexdigest()[:5]
+        return f'pgtrigger_{self.name}_{model_hash}'
 
     def get_condition(self, model):
         return self.condition
@@ -437,13 +437,29 @@ class Trigger:
 
     def register(self, *models):
         """Register model classes with the trigger"""
+        # Compute the unique trigger function names that are already
+        # registered in order to prevent an accidental collision
+        registered_function_names = {
+            trigger.get_pgid(model) for model, trigger in registry.values()
+        }
+
         for model in models:
             uri = self.get_uri(model)
             if uri in registry:  # pragma: no cover
                 raise ValueError(
                     f'Trigger with name "{self.name}" is already'
-                    f' registerd for model "{model}"'
+                    f' registered for model "{model}"'
                 )
+
+            if (
+                self.get_pgid(model) in registered_function_names
+            ):  # pragma: no cover
+                raise ValueError(
+                    f'Trigger with name "{self.name}" on model "{model}"'
+                    ' has an trigger function name that is already taken.'
+                    ' Use a different name for the trigger.'
+                )
+
             registry[self.get_uri(model)] = (model, self)
 
         return _cleanup_on_exit(lambda: self.unregister(*models))
@@ -496,7 +512,7 @@ class Trigger:
     def render_func(self, model):
         """Renders the trigger function SQL statement"""
         return f'''
-            CREATE OR REPLACE FUNCTION {self.pgid}()
+            CREATE OR REPLACE FUNCTION {self.get_pgid(model)}()
             RETURNS TRIGGER AS $$
                 {self.render_declare(model)}
                 BEGIN
@@ -509,13 +525,14 @@ class Trigger:
     def render_trigger(self, model):
         """Renders the trigger declaration SQL statement"""
         table = model._meta.db_table
+        pgid = self.get_pgid(model)
         return f'''
             DO $$ BEGIN
-                CREATE TRIGGER {self.pgid}
+                CREATE TRIGGER {pgid}
                     {self.when} {self.operation} ON {table}
                     {self.referencing or ''}
                     FOR EACH {self.level} {self.render_condition(model)}
-                    EXECUTE PROCEDURE {self.pgid}();
+                    EXECUTE PROCEDURE {pgid}();
             EXCEPTION
                 -- Ignore issues if the trigger already exists
                 WHEN others THEN null;
@@ -528,9 +545,10 @@ class Trigger:
         pgtrigger comments the hash of the trigger in order for us to
         determine if the trigger definition has changed
         """
+        pgid = self.get_pgid(model)
         hash = self.get_hash(model)
         table = model._meta.db_table
-        return f'COMMENT ON TRIGGER {self.pgid} ON {table} IS \'{hash}\''
+        return f'COMMENT ON TRIGGER {pgid} ON {table} IS \'{hash}\''
 
     def get_installation_status(self, model):
         """Returns the installation status of a trigger.
@@ -548,7 +566,7 @@ class Trigger:
         trigger_exists_sql = f'''
             SELECT oid, obj_description(oid) AS hash, tgenabled AS enabled
             FROM pg_trigger
-            WHERE tgname='{self.pgid}'
+            WHERE tgname='{self.get_pgid(model)}'
                   AND tgrelid='{model._meta.db_table}'::regclass;
         '''
         try:
@@ -606,7 +624,7 @@ class Trigger:
 
     def uninstall(self, model):
         """Uninstalls the trigger for a model"""
-        _drop_trigger(model._meta.db_table, self.pgid)
+        _drop_trigger(model._meta.db_table, self.get_pgid(model))
 
         return _cleanup_on_exit(  # pragma: no branch
             lambda: self.install(model)
@@ -617,7 +635,7 @@ class Trigger:
         with connection.cursor() as cursor:
             cursor.execute(
                 f'ALTER TABLE {model._meta.db_table} ENABLE TRIGGER'
-                f' {self.pgid};'
+                f' {self.get_pgid(model)};'
             )
 
         return _cleanup_on_exit(  # pragma: no branch
@@ -629,7 +647,7 @@ class Trigger:
         with connection.cursor() as cursor:
             cursor.execute(
                 f'ALTER TABLE {model._meta.db_table} DISABLE TRIGGER'
-                f' {self.pgid};'
+                f' {self.get_pgid(model)};'
             )
 
         return _cleanup_on_exit(  # pragma: no branch
@@ -643,7 +661,7 @@ class Trigger:
 
             # Create the table name / trigger name URI to pass down to the
             # trigger.
-            ignore_uri = f'{model._meta.db_table}:{self.pgid}'
+            ignore_uri = f'{model._meta.db_table}:{self.get_pgid(model)}'
 
             if not hasattr(_ignore, 'value'):
                 _ignore.value = set()
@@ -834,7 +852,8 @@ def install(*uris):
 def get_prune_list():
     """Return triggers that will be pruned upon next full install"""
     installed = {
-        (model._meta.db_table, trigger.pgid) for model, trigger in get()
+        (model._meta.db_table, trigger.get_pgid(model))
+        for model, trigger in get()
     }
 
     with connection.cursor() as cursor:

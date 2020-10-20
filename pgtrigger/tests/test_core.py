@@ -63,6 +63,18 @@ def test_soft_delete():
 
 
 @pytest.mark.django_db
+def test_customer_soft_delete():
+    """
+    Verifies the CustomSoftDelete test model has the "custom_active" flag set
+    to false
+    """
+    soft_delete = ddf.G(models.CustomSoftDelete, custom_active=True)
+    soft_delete.delete()
+
+    assert not models.CustomSoftDelete.objects.get().custom_active
+
+
+@pytest.mark.django_db
 def test_soft_delete_different_values():
     """
     Tests SoftDelete with different types of fields and values
@@ -352,9 +364,9 @@ def test_arg_checks():
             name='test', when=pgtrigger.Before, operation=pgtrigger.Update
         ).get_func(None)
 
-    with pytest.raises(ValueError, match='> 53'):
+    with pytest.raises(ValueError, match='> 43'):
         pgtrigger.Trigger(
-            when=pgtrigger.Before, operation=pgtrigger.Update, name='1' * 54
+            when=pgtrigger.Before, operation=pgtrigger.Update, name='1' * 44
         ).pgid
 
 
