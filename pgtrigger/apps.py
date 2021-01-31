@@ -6,7 +6,7 @@ from django.db.models.signals import post_migrate
 def install(**kwargs):
     import pgtrigger
 
-    pgtrigger.install()
+    pgtrigger.install(**kwargs)
 
 
 class PGTriggerConfig(django.apps.AppConfig):
