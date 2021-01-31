@@ -4,7 +4,7 @@ import hashlib
 import logging
 import threading
 
-from django.db import connection
+from django.db import connection, connections
 from django.db import models
 from django.db.models.expressions import Col
 from django.db.models.fields.related import RelatedField
@@ -823,12 +823,15 @@ def get(*uris):
         return list(registry.values())
 
 
-def install(*uris):
+def install(*uris, **connection_kwargs):
     """
     Install registered triggers matching URIs or all triggers if URIs aren't
     provided. If URIs aren't provided, prune any orphaned triggers from the
     database
     """
+    if 'using' in connection_kwargs:
+        global connection
+        connection = connections[connection_kwargs['using']]
     if uris:
         model_triggers = get(*uris)
     else:
