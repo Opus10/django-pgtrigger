@@ -4,7 +4,7 @@ import hashlib
 import logging
 import threading
 
-from django.db import connection, connections
+from django.db import connection, connections, router
 from django.db import models
 from django.db.models.expressions import Col
 from django.db.models.fields.related import RelatedField
@@ -842,6 +842,8 @@ def install(*uris, **connection_kwargs):
         ]
 
     for model, trigger in model_triggers:
+        if not router.allow_migrate(connection.alias, model._meta.app_label, model_name=model._meta.object_name):
+            continue
         LOGGER.info(
             f'pgtrigger: Installing "{trigger}" trigger'
             f' for {model._meta.db_table} table.'
