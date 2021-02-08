@@ -3,10 +3,10 @@ from django.conf import settings
 from django.db.models.signals import post_migrate
 
 
-def install(**kwargs):
+def install(using, **kwargs):
     import pgtrigger
 
-    pgtrigger.install()
+    pgtrigger.install(database=using)
 
 
 class PGTriggerConfig(django.apps.AppConfig):

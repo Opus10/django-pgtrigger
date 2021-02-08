@@ -99,6 +99,8 @@ endif
 	-psql postgres -c "ALTER USER postgres SUPERUSER;"
 	-psql postgres -c "CREATE DATABASE ${MODULE_NAME}_local OWNER postgres;"
 	-psql postgres -c "GRANT ALL PRIVILEGES ON DATABASE ${MODULE_NAME}_local to postgres;"
+	-psql postgres -c "CREATE DATABASE ${MODULE_NAME}_local_other OWNER postgres;"
+	-psql postgres -c "GRANT ALL PRIVILEGES ON DATABASE ${MODULE_NAME}_local_other to postgres;"
 	-cp -n .env.template .env
 
 

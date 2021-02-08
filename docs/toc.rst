@@ -7,6 +7,7 @@ Table of Contents
    index
    installation
    tutorial
+   multi_db
    commands
    package
    release_notes

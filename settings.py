@@ -1,3 +1,5 @@
+import copy
+
 import dj_database_url
 import pgconnection
 
@@ -12,4 +14,11 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
 ]
 # Database url comes from the DATABASE_URL env var
-DATABASES = pgconnection.configure({'default': dj_database_url.config()})
+# We have some multi-database tests, so set up two databases
+DATABASES = {
+    'default': dj_database_url.config(),
+}
+DATABASES['other'] = copy.deepcopy(DATABASES['default'])
+DATABASES['other']['NAME'] += '_other'
+
+DATABASES = pgconnection.configure(DATABASES)

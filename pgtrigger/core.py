@@ -4,8 +4,12 @@ import hashlib
 import logging
 import threading
 
-from django.db import connection
+import django.apps
+from django.conf import settings
+from django.db import connections
+from django.db import DEFAULT_DB_ALIAS
 from django.db import models
+from django.db import router
 from django.db.models.expressions import Col
 from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
@@ -29,6 +33,31 @@ registry = {}
 
 # All triggers currently being ignored
 _ignore = threading.local()
+
+
+def _get_database(model):
+    """
+    Obtains the database used for a trigger / model pair. The database
+    for the connection is selected based on the write DB in the database
+    router config.
+    """
+    return router.db_for_write(model) or DEFAULT_DB_ALIAS
+
+
+def _get_connection(model):
+    """
+    Obtains the connection used for a trigger / model pair. The database
+    for the connection is selected based on the write DB in the database
+    router config.
+    """
+    return connections[_get_database(model)]
+
+
+def _get_model(table):
+    """Obtains a django model based on its table name"""
+    for model in django.apps.apps.get_models():  # pragma: no branch
+        if model._meta.db_table == table:
+            return model
 
 
 def _is_concurrent_statement(sql):
@@ -216,6 +245,9 @@ class _OldNewQuery(Query):
         return super().build_lookup(lookups, lhs, rhs)
 
     def build_filter(self, filter_expr, *args, **kwargs):
+        if isinstance(filter_expr, Q):
+            return super().build_filter(filter_expr, *args, **kwargs)
+
         if filter_expr[0].startswith('old__'):
             alias = 'OLD'
         elif filter_expr[0].startswith('new__'):
@@ -306,6 +338,7 @@ class Q(models.Q, Condition):
     """
 
     def resolve(self, model):
+        connection = _get_connection(model)
         query = _OldNewQuery(model)
         sql = (
             connection.cursor()
@@ -324,6 +357,8 @@ class Q(models.Q, Condition):
 
 
 def _drop_trigger(table, trigger_pgid):
+    model = _get_model(table)
+    connection = _get_connection(model)
     with connection.cursor() as cursor:
         cursor.execute(f'DROP TRIGGER IF EXISTS {trigger_pgid} ON {table};')
 
@@ -563,6 +598,7 @@ class Trigger:
         "enabled" is True if the trigger is installed and enabled or false
         if installed and disabled (or uninstalled).
         """
+        connection = _get_connection(model)
         trigger_exists_sql = f'''
             SELECT oid, obj_description(oid) AS hash, tgenabled AS enabled
             FROM pg_trigger
@@ -607,9 +643,10 @@ class Trigger:
 
     def install(self, model):
         """Installs the trigger for a model"""
+        connection = _get_connection(model)
 
         # Ensure we have the function to ignore execution of triggers
-        install_ignore_func()
+        install_ignore_func(database=_get_database(model))
 
         rendered_func = self.render_func(model)
         rendered_trigger = self.render_trigger(model)
@@ -632,6 +669,8 @@ class Trigger:
 
     def enable(self, model):
         """Enables the trigger for a model"""
+        connection = _get_connection(model)
+
         with connection.cursor() as cursor:
             cursor.execute(
                 f'ALTER TABLE {model._meta.db_table} ENABLE TRIGGER'
@@ -644,6 +683,8 @@ class Trigger:
 
     def disable(self, model):
         """Disables the trigger for a model"""
+        connection = _get_connection(model)
+
         with connection.cursor() as cursor:
             cursor.execute(
                 f'ALTER TABLE {model._meta.db_table} DISABLE TRIGGER'
@@ -800,12 +841,22 @@ class SoftDelete(Trigger):
         '''
 
 
-def get(*uris):
+def get(*uris, database=None):
     """
-    Get triggers matching URIs or all triggers registered to models
+    Get triggers matching URIs or all triggers registered to models.
+    If a database is provided, will only enable triggers
+    registered to a particular database.
 
     A URI is in the format of "app_label.model_name:trigger_name"
     """
+    if database and uris:
+        raise ValueError('Cannot supply both trigger URIs and a database')
+
+    if not database:
+        databases = {_get_database(model) for model, _ in registry.values()}
+    else:
+        databases = [database] if isinstance(database, str) else database
+
     if uris:
         for uri in uris:
             if uri and len(uri.split(':')) == 1:
@@ -820,94 +871,120 @@ def get(*uris):
 
         return [registry[uri] for uri in uris]
     else:
-        return list(registry.values())
+        return [
+            (model, trigger)
+            for model, trigger in registry.values()
+            if _get_database(model) in databases
+        ]
 
 
-def install(*uris):
+def install(*uris, database=None):
     """
     Install registered triggers matching URIs or all triggers if URIs aren't
     provided. If URIs aren't provided, prune any orphaned triggers from the
-    database
+    database. If a database is provided, will only install triggers
+    registered to a particular database.
     """
     if uris:
-        model_triggers = get(*uris)
+        model_triggers = get(*uris, database=database)
     else:
         model_triggers = [
             (model, trigger)
-            for model, trigger in get()
+            for model, trigger in get(database=database)
             if trigger.get_installation_status(model)[0] != INSTALLED
         ]
 
     for model, trigger in model_triggers:
         LOGGER.info(
-            f'pgtrigger: Installing "{trigger}" trigger'
-            f' for {model._meta.db_table} table.'
+            f'pgtrigger: Installing {trigger} trigger'
+            f' for {model._meta.db_table} table'
+            f' on {_get_database(database)} database.'
         )
         trigger.install(model)
 
     if not uris:  # pragma: no branch
-        prune()
+        prune(database=database)
 
 
-def get_prune_list():
-    """Return triggers that will be pruned upon next full install"""
+def get_prune_list(database=None):
+    """Return triggers that will be pruned upon next full install
+
+    Args:
+        database (str, default=None): Only return results from this
+            database. Defaults to returning results from all databases
+    """
     installed = {
         (model._meta.db_table, trigger.get_pgid(model))
         for model, trigger in get()
     }
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            'SELECT tgrelid::regclass, tgname, tgenabled'
-            '    FROM pg_trigger'
-            '    WHERE tgname LIKE \'pgtrigger_%\''
-        )
-        triggers = set(cursor.fetchall())
+    if isinstance(database, str):
+        databases = [database]
+    else:
+        databases = database or settings.DATABASES
 
-    return [
-        (trigger[0], trigger[1], trigger[2] == 'O')
-        for trigger in triggers
-        if (trigger[0], trigger[1]) not in installed
-    ]
+    prune_list = []
+    for database in databases:
+        with connections[database].cursor() as cursor:
+            cursor.execute(
+                'SELECT tgrelid::regclass, tgname, tgenabled'
+                '    FROM pg_trigger'
+                '    WHERE tgname LIKE \'pgtrigger_%\''
+            )
+            triggers = set(cursor.fetchall())
+
+        prune_list += [
+            (trigger[0], trigger[1], trigger[2] == 'O', database)
+            for trigger in triggers
+            if (trigger[0], trigger[1]) not in installed
+        ]
+
+    return prune_list
 
 
-def prune():
+def prune(database=None):
     """
     Remove any pgtrigger triggers in the database that are not used by models.
     I.e. if a model or trigger definition is deleted from a model, ensure
     it is removed from the database
+
+    Args:
+        database (str, default=None): Only prune triggers from this
+            database. Defaults to returning results from all databases
     """
-    for trigger in get_prune_list():
+    for trigger in get_prune_list(database=database):
         LOGGER.info(
             f'pgtrigger: Pruning trigger {trigger[1]}'
-            f' from table {trigger[0]}...'
+            f' for table {trigger[0]} on {trigger[3]} database.'
         )
         _drop_trigger(trigger[0], trigger[1])
 
 
-def enable(*uris):
+def enable(*uris, database=None):
     """
     Enables registered triggers matching URIs or all triggers if no URIs
-    are provided
+    are provided. If a database is provided, will only enable triggers
+    registered to a particular database.
     """
     if uris:
-        model_triggers = get(*uris)
+        model_triggers = get(*uris, database=database)
     else:
         model_triggers = [
             (model, trigger)
-            for model, trigger in get()
+            for model, trigger in get(database=database)
             if trigger.get_installation_status(model)[1] is False
         ]
 
     for model, trigger in model_triggers:
         LOGGER.info(
-            f'pgtrigger: Enabling "{trigger}" trigger'
-            f' for {model._meta.db_table} table.'
+            f'pgtrigger: Enabling {trigger} trigger'
+            f' for {model._meta.db_table} table'
+            f' on {_get_database(model)} database.'
         )
         trigger.enable(model)
 
 
-def uninstall(*uris):
+def uninstall(*uris, database=None):
     """
     Uninstalls registered triggers matching URIs or all triggers if no
     URIs are provided. If no URIs are provided, will also try to prune
@@ -915,45 +992,51 @@ def uninstall(*uris):
 
     Running migrations will re-install any existing triggers. This
     behavior is overridable with ``settings.PGTRIGGER_INSTALL_ON_MIGRATE``
+
+    If a database is provided, will only uninstall triggers
+    registered to a particular database.
     """
     if uris:
-        model_triggers = get(*uris)
+        model_triggers = get(*uris, database=database)
     else:
         model_triggers = [
             (model, trigger)
-            for model, trigger in get()
+            for model, trigger in get(database=database)
             if trigger.get_installation_status(model)[0] != UNINSTALLED
         ]
 
     for model, trigger in model_triggers:
         LOGGER.info(
-            f'pgtrigger: Uninstalling "{trigger}" trigger'
-            f' for {model._meta.db_table} table.'
+            f'pgtrigger: Uninstalling {trigger} trigger'
+            f' for {model._meta.db_table} table'
+            f' on {_get_database(model)} database.'
         )
         trigger.uninstall(model)
 
     if not uris:
-        prune()
+        prune(database=database)
 
 
-def disable(*uris):
+def disable(*uris, database=None):
     """
     Disables registered triggers matching URIs or all triggers if no URIs are
-    provided
+    provided. If a database is provided, will only disable triggers
+    registered to a particular database.
     """
     if uris:
-        model_triggers = get(*uris)
+        model_triggers = get(*uris, database=database)
     else:
         model_triggers = [
             (model, trigger)
-            for model, trigger in get()
+            for model, trigger in get(database=database)
             if trigger.get_installation_status(model)[1]
         ]
 
     for model, trigger in model_triggers:
         LOGGER.info(
-            f'pgtrigger: Disabling "{trigger}" trigger for'
-            f' {model._meta.db_table} table.'
+            f'pgtrigger: Disabling {trigger} trigger for'
+            f' {model._meta.db_table} table'
+            f' on {_get_database(model)} database.'
         )
         trigger.disable(model)
 
@@ -973,7 +1056,7 @@ def ignore(*uris):
         yield
 
 
-def install_ignore_func():
+def install_ignore_func(database=None):
     """
     pgtrigger uses a special postgres function to determine when a trigger
     should be ignored. This installs the function.
@@ -981,31 +1064,34 @@ def install_ignore_func():
     This function is automatically installed when all triggers are installed
     with pgtrigger.install()
     """
-    with connection.cursor() as cursor:
-        cursor.execute(
-            '''
-            CREATE OR REPLACE FUNCTION _pgtrigger_should_ignore(
-                table_name NAME,
-                trigger_name NAME
-            )
-            RETURNS BOOLEAN AS $$
-                DECLARE
-                    _pgtrigger_ignore TEXT[];
-                    _result BOOLEAN;
-                BEGIN
+    databases = {_get_database(model) for model, _ in get(database=database)}
+
+    for database in databases:
+        with connections[database].cursor() as cursor:
+            cursor.execute(
+                '''
+                CREATE OR REPLACE FUNCTION _pgtrigger_should_ignore(
+                    table_name NAME,
+                    trigger_name NAME
+                )
+                RETURNS BOOLEAN AS $$
+                    DECLARE
+                        _pgtrigger_ignore TEXT[];
+                        _result BOOLEAN;
                     BEGIN
-                        SELECT INTO _pgtrigger_ignore
-                            CURRENT_SETTING('pgtrigger.ignore');
-                        EXCEPTION WHEN OTHERS THEN
+                        BEGIN
+                            SELECT INTO _pgtrigger_ignore
+                                CURRENT_SETTING('pgtrigger.ignore');
+                            EXCEPTION WHEN OTHERS THEN
+                        END;
+                        IF _pgtrigger_ignore IS NOT NULL THEN
+                            SELECT CONCAT(table_name, ':', trigger_name) = ANY(_pgtrigger_ignore)
+                            INTO _result;
+                            RETURN _result;
+                        ELSE
+                            RETURN FALSE;
+                        END IF;
                     END;
-                    IF _pgtrigger_ignore IS NOT NULL THEN
-                        SELECT CONCAT(table_name, ':', trigger_name) = ANY(_pgtrigger_ignore)
-                        INTO _result;
-                        RETURN _result;
-                    ELSE
-                        RETURN FALSE;
-                    END IF;
-                END;
-            $$ LANGUAGE plpgsql;
-            '''
-        )
+                $$ LANGUAGE plpgsql;
+                '''
+            )

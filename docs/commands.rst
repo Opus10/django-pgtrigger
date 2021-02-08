@@ -10,7 +10,7 @@ ls
 --
 
 Use ``manage.py pgtrigger ls`` to list all triggers that are actively
-managed by ``django-pgtrigger``. The trigger URI, installation status,
+managed by ``django-pgtrigger``. The trigger URI, database, installation status,
 and whether the trigger is enabled or disabled will be shown.
 
 The following are valid installation status markers:
@@ -36,7 +36,8 @@ Enabling and disabling of triggers can be performed with
 
   You can provide trigger URIs as arguments to ``manage.py pgtrigger ls``
   to only list specific triggers. The URI is the first column returned
-  by ``manage.py pgtrigger ls``.
+  by ``manage.py pgtrigger ls``. You can also only list triggers on
+  a single database with the ``--database`` option.
 
 install
 -------
@@ -47,7 +48,8 @@ Messages will be printed for every installed trigger. When executed with
 no arguments, any triggers that were previously installed by ``django-pgtrigger``
 but no longer in the codebase will be pruned.
 
-You can provide trigger URIs as arguments to install specific triggers.
+You can provide trigger URIs as arguments to install specific triggers
+or filter triggers on a database with the ``--database`` argument.
 Trigger URIs can be found with the ``manage.py pgtrigger ls`` command.
 
 uninstall
@@ -64,7 +66,8 @@ that were previously disabled will be printed when enabled. In contrast
 to ``manage.py pgtrigger install``, no previously managed triggers will
 be pruned.
 
-Similar to other commands, one can provide trigger URIs as arguments.
+Similar to other commands, one can provide trigger URIs as arguments or
+the database.
 Trigger URIs can be found with the ``manage.py pgtrigger ls`` command.
 
 disable
