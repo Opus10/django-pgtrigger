@@ -1,4 +1,16 @@
 # Changelog
+## 2.2.0 (2021-02-08)
+### Feature
+  - Multiple database support [Wes Kendall, b09ba73]
+
+    Supports multiple-database functionality in all core functions and management commands.
+    By default, all functions and management commands operate over all databases in a
+    multi-database setup. This behavior can be overridden with the ``--database`` flag.
+
+    When calling ``manage.py migrate``, only the database being migrated will have
+    relevant triggers installed. This fits into how Django supports multi-database
+    migrations.
+
 ## 2.1.0 (2020-10-20)
 ### Bug
   - Fixed possibility of duplicate trigger function names [Wes Kendall, b9b1552]
