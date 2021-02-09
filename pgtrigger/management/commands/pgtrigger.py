@@ -62,6 +62,9 @@ class LsCommand(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
+        parser.add_argument(
+            '--database', help='Only list triggers for this database',
+        )
 
     def handle(self, *args, **options):
         uris = options['uris']
@@ -83,15 +86,16 @@ class LsCommand(BaseCommand):
             else:
                 raise AssertionError
 
-        for model, trigger in core.get(*uris):
+        for model, trigger in core.get(*uris, database=options['database']):
             uri = trigger.get_uri(model)
+            database = core._get_database(model)
             status = trigger.get_installation_status(model)
-            print(f'{uri}\t{_get_colored_status(*status)}')
+            print(f'{uri}\t{database}\t{_get_colored_status(*status)}')
 
         if not uris:
-            for trigger in core.get_prune_list():
+            for trigger in core.get_prune_list(database=options['database']):
                 print(
-                    f'{trigger[0]}:{trigger[1]}\t'
+                    f'{trigger[0]}:{trigger[1]}\t{trigger[3]}\t'
                     f'{_get_colored_status("PRUNE", trigger[2])}'
                 )
 
@@ -101,10 +105,13 @@ class InstallCommand(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
+        parser.add_argument(
+            '--database', help='Only install triggers for this database',
+        )
 
     def handle(self, *args, **options):
         _setup_logging()
-        core.install(*options['uris'])
+        core.install(*options['uris'], database=options['database'])
 
 
 class UninstallCommand(BaseCommand):
@@ -112,10 +119,13 @@ class UninstallCommand(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
+        parser.add_argument(
+            '--database', help='Only install triggers for this database',
+        )
 
     def handle(self, *args, **options):
         _setup_logging()
-        core.uninstall(*options['uris'])
+        core.uninstall(*options['uris'], database=options['database'])
 
 
 class EnableCommand(BaseCommand):
@@ -123,10 +133,13 @@ class EnableCommand(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
+        parser.add_argument(
+            '--database', help='Only enable triggers for this database',
+        )
 
     def handle(self, *args, **options):
         _setup_logging()
-        core.enable(*options['uris'])
+        core.enable(*options['uris'], database=options['database'])
 
 
 class DisableCommand(BaseCommand):
@@ -134,18 +147,26 @@ class DisableCommand(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
+        parser.add_argument(
+            '--database', help='Only enable triggers for this database',
+        )
 
     def handle(self, *args, **options):
         _setup_logging()
-        core.disable(*options['uris'])
+        core.disable(*options['uris'], database=options['database'])
 
 
 class PruneCommand(BaseCommand):
     help = 'Prune installed triggers that are no longer in the codebase.'
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--database', help='Only prune triggers for this database',
+        )
+
     def handle(self, *args, **options):
         _setup_logging()
-        core.prune()
+        core.prune(database=options['database'])
 
 
 class Command(SubCommands):

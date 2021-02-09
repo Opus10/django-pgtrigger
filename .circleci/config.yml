@@ -20,6 +20,8 @@ jobs:
       - checkout
       - restore_cache:
           key: v1-{{ checksum "poetry.lock" }}
+      - run: dockerize -wait tcp://127.0.0.1:5432 -timeout 60s
+      - run: psql ${DATABASE_URL} -c "CREATE DATABASE circle_test_other WITH TEMPLATE circle_test;"
       - run: make ci_setup
       - run: make test
       - save_cache:

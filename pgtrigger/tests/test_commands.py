@@ -17,27 +17,35 @@ def test_full_ls(capsys):
     assert lines == [
         '',
         'tests.CustomSoftDelete:soft_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.FSM:fsm'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.SoftDelete:soft_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.TestTrigger:protect_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.TestTrigger:protect_misc_insert'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.ToLogModel:after_update_row_test'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.ToLogModel:after_update_statement_test'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.ToLogModel:update_of_statement_test'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
     ]
@@ -59,9 +67,11 @@ def test_subset_ls(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.TestTrigger:protect_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
     ]
@@ -85,8 +95,10 @@ def test_main_commands(capsys):
     lines = sorted(captured.out.split('\n'))
     assert lines == [
         '',
-        'tests.SoftDelete:soft_delete' '\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestTrigger:protect_delete' '\t\x1b[91mUNINSTALLED\x1b[0m',
+        'tests.SoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
+        'tests.TestTrigger:protect_delete'
+        '\tdefault'
+        '\t\x1b[91mUNINSTALLED\x1b[0m',
     ]
 
     call_command('pgtrigger', 'install')
@@ -102,9 +114,11 @@ def test_main_commands(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.TestTrigger:protect_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
     ]
@@ -122,9 +136,11 @@ def test_main_commands(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[91mDISABLED\x1b[0m',
         'tests.TestTrigger:protect_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[91mDISABLED\x1b[0m',
     ]
@@ -142,9 +158,11 @@ def test_main_commands(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.TestTrigger:protect_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
     ]
@@ -161,6 +179,7 @@ def test_prune(capsys):
         lines = sorted(captured.out.split('\n'))
         assert (
             'tests_softdelete:pgtrigger_soft_delete_f41be'
+            '\tdefault'
             '\t\x1b[96mPRUNE\x1b[0m'
             '\t\x1b[92mENABLED\x1b[0m'
         ) in lines
@@ -171,7 +190,9 @@ def test_prune(capsys):
     captured = capsys.readouterr()
     lines = sorted(captured.out.split('\n'))
     assert (
-        'tests.SoftDelete:soft_delete' '\t\x1b[91mUNINSTALLED\x1b[0m'
+        'tests.SoftDelete:soft_delete'
+        '\tdefault'
+        '\t\x1b[91mUNINSTALLED\x1b[0m'
     ) in lines
 
     call_command('pgtrigger', 'install')
@@ -180,6 +201,7 @@ def test_prune(capsys):
     lines = sorted(captured.out.split('\n'))
     assert (
         'tests.SoftDelete:soft_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m'
     ) in lines
@@ -203,6 +225,7 @@ def test_outdated(capsys, mocker):
     lines = sorted(captured.out.split('\n'))
     assert (
         'tests.SoftDelete:soft_delete'
+        '\tdefault'
         '\t\x1b[93mOUTDATED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m'
     ) in lines
@@ -226,8 +249,9 @@ def test_main_commands_w_args(capsys):
     lines = sorted(captured.out.split('\n'))
     assert lines == [
         '',
-        'tests.SoftDelete:soft_delete' '\t\x1b[91mUNINSTALLED\x1b[0m',
+        'tests.SoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
         'tests.TestTrigger:protect_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
     ]
@@ -245,9 +269,11 @@ def test_main_commands_w_args(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.TestTrigger:protect_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
     ]
@@ -265,9 +291,11 @@ def test_main_commands_w_args(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[91mDISABLED\x1b[0m',
         'tests.TestTrigger:protect_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
     ]
@@ -285,9 +313,11 @@ def test_main_commands_w_args(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.TestTrigger:protect_delete'
+        '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
     ]
