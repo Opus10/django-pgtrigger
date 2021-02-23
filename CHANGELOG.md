@@ -1,5 +1,9 @@
 # Changelog
-## 2.2.0 (2021-02-08)
+## 2.2.1 (2021-02-23)
+### Trivial
+  - Optionally change "other" DB name if set at all [Tómas Árni Jónasson, 5b24058]
+
+## 2.2.0 (2021-02-09)
 ### Feature
   - Multiple database support [Wes Kendall, b09ba73]
 
