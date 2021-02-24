@@ -19,6 +19,7 @@ DATABASES = {
     'default': dj_database_url.config(),
 }
 DATABASES['other'] = copy.deepcopy(DATABASES['default'])
-DATABASES['other']['NAME'] += '_other'
+if 'NAME' in DATABASES['other']:
+    DATABASES['other']['NAME'] += '_other'
 
 DATABASES = pgconnection.configure(DATABASES)
