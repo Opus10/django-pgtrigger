@@ -3,6 +3,7 @@ import datetime as dt
 import ddf
 from django.contrib.auth.models import User
 from django.db.utils import InternalError
+from django.db.utils import NotSupportedError
 import pytest
 
 import pgtrigger.core
@@ -177,6 +178,17 @@ def test_is_distinct_from_condition():
         test_model.int_field = 0
         test_model.nullable = None
         test_model.save()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_invalid_trigger():
+    """Ensures triggers with invalid syntax are not installed"""
+    # Truncates can only be used on statement level triggers
+    trigger = pgtrigger.Protect(
+        name='test_invalid', operation=pgtrigger.Truncate,
+    )
+    with pytest.raises(NotSupportedError, match='are not supported'):
+        trigger.install(models.TestTrigger)
 
 
 @pytest.mark.django_db(transaction=True)

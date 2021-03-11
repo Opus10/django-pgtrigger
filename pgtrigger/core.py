@@ -570,7 +570,7 @@ class Trigger:
                     EXECUTE PROCEDURE {pgid}();
             EXCEPTION
                 -- Ignore issues if the trigger already exists
-                WHEN others THEN null;
+                WHEN duplicate_object THEN null;
             END $$;
         '''
 
