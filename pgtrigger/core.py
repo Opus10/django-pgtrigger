@@ -898,7 +898,7 @@ def install(*uris, database=None):
         LOGGER.info(
             f'pgtrigger: Installing {trigger} trigger'
             f' for {model._meta.db_table} table'
-            f' on {_get_database(database)} database.'
+            f' on {_get_database(model)} database.'
         )
         trigger.install(model)
 
