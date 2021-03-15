@@ -1,4 +1,8 @@
 # Changelog
+## 2.3.0 (2021-03-15)
+### Bug
+  - Fix for wrong argument supplied at _get_database fn call [arpit o.O, 90fc51d]
+
 ## 2.2.1 (2021-02-23)
 ### Trivial
   - Optionally change "other" DB name if set at all [Tómas Árni Jónasson, 5b24058]
