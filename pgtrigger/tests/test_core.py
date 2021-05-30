@@ -185,7 +185,8 @@ def test_invalid_trigger():
     """Ensures triggers with invalid syntax are not installed"""
     # Truncates can only be used on statement level triggers
     trigger = pgtrigger.Protect(
-        name='test_invalid', operation=pgtrigger.Truncate,
+        name='test_invalid',
+        operation=pgtrigger.Truncate,
     )
     with pytest.raises(NotSupportedError, match='are not supported'):
         trigger.install(models.TestTrigger)
@@ -629,7 +630,7 @@ def test_trigger_conditions():
         non_read_only.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(databases=['default', 'other'], transaction=True)
 def test_trigger_management(mocker):
     """Verifies dropping and recreating triggers works"""
     deletion_protected_model = ddf.G(models.TestTrigger)

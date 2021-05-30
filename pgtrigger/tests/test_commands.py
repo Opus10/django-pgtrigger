@@ -6,7 +6,7 @@ import pytest
 from pgtrigger import core
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(databases=['default', 'other'])
 def test_full_ls(capsys):
     """Tests listing all triggers"""
 
@@ -77,7 +77,7 @@ def test_subset_ls(capsys):
     ]
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(databases=['default', 'other'])
 def test_main_commands(capsys):
     """
     Tests running main commands
@@ -168,7 +168,7 @@ def test_main_commands(capsys):
     ]
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(databases=['default', 'other'])
 def test_prune(capsys):
     """Test pruning a trigger"""
     # Make it appear as though the trigger has been renamed and is no
@@ -207,7 +207,7 @@ def test_prune(capsys):
     ) in lines
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(databases=['default', 'other'])
 def test_outdated(capsys, mocker):
     """Test an outdated trigger"""
     # Make it appear like the trigger is out of date by changing
@@ -219,7 +219,8 @@ def test_outdated(capsys, mocker):
     )
 
     call_command(
-        'pgtrigger', 'ls',
+        'pgtrigger',
+        'ls',
     )
     captured = capsys.readouterr()
     lines = sorted(captured.out.split('\n'))
