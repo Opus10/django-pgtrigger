@@ -1,4 +1,24 @@
 # Changelog
+## 2.3.2 (2021-05-29)
+### Trivial
+  - Fixing tags after organization migration [Wes Kendall, 0ba84d2]
+
+## 2.3.1 (2021-05-29)
+### Bug
+  - Throw errors on invalid trigger definitions. [Wes Kendall, 28f1329]
+
+    Previously triggers were installed with a broad try/except in order to ignore
+    errors when installing duplicate triggers. This caused invalid triggers to
+    not be installed with no errors thrown.
+
+    The code was updated to catch the specific exception for duplicate triggers
+    and allow other trigger errors to surface. A failing test case was
+    added.
+  - Fix for wrong argument supplied at _get_database fn call [arpit o.O, 2f7cea1]
+### Trivial
+  - Updated with the latest django app template [Wes Kendall, 9a71227]
+  - Fix incorrect name in example [Simon Willison, 069e05a]
+
 ## 2.2.1 (2021-02-23)
 ### Trivial
   - Optionally change "other" DB name if set at all [Tómas Árni Jónasson, 5b24058]
