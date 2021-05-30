@@ -4,7 +4,7 @@ executors:
   python:
     working_directory: ~/django-pgtrigger
     docker:
-      - image: jyve/circleci-public-django-app
+      - image: opus10/circleci-public-django-app
         environment:
           DATABASE_URL: postgres://root@localhost/circle_test?sslmode=disable
       - image: circleci/postgres:11-ram
@@ -55,7 +55,7 @@ jobs:
     steps:
       - checkout
       - run: ssh-add -D
-      - run: echo "${GITHUB_JYVE_DEVOPS_PRIVATE_SSH_KEY_BASE64}" | base64 --decode | ssh-add - > /dev/null
+      - run: echo "${GITHUB_DEVOPS_PRIVATE_SSH_KEY_BASE64}" | base64 --decode | ssh-add - > /dev/null
       - restore_cache:
           key: v1-{{ checksum "poetry.lock" }}
       - run: make ci_setup

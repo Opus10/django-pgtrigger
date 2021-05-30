@@ -10,7 +10,7 @@ Setup
 
 Set up your development environment with::
 
-    git clone git@github.com:jyveapp/django-pgtrigger.git
+    git clone git@github.com:Opus10/django-pgtrigger.git
     cd django-pgtrigger
     make setup
 

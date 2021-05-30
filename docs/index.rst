@@ -90,4 +90,3 @@ After you have gone through the
 tutorial, check out
 `<https://wesleykendall.github.io/django-pgtrigger-tutorial/>`__, which
 is an interactive tutorial written for a Django meetup talk about
-``django-pgtrigger``.

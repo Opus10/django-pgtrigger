@@ -63,7 +63,8 @@ class LsCommand(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
         parser.add_argument(
-            '--database', help='Only list triggers for this database',
+            '--database',
+            help='Only list triggers for this database',
         )
 
     def handle(self, *args, **options):
@@ -106,7 +107,8 @@ class InstallCommand(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
         parser.add_argument(
-            '--database', help='Only install triggers for this database',
+            '--database',
+            help='Only install triggers for this database',
         )
 
     def handle(self, *args, **options):
@@ -120,7 +122,8 @@ class UninstallCommand(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
         parser.add_argument(
-            '--database', help='Only install triggers for this database',
+            '--database',
+            help='Only install triggers for this database',
         )
 
     def handle(self, *args, **options):
@@ -134,7 +137,8 @@ class EnableCommand(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
         parser.add_argument(
-            '--database', help='Only enable triggers for this database',
+            '--database',
+            help='Only enable triggers for this database',
         )
 
     def handle(self, *args, **options):
@@ -148,7 +152,8 @@ class DisableCommand(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
         parser.add_argument(
-            '--database', help='Only enable triggers for this database',
+            '--database',
+            help='Only enable triggers for this database',
         )
 
     def handle(self, *args, **options):
@@ -161,7 +166,8 @@ class PruneCommand(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--database', help='Only prune triggers for this database',
+            '--database',
+            help='Only prune triggers for this database',
         )
 
     def handle(self, *args, **options):
