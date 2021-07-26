@@ -472,7 +472,7 @@ row with the exact same values? Here's how:
     @pgtrigger.register(
         pgtrigger.Protect(
             name='protect_redundant_updates',
-            operation=pgtrigger.Delete,
+            operation=pgtrigger.Update,
             condition=pgtrigger.Condition(
                 'OLD.* IS NOT DISTINCT FROM NEW.*'
             )
