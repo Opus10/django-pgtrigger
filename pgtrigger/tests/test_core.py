@@ -278,6 +278,30 @@ def test_is_not_distinct_from_condition():
         test_model.save()
 
 
+def test_max_name_length(mocker):
+    """
+    Verifies that a trigger with the exact MAX_NAME_LENGTH can be installed
+    fine. Also checks that going above this by one character results in
+    a database error
+    """
+    # Protect a field from being updated to the same value. In this case,
+    # both int_field and nullable need to change in order for the update to
+    # happen
+    trigger = pgtrigger.Protect(
+        name='t' * pgtrigger.core.MAX_NAME_LENGTH,
+        operation=pgtrigger.Update,
+    )
+    assert trigger.get_pgid(models.TestTrigger)
+
+    with mocker.patch.object(pgtrigger.Protect, 'validate_name'):
+        with pytest.raises(ValueError):
+            trigger = pgtrigger.Protect(
+                name='a' * (pgtrigger.core.MAX_NAME_LENGTH + 1),
+                operation=pgtrigger.Update,
+            )
+            trigger.get_pgid(models.TestTrigger)
+
+
 @pytest.mark.django_db(transaction=True)
 def test_complex_conditions():
     """Tests complex OLD and NEW trigger conditions"""
@@ -377,9 +401,9 @@ def test_arg_checks():
             name='test', when=pgtrigger.Before, operation=pgtrigger.Update
         ).get_func(None)
 
-    with pytest.raises(ValueError, match='> 43'):
+    with pytest.raises(ValueError, match='> 47'):
         pgtrigger.Trigger(
-            when=pgtrigger.Before, operation=pgtrigger.Update, name='1' * 44
+            when=pgtrigger.Before, operation=pgtrigger.Update, name='1' * 48
         ).pgid
 
 
