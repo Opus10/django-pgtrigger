@@ -12,20 +12,20 @@ DELETE, TRUNCATE) on certain conditions of the affected rows.
 
 The `pgtrigger.Trigger` object is the base class for all triggers.
 Attributes of this class mirror the syntax required for
-`making a Postgres trigger <https://www.postgresql.org/docs/current/sql-createtrigger.html>`__,
-and one has the ability to input the exact
-`PL/pgSQL code <https://www.postgresql.org/docs/current/plpgsql.html>`__
-that is executed by Postgres in the trigger. ``pgtrigger`` also has several
-helper classes, like `pgtrigger.Protect`, that implement some core
-triggers you can configure without having to write ``PL/pgSQL``
-syntax.
+`making a Postgres trigger <https://www.postgresql.org/docs/current/sql-createtrigger.html>`__.
 
-When declaring a trigger, one can provide the following core attributes:
+The ``django-pgtrigger`` library is designed so that users only need to use
+Python and Django idioms for registering common triggers on models.
+More advanced users, however, can always
+directly write the raw PL/pgSQL dialect used for Postgres triggers.
+
+Here are all of basic attributes of triggers that you will use when
+using just about any of the triggers in this library:
 
 * **name**
 
     The identifying name of trigger. Is unique for every model and must
-    be less than 53 characters. The trigger name is used for
+    be <= 47 characters. The trigger name is used for
     performing trigger management operations and must be provided.
 
 * **when**
@@ -91,11 +91,28 @@ When declaring a trigger, one can provide the following core attributes:
         One must keep these caveats in mind when constructing triggers
         to avoid unexpected behavior.
 
-* **name** *(optional)*
 
-    Registers the trigger with a human-readable name so that it can
-    be referenced in other ``django-pgtrigger`` functionality
-    such as `pgtrigger.ignore`.
+Here are the more advanced attributes of triggers that you will want to
+know about when writing more complex triggers or writing your own
+trigger functions.
+
+
+* **func**
+
+    The raw PL/pgSQL function that is executed.
+
+
+    .. note::
+
+        This is *not* the entire declared trigger function, but rather
+        the snippet of PL/pgSQL that is nested in the
+        ```DECLARE ... BEGIN ... END``` portion of the trigger.
+
+* **declare** *(optional)*
+
+    If the trigger requires additional variable declarations, they
+    can be defined as a list of (variable_name, variable_type) tuples.
+    For example ``declare=[('my_var_1', 'BOOLEAN'), ('my_var_2', 'JSONB')]``
 
 * **level** *(optional, default=pgtrigger.Row)*
 

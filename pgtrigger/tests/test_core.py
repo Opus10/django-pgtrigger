@@ -293,13 +293,13 @@ def test_max_name_length(mocker):
     )
     assert trigger.get_pgid(models.TestTrigger)
 
-    with mocker.patch.object(pgtrigger.Protect, 'validate_name'):
-        with pytest.raises(ValueError):
-            trigger = pgtrigger.Protect(
-                name='a' * (pgtrigger.core.MAX_NAME_LENGTH + 1),
-                operation=pgtrigger.Update,
-            )
-            trigger.get_pgid(models.TestTrigger)
+    mocker.patch.object(pgtrigger.Protect, 'validate_name')
+    with pytest.raises(ValueError):
+        trigger = pgtrigger.Protect(
+            name='a' * (pgtrigger.core.MAX_NAME_LENGTH + 1),
+            operation=pgtrigger.Update,
+        )
+        trigger.get_pgid(models.TestTrigger)
 
 
 @pytest.mark.django_db(transaction=True)
