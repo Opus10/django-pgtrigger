@@ -1,3 +1,5 @@
+import django
+
 from pgtrigger.core import After
 from pgtrigger.core import Before
 from pgtrigger.core import Condition
@@ -27,7 +29,10 @@ from pgtrigger.core import uninstall
 from pgtrigger.core import Update
 from pgtrigger.core import UpdateOf
 
-default_app_config = 'pgtrigger.apps.PGTriggerConfig'
+if django.VERSION < (3, 2):
+    default_app_config = 'pgtrigger.apps.PGTriggerConfig'
+
+del django
 
 
 __all__ = [

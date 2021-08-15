@@ -393,6 +393,7 @@ class Trigger:
     condition = None
     referencing = None
     func = None
+    declare = None
 
     def __init__(
         self,
@@ -404,6 +405,7 @@ class Trigger:
         condition=None,
         referencing=None,
         func=None,
+        declare=None,
     ):
         self.name = name or self.name
         self.level = level or self.level
@@ -412,6 +414,7 @@ class Trigger:
         self.condition = condition or self.condition
         self.referencing = referencing or self.referencing
         self.func = func or self.func
+        self.declare = declare or self.declare
 
         if not self.level or not isinstance(self.level, _Level):
             raise ValueError(f'Invalid "level" attribute: {self.level}')
@@ -472,7 +475,7 @@ class Trigger:
             List[tuple]: A list of variable name / type tuples that will
             be shown in the DECLARE. For example [('row_data', 'JSONB')]
         """
-        return []
+        return self.declare or []
 
     def get_func(self, model):
         """
