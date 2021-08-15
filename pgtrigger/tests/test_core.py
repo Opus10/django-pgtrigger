@@ -448,6 +448,43 @@ def test_registry():
         pgtrigger.get('tests.TestMode')
 
 
+def test_duplicate_trigger_names(mocker):
+    """Ensure that duplicate trigger names are properly detected"""
+
+    # Add a trigger to the registry
+    trigger1 = pgtrigger.Trigger(
+        name='mytrigger', when=pgtrigger.Before, operation=pgtrigger.Insert
+    )
+    trigger2 = pgtrigger.Trigger(
+        name='mytrigger', when=pgtrigger.Before, operation=pgtrigger.Insert
+    )
+    trigger3 = pgtrigger.Trigger(
+        name='MyTrigger', when=pgtrigger.Before, operation=pgtrigger.Insert
+    )
+
+    assert trigger1.get_pgid(models.TestModel) == 'pgtrigger_mytrigger_b34c5'
+    assert trigger3.get_pgid(models.TestModel) == 'pgtrigger_mytrigger_4a08f'
+
+    # Check that a conflict cannot happen in the registry.
+    # NOTE - use context managers to ensure we don't keep around
+    # these registered triggers in other tests
+    with trigger1.register(models.TestModel):
+        with pytest.raises(ValueError, match='already registered'):
+            with trigger2.register(models.TestModel):
+                pass
+
+    mocker.patch.object(
+        pgtrigger.Trigger, 'get_pgid', return_value='duplicate'
+    )
+
+    # Check that a conflict cannot happen in the generated postgres ID.
+    # NOTE - use context managers to ensure we don't keep around
+    # these registered triggers in other tests
+    with pytest.raises(ValueError, match='that is already taken'):
+        with trigger1.register(models.TestModel):
+            pass
+
+
 def test_operations():
     """Tests Operation objects and ORing them together"""
     assert str(pgtrigger.Update) == 'UPDATE'
