@@ -1,5 +1,11 @@
 # Changelog
-## 2.3.2 (2021-05-29)
+## 2.3.3 (2021-08-15)
+### Trivial
+  - Adjusted max length of trigger names to 47 characters [Wes Kendall, 528140f]
+  - Updated to the latest Django app template [Wes Kendall, d2d5328]
+  - Change "Delete" to "Update" in tutorial docs [Rich Rauenzahn, 2839a78]
+
+## 2.3.2 (2021-05-30)
 ### Trivial
   - Fixing tags after organization migration [Wes Kendall, 0ba84d2]
 
