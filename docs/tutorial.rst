@@ -518,6 +518,7 @@ we want to freeze once it is published:
 
     @pgtrigger.register(
         pgtrigger.Protect(
+            name='freeze_published_model',
             operation=pgtrigger.Update,
             condition=pgtrigger.Q(old__status='published')
         )
@@ -543,6 +544,7 @@ We can change the condition a bit more to allow this:
 
     @pgtrigger.register(
         pgtrigger.Protect(
+            name='freeze_published_model_allow_deactivation',
             operation=pgtrigger.Update,
             condition=(
               pgtrigger.Q(old__status='published')

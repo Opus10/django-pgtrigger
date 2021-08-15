@@ -461,7 +461,10 @@ class Trigger:
                 f'Trigger identifier "{pgid}" is greater than 63 chars'
             )
 
-        return pgid
+        # NOTE - Postgres always stores names in lowercase. Ensure that all
+        # generated IDs are lowercase so that we can properly do installation
+        # and pruning tasks.
+        return pgid.lower()
 
     def get_condition(self, model):
         return self.condition
@@ -505,18 +508,16 @@ class Trigger:
 
         for model in models:
             uri = self.get_uri(model)
-            if uri in registry:  # pragma: no cover
+            if uri in registry:
                 raise ValueError(
                     f'Trigger with name "{self.name}" is already'
                     f' registered for model "{model}"'
                 )
 
-            if (
-                self.get_pgid(model) in registered_function_names
-            ):  # pragma: no cover
+            if self.get_pgid(model) in registered_function_names:
                 raise ValueError(
                     f'Trigger with name "{self.name}" on model "{model}"'
-                    ' has an trigger function name that is already taken.'
+                    ' has a trigger function name that is already taken.'
                     ' Use a different name for the trigger.'
                 )
 
