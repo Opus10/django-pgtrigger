@@ -1,4 +1,22 @@
 # Changelog
+## 2.4.0 (2021-08-15)
+### Bug
+  - Ensure that generated postgres IDs are lowercase [Wes Kendall, 5c12f66]
+
+    django-pgtrigger now ensures that generated postgres IDs are
+    lowercase. Postgres IDs are case insensitive, and it django-pgtrigger
+    had issues dealing with names that had a mix of cases.
+### Feature
+  - Add the "declare" portion of a trigger as a top-level attribute [Wes Kendall, cd18512]
+
+    Previously one had to subclass a trigger and override ``get_declare`` in
+    order to change how the "DECLARE" fragment of a trigger was rendered.
+    Users can now provide ``declare`` to the instantiation of a trigger.
+
+    The documentation was updated to reflect this change.
+### Trivial
+  - Fix broken code examples in docs [Wes Kendall, 372719c]
+
 ## 2.3.3 (2021-08-15)
 ### Trivial
   - Adjusted max length of trigger names to 47 characters [Wes Kendall, 528140f]
