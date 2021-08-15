@@ -21,6 +21,15 @@ import pgconnection
 LOGGER = logging.getLogger('pgtrigger')
 _unset = object()
 
+# Postgres only allows identifiers to be 63 chars max. Since "pgtrigger_"
+# is the prefix for trigger names, and since an additional "_" and
+# 5 character hash is added, the user-defined name of the trigger can only
+# be 47 chars.
+# NOTE: We can do something more sophisticated later by allowing users
+# to name their triggers and then hashing the names when actually creating
+# the triggers.
+MAX_NAME_LENGTH = 47
+
 # Installation states for a triggers
 INSTALLED = 'INSTALLED'
 UNINSTALLED = 'UNINSTALLED'
@@ -423,11 +432,17 @@ class Trigger:
         if not self.name:
             raise ValueError('Trigger must have "name" attribute')
 
-        if len(self.name) > 43:
-            raise ValueError(f'Trigger name "{self.name}" > 43 characters. ')
+        self.validate_name()
 
     def __str__(self):
         return self.name
+
+    def validate_name(self):
+        """Verifies the name is under the maximum length"""
+        if len(self.name) > MAX_NAME_LENGTH:
+            raise ValueError(
+                f'Trigger name "{self.name}" > {MAX_NAME_LENGTH} characters.'
+            )
 
     def get_pgid(self, model):
         """The ID of the trigger and function object in postgres
@@ -436,7 +451,14 @@ class Trigger:
         discovered/managed by django-pgtrigger
         """
         model_hash = hashlib.sha1(self.get_uri(model).encode()).hexdigest()[:5]
-        return f'pgtrigger_{self.name}_{model_hash}'
+        pgid = f'pgtrigger_{self.name}_{model_hash}'
+
+        if len(pgid) > 63:
+            raise ValueError(
+                f'Trigger identifier "{pgid}" is greater than 63 chars'
+            )
+
+        return pgid
 
     def get_condition(self, model):
         return self.condition
