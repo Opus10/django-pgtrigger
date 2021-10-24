@@ -42,7 +42,7 @@ Enabling and disabling of triggers can be performed with
 install
 -------
 
-Use ``python manage.py install`` to install triggers. If no arguments are
+Use ``python manage.py pgtrigger install`` to install triggers. If no arguments are
 provided, it will try to install all triggers that are not currently installed.
 Messages will be printed for every installed trigger. When executed with
 no arguments, any triggers that were previously installed by ``django-pgtrigger``
