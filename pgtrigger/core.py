@@ -951,6 +951,8 @@ def get_prune_list(database=None):
 
     prune_list = []
     for database in databases:
+        if connections[database].vendor != 'postgresql':
+            continue
         with connections[database].cursor() as cursor:
             cursor.execute(
                 'SELECT tgrelid::regclass, tgname, tgenabled'
