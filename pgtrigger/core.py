@@ -941,8 +941,8 @@ def get_prune_list(database=None):
             database. Defaults to returning results from all databases
     """
     installed = {
-        (model._meta.db_table, trigger.get_pgid(model))
-        for model, trigger in get()
+        (model._meta.db_table, trigger.get_pgid(model), _get_database(model))
+        for model, trigger in get(database=database)
     }
 
     if isinstance(database, str):
@@ -951,8 +951,8 @@ def get_prune_list(database=None):
         databases = database or settings.DATABASES
 
     prune_list = []
-    for database in databases:
-        with connections[database].cursor() as cursor:
+    for db in databases:
+        with connections[db].cursor() as cursor:
             cursor.execute(
                 'SELECT tgrelid::regclass, tgname, tgenabled'
                 '    FROM pg_trigger'
@@ -960,11 +960,19 @@ def get_prune_list(database=None):
             )
             triggers = set(cursor.fetchall())
 
-        prune_list += [
-            (trigger[0], trigger[1], trigger[2] == 'O', database)
-            for trigger in triggers
-            if (trigger[0], trigger[1]) not in installed
-        ]
+        if database:
+            prune_list += [
+                (trigger[0], trigger[1], trigger[2] == 'O', db)
+                for trigger in triggers
+                if _get_database(_get_model(trigger[0])) == database and
+                   (trigger[0], trigger[1], _get_database(_get_model(trigger[0]))) not in installed
+            ]
+        else:
+            prune_list += [
+                (trigger[0], trigger[1], trigger[2] == 'O', db)
+                for trigger in triggers
+                if (trigger[0], trigger[1], _get_database(_get_model(trigger[0]))) not in installed
+            ]
 
     return prune_list
 
