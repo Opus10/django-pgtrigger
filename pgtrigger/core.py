@@ -65,7 +65,8 @@ def _get_connection(model):
 def _get_model(table):
     """Obtains a django model based on its table name"""
     for model in django.apps.apps.get_models():  # pragma: no branch
-        if model._meta.db_table == table:
+        db = _get_database(model)
+        if model._meta.db_table == table or db + '.' + model._meta.db_table == table:
             return model
 
 
