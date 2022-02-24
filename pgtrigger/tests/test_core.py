@@ -24,21 +24,11 @@ def test_statement_row_level_logging():
 
     # The statement-level trigger without references should have produced
     # one log entry
-    assert (
-        models.LogEntry.objects.filter(
-            level='STATEMENT', old_field__isnull=True
-        ).count()
-        == 1
-    )
+    assert models.LogEntry.objects.filter(level='STATEMENT', old_field__isnull=True).count() == 1
 
     # The statement-level trigger with references should have made log
     # entries for all of the old values and the new updated values
-    assert (
-        models.LogEntry.objects.filter(
-            level='STATEMENT', old_field__isnull=False
-        ).count()
-        == 5
-    )
+    assert models.LogEntry.objects.filter(level='STATEMENT', old_field__isnull=False).count() == 5
     assert (
         models.LogEntry.objects.filter(
             level='STATEMENT', old_field='old_field', new_field='new_field'
@@ -82,9 +72,7 @@ def test_soft_delete_different_values():
     """
     # Make the LogEntry model a soft delete model where
     # "level" is set to "inactive"
-    trigger = pgtrigger.SoftDelete(
-        name='soft_delete', field='level', value='inactive'
-    )
+    trigger = pgtrigger.SoftDelete(name='soft_delete', field='level', value='inactive')
     with trigger.install(models.LogEntry):
         le = ddf.G(models.LogEntry, level='active')
         le.delete()
@@ -93,9 +81,7 @@ def test_soft_delete_different_values():
 
     # Make the LogEntry model a soft delete model where
     # "old_field" is set to None
-    trigger = pgtrigger.SoftDelete(
-        name='soft_delete', field='old_field', value=None
-    )
+    trigger = pgtrigger.SoftDelete(name='soft_delete', field='old_field', value=None)
     with trigger.install(models.LogEntry):
         le = ddf.G(models.LogEntry, old_field='something')
         le.delete()
@@ -225,9 +211,7 @@ def test_is_distinct_from_condition_fk_field():
         name='test_is_distinct_from_condition_fk_field2',
         when=pgtrigger.Before,
         operation=pgtrigger.Update,
-        condition=pgtrigger.Q(
-            old__char_pk_fk_field__df=pgtrigger.F('new__char_pk_fk_field')
-        ),
+        condition=pgtrigger.Q(old__char_pk_fk_field__df=pgtrigger.F('new__char_pk_fk_field')),
     )
     with trigger.install(models.TestTrigger):
         with pytest.raises(InternalError, match='Cannot update rows'):
@@ -255,9 +239,7 @@ def test_is_not_distinct_from_condition():
         name='test_is_not_distinct_from_condition1',
         when=pgtrigger.Before,
         operation=pgtrigger.Update,
-        condition=pgtrigger.Q(
-            old__int_field__ndf=pgtrigger.F('new__int_field')
-        )
+        condition=pgtrigger.Q(old__int_field__ndf=pgtrigger.F('new__int_field'))
         | pgtrigger.Q(old__nullable__ndf=pgtrigger.F('new__nullable')),
     )
     with trigger.install(models.TestTrigger):
@@ -320,9 +302,7 @@ def test_complex_conditions():
             zero_to_one.save()
 
     # Test a condition with a datetime field
-    test_model = ddf.G(
-        models.TestTrigger, int_field=0, dt_field=dt.datetime(2020, 1, 1)
-    )
+    test_model = ddf.G(models.TestTrigger, int_field=0, dt_field=dt.datetime(2020, 1, 1))
     trigger = pgtrigger.Protect(
         name='test_complex_conditions2',
         when=pgtrigger.Before,
@@ -347,12 +327,10 @@ def test_complex_conditions():
 def test_referencing_rendering():
     """Verifies the rendering of the Referencing construct"""
     assert (
-        str(pgtrigger.Referencing(old='old_table')).strip()
-        == 'REFERENCING OLD TABLE AS old_table'
+        str(pgtrigger.Referencing(old='old_table')).strip() == 'REFERENCING OLD TABLE AS old_table'
     )
     assert (
-        str(pgtrigger.Referencing(new='new_table')).strip()
-        == 'REFERENCING NEW TABLE AS new_table'
+        str(pgtrigger.Referencing(new='new_table')).strip() == 'REFERENCING NEW TABLE AS new_table'
     )
     assert (
         str(pgtrigger.Referencing(old='old_table', new='new_table')).strip()
@@ -366,9 +344,7 @@ def test_arg_checks():
     Enumerate these cases here to make sure they work
     """
 
-    with pytest.raises(
-        ValueError, match='Must provide either "old" and/or "new"'
-    ):
+    with pytest.raises(ValueError, match='Must provide either "old" and/or "new"'):
         pgtrigger.Referencing()
 
     with pytest.raises(ValueError, match='Must provide SQL'):
@@ -397,14 +373,12 @@ def test_arg_checks():
         )
 
     with pytest.raises(ValueError, match='Must define func'):
-        pgtrigger.Trigger(
-            name='test', when=pgtrigger.Before, operation=pgtrigger.Update
-        ).get_func(None)
+        pgtrigger.Trigger(name='test', when=pgtrigger.Before, operation=pgtrigger.Update).get_func(
+            None
+        )
 
     with pytest.raises(ValueError, match='> 47'):
-        pgtrigger.Trigger(
-            when=pgtrigger.Before, operation=pgtrigger.Update, name='1' * 48
-        ).pgid
+        pgtrigger.Trigger(when=pgtrigger.Before, operation=pgtrigger.Update, name='1' * 48).pgid
 
 
 def test_registry():
@@ -431,10 +405,7 @@ def test_registry():
 
         with trigger.unregister(models.TestModel):
             assert len(pgtrigger.core.registry) == init_registry_size
-            assert (
-                f'tests.TestModel:{trigger.name}'
-                not in pgtrigger.core.registry
-            )
+            assert f'tests.TestModel:{trigger.name}' not in pgtrigger.core.registry
 
         # Try obtaining trigger by alias
         assert pgtrigger.get('tests.TestModel:my_aliased_trigger')
@@ -473,9 +444,7 @@ def test_duplicate_trigger_names(mocker):
             with trigger2.register(models.TestModel):
                 pass
 
-    mocker.patch.object(
-        pgtrigger.Trigger, 'get_pgid', return_value='duplicate'
-    )
+    mocker.patch.object(pgtrigger.Trigger, 'get_pgid', return_value='duplicate')
 
     # Check that a conflict cannot happen in the generated postgres ID.
     # NOTE - use context managers to ensure we don't keep around
@@ -493,8 +462,7 @@ def test_operations():
 
     assert str(pgtrigger.Update | pgtrigger.Delete) == 'UPDATE OR DELETE'
     assert (
-        str(pgtrigger.Update | pgtrigger.Delete | pgtrigger.Insert)
-        == 'UPDATE OR DELETE OR INSERT'
+        str(pgtrigger.Update | pgtrigger.Delete | pgtrigger.Insert) == 'UPDATE OR DELETE OR INSERT'
     )
     assert str(pgtrigger.Delete | pgtrigger.Update) == 'DELETE OR UPDATE'
 

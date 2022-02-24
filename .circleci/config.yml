@@ -2,12 +2,14 @@ version: 2.1
 
 executors:
   python:
-    working_directory: ~/django-pgtrigger
+    working_directory: /code
     docker:
       - image: opus10/circleci-public-django-app
         environment:
+          # Ensure makefile commands are not wrapped in "docker-compose run"
+          DOCKER_EXEC_WRAPPER: ''
           DATABASE_URL: postgres://root@localhost/circle_test?sslmode=disable
-      - image: circleci/postgres:11-ram
+      - image: circleci/postgres:13-ram
         environment:
           POSTGRES_USER: root
           POSTGRES_DB: circle_test
@@ -19,26 +21,23 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: v1-{{ checksum "poetry.lock" }}
-      - run: dockerize -wait tcp://127.0.0.1:5432 -timeout 60s
-      - run: psql ${DATABASE_URL} -c "CREATE DATABASE circle_test_other WITH TEMPLATE circle_test;"
-      - run: make ci_setup
-      - run: make test
+          key: v2-{{ checksum "poetry.lock" }}
+      - run: make dependencies
+      - run: make full-test-suite
       - save_cache:
-          key: v1-{{ checksum "poetry.lock" }}
+          key: v2-{{ checksum "poetry.lock" }}
           paths:
-            - /home/circleci/.local
-            - /home/circleci/.cache/pypoetry/virtualenvs
-            - /home/circleci/.cache/pipx
-            - /home/circleci/django-pgtrigger/.tox
+            - /home/circleci/.cache/pypoetry/
+            - /code/.venv
+            - /code/.tox
 
   lint:
     executor: python
     steps:
       - checkout
       - restore_cache:
-          key: v1-{{ checksum "poetry.lock" }}
-      - run: make ci_setup
+          key: v2-{{ checksum "poetry.lock" }}
+      - run: make dependencies
       - run: make lint
 
   check_changelog:
@@ -46,9 +45,10 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: v1-{{ checksum "poetry.lock" }}
-      - run: make ci_setup
-      - run: make check_changelog
+          key: v2-{{ checksum "poetry.lock" }}
+      - run: make dependencies
+      - run: git tidy-log origin/master..
+      - run: make tidy-lint
 
   deploy:
     executor: python
@@ -57,8 +57,8 @@ jobs:
       - run: ssh-add -D
       - run: echo "${GITHUB_DEVOPS_PRIVATE_SSH_KEY_BASE64}" | base64 --decode | ssh-add - > /dev/null
       - restore_cache:
-          key: v1-{{ checksum "poetry.lock" }}
-      - run: make ci_setup
+          key: v2-{{ checksum "poetry.lock" }}
+      - run: make dependencies
       - run: poetry run python devops.py deploy
 
 workflows:

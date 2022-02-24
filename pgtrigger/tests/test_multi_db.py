@@ -37,9 +37,7 @@ class ToLogRouter:
         return None
 
 
-@django.test.override_settings(
-    DATABASE_ROUTERS=['pgtrigger.tests.test_multi_db.ToLogRouter']
-)
+@django.test.override_settings(DATABASE_ROUTERS=['pgtrigger.tests.test_multi_db.ToLogRouter'])
 class MultiDB(django.test.TestCase):
     databases = ['default', 'other']
 
@@ -48,9 +46,7 @@ class MultiDB(django.test.TestCase):
         # test case setup, before any settings are overridden. Uninstall
         # and re-install all triggers to make sure they are properly installed.
         # Doing so also ensures that pruning across mutliple databases works
-        with self.settings(
-            DATABASE_ROUTERS=['pgtrigger.tests.test_multi_db.ToLogRouter']
-        ):
+        with self.settings(DATABASE_ROUTERS=['pgtrigger.tests.test_multi_db.ToLogRouter']):
             call_command('pgtrigger', 'uninstall')
             call_command('pgtrigger', 'install')
 
@@ -209,19 +205,11 @@ class MultiDB(django.test.TestCase):
             lines = sorted(captured.getvalue().split('\n'))
             assert lines == [
                 '',
-                'tests.CustomSoftDelete:soft_delete'
-                '\tdefault'
-                '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.CustomSoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.FSM:fsm' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
-                'tests.SoftDelete:soft_delete'
-                '\tdefault'
-                '\t\x1b[91mUNINSTALLED\x1b[0m',
-                'tests.TestTrigger:protect_delete'
-                '\tdefault'
-                '\t\x1b[91mUNINSTALLED\x1b[0m',
-                'tests.TestTrigger:protect_misc_insert'
-                '\tdefault'
-                '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.SoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.TestTrigger:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.TestTrigger:protect_misc_insert' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.ToLogModel:after_update_row_test'
                 '\tother'
                 '\t\x1b[92mINSTALLED\x1b[0m'
@@ -246,19 +234,11 @@ class MultiDB(django.test.TestCase):
             lines = sorted(captured.getvalue().split('\n'))
             assert lines == [
                 '',
-                'tests.CustomSoftDelete:soft_delete'
-                '\tdefault'
-                '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.CustomSoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.FSM:fsm' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
-                'tests.SoftDelete:soft_delete'
-                '\tdefault'
-                '\t\x1b[91mUNINSTALLED\x1b[0m',
-                'tests.TestTrigger:protect_delete'
-                '\tdefault'
-                '\t\x1b[91mUNINSTALLED\x1b[0m',
-                'tests.TestTrigger:protect_misc_insert'
-                '\tdefault'
-                '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.SoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.TestTrigger:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.TestTrigger:protect_misc_insert' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.ToLogModel:after_update_row_test'
                 '\tother'
                 '\t\x1b[92mINSTALLED\x1b[0m'

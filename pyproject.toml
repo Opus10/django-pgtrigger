@@ -1,11 +1,26 @@
 [build-system]
-requires = ["poetry>=0.12"]
+requires = ["poetry>=1.1.13"]
 build-backend = "poetry.masonry.api"
 
 [tool.black]
-line-length = 79
-target-version = ['py36']
+line-length = 99
+target-version = ['py37']
 skip-string-normalization = true
+
+[tool.coverage.run]
+branch = true
+source = ["pgtrigger"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "pass",
+    "pytest.mark.skip"
+]
+show_missing = true
+fail_under = 100
 
 [tool.poetry]
 name = "django-pgtrigger"
@@ -19,10 +34,10 @@ classifiers = [
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.6",
   "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3 :: Only",
   "Framework :: Django",
 ]
@@ -33,7 +48,7 @@ repository = "https://github.com/Opus10/django-pgtrigger"
 documentation = "https://django-pgtrigger.readthedocs.io"
 
 [tool.poetry.dependencies]
-python = ">=3.6.2,<4"
+python = ">=3.7.0,<4"
 django = ">=2"
 django-pgconnection = ">=1.0.1"
 
@@ -42,23 +57,31 @@ black = "21.5b1"
 dj-database-url = "0.5.0"
 django-dynamic-fixture = "3.1.1"
 flake8 = "3.9.2"
-flake8-bugbear = "21.4.3"
-flake8-comprehensions = "3.5.0"
+flake8-bugbear = "22.1.11"
+flake8-comprehensions = "3.8.0"
 flake8-import-order = "0.18.1"
 flake8-logging-format = "0.6.0"
 flake8-mutable = "1.2.0"
-packaging = "19.2"
+git-tidy = "1.1.2"
+packaging = ">=19.2"
 pip = "*"
 pre-commit = "2.13.0"
-psycopg2-binary = "2.8.6"
-pytest = "6.2.4"
-pytest-cov = "2.12.0"
+psycopg2-binary = "2.9.3"
+pytest = "7.0.0"
+pytest-cov = "3.0.0"
 pytest-dotenv = "0.5.2"
-pytest-django = "4.3.0"
+pytest-django = "4.5.2"
 pytest-mock = "3.6.1"
 requests = "2.25.1"
-Sphinx = "4.0.2"
-sphinx-rtd-theme = "0.5.2"
+Sphinx = "4.4.0"
+sphinx-rtd-theme = "1.0.0"
 temple = "*"
-tox = "3.23.1"
+tox = "3.24.5"
 zipp = "3.4.1"
+
+[tool.pytest.ini_options]
+xfail_strict = true
+addopts = "--reuse-db"
+testpaths = "pgtrigger/tests"
+norecursedirs = ".venv"
+DJANGO_SETTINGS_MODULE = "settings"

@@ -17,7 +17,5 @@ class PGTriggerConfig(django.apps.AppConfig):
         Install pgplus triggers in a post_migrate hook if any are
         configured.
         """
-        if getattr(  # pragma: no branch
-            settings, 'PGTRIGGER_INSTALL_ON_MIGRATE', True
-        ):
+        if getattr(settings, 'PGTRIGGER_INSTALL_ON_MIGRATE', True):  # pragma: no branch
             post_migrate.connect(install, sender=self)

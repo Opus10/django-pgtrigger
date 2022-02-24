@@ -20,10 +20,7 @@ def test_full_ls(capsys):
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
-        'tests.FSM:fsm'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
+        'tests.FSM:fsm' '\tdefault' '\t\x1b[92mINSTALLED\x1b[0m' '\t\x1b[92mENABLED\x1b[0m',
         'tests.SoftDelete:soft_delete'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
@@ -96,9 +93,7 @@ def test_main_commands(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestTrigger:protect_delete'
-        '\tdefault'
-        '\t\x1b[91mUNINSTALLED\x1b[0m',
+        'tests.TestTrigger:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
     ]
 
     call_command('pgtrigger', 'install')
@@ -189,11 +184,7 @@ def test_prune(capsys):
     call_command('pgtrigger', 'ls')
     captured = capsys.readouterr()
     lines = sorted(captured.out.split('\n'))
-    assert (
-        'tests.SoftDelete:soft_delete'
-        '\tdefault'
-        '\t\x1b[91mUNINSTALLED\x1b[0m'
-    ) in lines
+    assert ('tests.SoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m') in lines
 
     call_command('pgtrigger', 'install')
     call_command('pgtrigger', 'ls')

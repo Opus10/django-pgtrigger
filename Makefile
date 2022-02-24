@@ -2,17 +2,17 @@
 #
 # This Makefile has the following targets:
 #
-# package_managers - Sets up python managers and python package managers
-# clean_env - Removes the virtuale env
-# dependencies - Installs all dependencies for a project
-# setup - Sets up the entire development environment and installs dependencies
-# clean_docs - Clean the documentation folder
-# clean - Clean any generated files (including documentation)
-# open_docs - Open any docs generated with "make docs"
+# setup - Sets up the development environment
+# dependencies - Installs dependencies
+# clean-docs - Clean the documentation folder
+# open-docs - Open any docs generated with "make docs"
 # docs - Generated sphinx docs
 # lint - Run code linting and static checks
 # format - Format code using black
 # test - Run tests using pytest
+# full-test-suite - Run full test suite using tox
+# shell - Run a shell in a virtualenv
+# teardown - Spin down docker resources
 
 OS = $(shell uname -s)
 
@@ -20,115 +20,105 @@ PACKAGE_NAME=django-pgtrigger
 MODULE_NAME=pgtrigger
 SHELL=bash
 
-PY36_VERSION=3.6.13
-PY37_VERSION=3.7.10
-PY38_VERSION=3.8.10
-PY39_VERSION=3.9.4
+ifeq (${OS}, Linux)
+	DOCKER_CMD?=sudo docker
+	DOCKER_RUN_ARGS?=-v /home:/home -v $(shell pwd):/code -e DOCKER_EXEC_WRAPPER="" -u "$(shell id -u):$(shell id -g)"  -v /etc/passwd:/etc/passwd
+	# The user can be passed to docker exec commands in Linux.
+	# For example, "make shell user=root" for access to apt-get commands
+	user?=$(shell id -u)
+	group?=$(shell id ${user} -u)
+	DOCKER_EXEC_WRAPPER?=$(DOCKER_CMD) exec --user="$(user):$(group)" -it $(PACKAGE_NAME)
+else ifeq (${OS}, Darwin)
+	DOCKER_CMD?=docker
+	DOCKER_RUN_ARGS?=-v ~/:/home/circleci -v $(shell pwd):/code -e DOCKER_EXEC_WRAPPER=""
+	DOCKER_EXEC_WRAPPER?=$(DOCKER_CMD) exec -it $(PACKAGE_NAME)
+endif
+
+# Docker run mounts the local code directory, SSH (for git), and global git config information
+DOCKER_RUN_CMD?=$(DOCKER_CMD)-compose run --name $(PACKAGE_NAME) $(DOCKER_RUN_ARGS) -d app
+
 
 # Print usage of main targets when user types "make" or "make help"
+.PHONY: help
 help:
+ifndef run
 	@echo "Please choose one of the following targets: \n"\
-	      "    setup: Setup development environment and install dependencies\n"\
+	      "    setup: Setup development environment\n"\
+	      "    lock: Lock dependencies\n"\
+	      "    dependencies: Install dependencies\n"\
+	      "    shell: Start a shell\n"\
 	      "    test: Run tests\n"\
+	      "    tox: Run tests against all versions of Python\n"\
 	      "    lint: Run code linting and static checks\n"\
+	      "    format: Format code using Black\n"\
 	      "    docs: Build Sphinx documentation\n"\
-	      "    open_docs: Open built documentation\n"\
+	      "    open-docs: Open built documentation\n"\
+	      "    teardown: Spin down docker resources\n"\
 	      "\n"\
 	      "View the Makefile for more documentation"
 	@exit 2
-
-
-# Utility to verify we arent in a virtualenv
-.PHONY: check_not_inside_venv
-check_not_inside_venv:
-ifeq (${OS}, Darwin)
-	which pip | grep -q ".pyenv" || (echo "Please deactivate your virtualenv and try again" && exit 1)
+else
+	$(DOCKER_EXEC_WRAPPER) $(run)
 endif
 
 
-# Sets up pyenv, poetry, and any other package/language managers (e.g. NPM)
-.PHONY: package_managers
-package_managers: check_not_inside_venv
-ifeq (${OS}, Darwin)
-# Install pyenv and ensure we remain up to date with pyenv so that new python
-# versions are available for installation
-	-brew install pyenv 2> /dev/null
-	-brew upgrade pyenv 2> /dev/null
-	-pyenv rehash
-	pyenv install -s --patch ${PY36_VERSION} < <(curl -sSL https://github.com/python/cpython/commit/8ea6353.patch)
-	pyenv install -s --patch ${PY37_VERSION}
-	pyenv install -s --patch ${PY38_VERSION}
-	pyenv install -s --patch ${PY39_VERSION}
-	pyenv local ${PY36_VERSION} ${PY37_VERSION} ${PY38_VERSION} ${PY39_VERSION}
-endif
-# Conditionally install pipx so that we can globally install poetry
-	pip install --user --upgrade --force-reinstall pipx
-	pipx ensurepath
-	-pipx install --force poetry --pip-args="--upgrade"
+# Ensure we are logged into the Gitlab docker registry and start a detached container
+.PHONY: docker-start
+docker-start:
+	$(DOCKER_CMD) pull opus10/circleci-public-django-app
+	$(DOCKER_RUN_CMD)
 
 
-# Builds all dependencies for a project
+# Lock dependencies
+.PHONY: lock
+lock:
+	$(DOCKER_EXEC_WRAPPER) poetry lock --no-update
+
+
+# Install dependencies
 .PHONY: dependencies
 dependencies:
-	poetry install
+	$(DOCKER_EXEC_WRAPPER) poetry install
 
 
-.PHONY: git_tidy
-git_tidy:
-	-pipx install --force git-tidy --pip-args="--upgrade"
-	git tidy --template -o .gitcommit.tpl
-	git config --local commit.template .gitcommit.tpl
-
-
-.PHONY: pre_commit
-pre_commit:
-	poetry run pre-commit install
-
-
-# Sets up the database and the environment files for the first time
-.PHONY: db_and_env_setup
-db_and_env_setup:
-ifeq (${OS}, Darwin)
-	-brew install postgresql 2> /dev/null
-	brew services start postgresql
-endif
-	-psql postgres -c "CREATE USER postgres;"
-	-psql postgres -c "ALTER USER postgres SUPERUSER;"
-	-psql postgres -c "CREATE DATABASE ${MODULE_NAME}_local OWNER postgres;"
-	-psql postgres -c "GRANT ALL PRIVILEGES ON DATABASE ${MODULE_NAME}_local to postgres;"
-	-psql postgres -c "CREATE DATABASE ${MODULE_NAME}_local_other OWNER postgres;"
-	-psql postgres -c "GRANT ALL PRIVILEGES ON DATABASE ${MODULE_NAME}_local_other to postgres;"
-	-cp -n .env.template .env
-
-
-.PHONY: ci_setup
-ci_setup: package_managers git_tidy db_and_env_setup dependencies
-
-
-# Sets up environment and installs dependencies
+# Sets up development environment
 .PHONY: setup
-setup: check_not_inside_venv package_managers git_tidy db_and_env_setup dependencies pre_commit
+setup: teardown docker-start lock dependencies
+	$(DOCKER_EXEC_WRAPPER) git tidy --template -o .gitcommit.tpl
+	$(DOCKER_EXEC_WRAPPER) git config --local commit.template .gitcommit.tpl
+
+
+# Run a shell
+.PHONY: shell
+shell:
+	$(DOCKER_EXEC_WRAPPER) /bin/bash
+
+
+# Run pytest
+.PHONY: test
+test:
+	$(DOCKER_EXEC_WRAPPER) pytest
+
+
+# Run full test suite
+.PHONY: full-test-suite
+full-test-suite:
+	$(DOCKER_EXEC_WRAPPER) tox
 
 
 # Clean the documentation folder
-.PHONY: clean_docs
-clean_docs:
-	-cd docs && poetry run make clean
-
-
-# Clean any auto-generated files
-.PHONY: clean
-clean: clean_docs clean_env
-	rm -rf dist/*
-	rm -rf coverage .coverage .coverage*
-	rm -rf .venv
+.PHONY: clean-docs
+clean-docs:
+	-$(DOCKER_EXEC_WRAPPER) bash -c 'cd docs && make clean'
 
 
 # Open the build docs (only works on Mac)
-.PHONY: open_docs
-open_docs:
+.PHONY: open-docs
+open-docs:
 ifeq (${OS}, Darwin)
 	open docs/_build/html/index.html
+else ifeq (${OS}, Linux)
+	xdg-open docs/_build/html/index.html
 else
 	@echo "Open 'docs/_build/html/index.html' to view docs"
 endif
@@ -136,44 +126,44 @@ endif
 
 # Build Sphinx autodocs
 .PHONY: docs
-docs: clean_docs  # Ensure docs are clean, otherwise weird render errors can result
-	cd docs && poetry run make html
+docs: clean-docs  # Ensure docs are clean, otherwise weird render errors can result
+	$(DOCKER_EXEC_WRAPPER) bash -c 'cd docs && make html'
 
 
-# Run code linting and static analysis
+# Run code linting and static analysis. Ensure docs can be built
 .PHONY: lint
 lint:
-	poetry run black . --check
-	poetry run flake8 -v ${MODULE_NAME}/
-	poetry run temple update --check
-	poetry run make docs  # Ensure docs can be built during validation
+	$(DOCKER_EXEC_WRAPPER) black . --check
+	$(DOCKER_EXEC_WRAPPER) flake8 -v ${MODULE_NAME}
+	$(DOCKER_EXEC_WRAPPER) temple update --check
+	$(DOCKER_EXEC_WRAPPER) bash -c 'cd docs && make html'
 
 
-# Lint commit messages and show changelog when on circleci
-check_changelog:
-ifdef CIRCLECI
-	git tidy-log origin/master..
-endif
-	git tidy-lint origin/master
+# Lint commit messages
+.PHONY: tidy-lint
+tidy-lint:
+	$(DOCKER_EXEC_WRAPPER) git tidy-lint origin/master..
 
 
-# Format code
+# Perform a tidy commit
+.PHONY: tidy-commit
+tidy-commit:
+	$(DOCKER_EXEC_WRAPPER) git tidy-commit
+
+
+# Perform a tidy squash
+.PHONY: tidy-squash
+tidy-squash:
+	$(DOCKER_EXEC_WRAPPER) git tidy-squash origin/master
+
+
+# Format code with black
+.PHONY: format
 format:
-	poetry run black .
+	$(DOCKER_EXEC_WRAPPER) black .
 
 
-# Run tests
-.PHONY: test
-test:
-	poetry run tox
-
-
-# Show the version and name of the project
-.PHONY: version
-version:
-	-@poetry version | rev | cut -f 1 -d' ' | rev
-
-
-.PHONY: project_name
-project_name:
-	-@poetry version | cut -d' ' -f1
+# Spin down docker resources
+.PHONY: teardown
+teardown:
+	$(DOCKER_CMD)-compose down
