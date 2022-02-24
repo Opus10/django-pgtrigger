@@ -339,3 +339,6 @@ tags
 .history
 
 # End of https://www.gitignore.io/api/vim,osx,python,django,pycharm,komodoedit,elasticbeanstalk,visualstudiocode
+
+# Ignore custom Docker compose DB data
+.db/

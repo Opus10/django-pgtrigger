@@ -18,9 +18,7 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     'custom_pk',
-                    models.CharField(
-                        max_length=32, primary_key=True, serialize=False
-                    ),
+                    models.CharField(max_length=32, primary_key=True, serialize=False),
                 )
             ],
         ),

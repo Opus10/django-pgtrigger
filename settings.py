@@ -23,3 +23,5 @@ if 'NAME' in DATABASES['other']:
     DATABASES['other']['NAME'] += '_other'
 
 DATABASES = pgconnection.configure(DATABASES)
+
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'

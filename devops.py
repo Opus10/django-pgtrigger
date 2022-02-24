@@ -33,18 +33,12 @@ def _check_git_version():
     """Verify git version"""
     git_version = _shell_stdout("git --version | rev | cut -f 1 -d' ' | rev")
     if version.parse(git_version) < version.parse('2.22.0'):
-        raise RuntimeError(
-            f'Must have git version >= 2.22.0 (version = {git_version})'
-        )
+        raise RuntimeError(f'Must have git version >= 2.22.0 (version = {git_version})')
 
 
-def _shell(
-    cmd, check=True, stdin=None, stdout=None, stderr=None
-):  # pragma: no cover
+def _shell(cmd, check=True, stdin=None, stdout=None, stderr=None):  # pragma: no cover
     """Runs a subprocess shell with check=True by default"""
-    return subprocess.run(
-        cmd, shell=True, check=check, stdin=stdin, stdout=stdout, stderr=stderr
-    )
+    return subprocess.run(cmd, shell=True, check=check, stdin=stdin, stdout=stdout, stderr=stderr)
 
 
 def _shell_stdout(cmd, check=True):
@@ -80,10 +74,7 @@ def _find_sem_ver_update():
         " | grep -q {sem_ver_type}"
     )
     change_types_found = {
-        change_type: _shell(
-            cmd.format(sem_ver_type=change_type), check=False
-        ).returncode
-        == 0
+        change_type: _shell(cmd.format(sem_ver_type=change_type), check=False).returncode == 0
         for change_type in ['bug', 'feature', 'api-break']
     }
 
@@ -98,7 +89,7 @@ def _find_sem_ver_update():
 def _update_package_version():
     """Apply semantic versioning to package based on git commit messages"""
     # Obtain the current version
-    old_version = _shell_stdout('make version')
+    old_version = _shell_stdout("poetry version | rev | cut -f 1 -d' ' | rev")
     if old_version == '0.0.0':
         old_version = ''
     latest_tag = _find_latest_tag()
@@ -114,12 +105,10 @@ def _update_package_version():
     _shell(f'poetry version {sem_ver}')
 
     # Get the new version
-    new_version = _shell_stdout('make version')
+    new_version = _shell_stdout("poetry version | rev | cut -f 1 -d' ' | rev")
 
     if new_version == old_version:
-        raise RuntimeError(
-            f'Version update could not be applied (version = "{old_version}")'
-        )
+        raise RuntimeError(f'Version update could not be applied (version = "{old_version}")')
 
     return old_version, new_version
 
@@ -136,10 +125,7 @@ def _generate_changelog_and_tag(old_version, new_version):
     # Generate a requirements.txt for readthedocs.org
     _shell('echo "poetry" > docs/requirements.txt')
     _shell('echo "." >> docs/requirements.txt')
-    _shell(
-        'poetry export --dev --without-hashes -f requirements.txt '
-        '>> docs/requirements.txt'
-    )
+    _shell('poetry export --dev --without-hashes -f requirements.txt ' '>> docs/requirements.txt')
 
     # Add all updated files
     _shell('git add pyproject.toml CHANGELOG.md docs/requirements.txt')
@@ -160,10 +146,7 @@ def _generate_changelog_and_tag(old_version, new_version):
         # Update the tag so that it includes the latest release messages and
         # the automated commit
         _shell(f'git tag -d {new_version}')
-        _shell(
-            f'git tag -f -a {new_version} -F {commit_msg_file.name}'
-            ' --cleanup=whitespace'
-        )
+        _shell(f'git tag -f -a {new_version} -F {commit_msg_file.name}' ' --cleanup=whitespace')
 
 
 def _publish_to_pypi():

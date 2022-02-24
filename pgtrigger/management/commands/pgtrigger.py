@@ -21,17 +21,13 @@ class SubCommands(BaseCommand):  # pragma: no cover
     subcommands = {}
 
     def add_arguments(self, parser):
-        subparsers = parser.add_subparsers(
-            dest='subcommand', title='subcommands', description=''
-        )
+        subparsers = parser.add_subparsers(dest='subcommand', title='subcommands', description='')
         subparsers.required = True
 
         for command_name, command_class in self.subcommands.items():
             command = command_class()
 
-            subparser = subparsers.add_parser(
-                command_name, help=command_class.help
-            )
+            subparser = subparsers.add_parser(command_name, help=command_class.help)
             command.add_arguments(subparser)
             prog_name = subcommand = ''
             if self.argv:
