@@ -99,9 +99,7 @@ def _inject_pgtrigger_ignore(sql, sql_vars, cursor):  # pragma: no cover
         # setting. Ignore this specific statement for now
         return None
 
-    sql = (
-        'SET LOCAL pgtrigger.ignore=\'{' + ','.join(_ignore.value) + '}\';'
-    ) + sql
+    sql = ('SET LOCAL pgtrigger.ignore=\'{' + ','.join(_ignore.value) + '}\';') + sql
 
     return sql, sql_vars
 
@@ -263,8 +261,7 @@ class _OldNewQuery(Query):
             alias = 'NEW'
         else:  # pragma: no cover
             raise ValueError(
-                'Filter expression on trigger.Q object must reference'
-                ' old__ or new__'
+                'Filter expression on trigger.Q object must reference' ' old__ or new__'
             )
 
         filter_expr = (filter_expr[0][5:], filter_expr[1])
@@ -423,14 +420,10 @@ class Trigger:
             raise ValueError(f'Invalid "when" attribute: {self.when}')
 
         if not self.operation or not isinstance(self.operation, _Operation):
-            raise ValueError(
-                f'Invalid "operation" attribute: {self.operation}'
-            )
+            raise ValueError(f'Invalid "operation" attribute: {self.operation}')
 
         if self.level == Row and self.referencing:
-            raise ValueError(
-                'Row-level triggers cannot have a "referencing" attribute'
-            )
+            raise ValueError('Row-level triggers cannot have a "referencing" attribute')
 
         if not self.name:
             raise ValueError('Trigger must have "name" attribute')
@@ -443,9 +436,7 @@ class Trigger:
     def validate_name(self):
         """Verifies the name is under the maximum length"""
         if len(self.name) > MAX_NAME_LENGTH:
-            raise ValueError(
-                f'Trigger name "{self.name}" > {MAX_NAME_LENGTH} characters.'
-            )
+            raise ValueError(f'Trigger name "{self.name}" > {MAX_NAME_LENGTH} characters.')
 
     def get_pgid(self, model):
         """The ID of the trigger and function object in postgres
@@ -457,9 +448,7 @@ class Trigger:
         pgid = f'pgtrigger_{self.name}_{model_hash}'
 
         if len(pgid) > 63:
-            raise ValueError(
-                f'Trigger identifier "{pgid}" is greater than 63 chars'
-            )
+            raise ValueError(f'Trigger identifier "{pgid}" is greater than 63 chars')
 
         # NOTE - Postgres always stores names in lowercase. Ensure that all
         # generated IDs are lowercase so that we can properly do installation
@@ -486,17 +475,12 @@ class Trigger:
         clause
         """
         if not self.func:
-            raise ValueError(
-                'Must define func attribute or implement get_func'
-            )
+            raise ValueError('Must define func attribute or implement get_func')
         return self.func
 
     def get_uri(self, model):
         """The URI for the trigger in the registry"""
-        return (
-            f'{model._meta.app_label}.{model._meta.object_name}'
-            f':{self.name}'
-        )
+        return f'{model._meta.app_label}.{model._meta.object_name}' f':{self.name}'
 
     def register(self, *models):
         """Register model classes with the trigger"""
@@ -663,9 +647,7 @@ class Trigger:
         """
         rendered_func = self.render_func(model)
         rendered_trigger = self.render_trigger(model)
-        return hashlib.sha1(
-            f'{rendered_func} {rendered_trigger}'.encode()
-        ).hexdigest()
+        return hashlib.sha1(f'{rendered_func} {rendered_trigger}'.encode()).hexdigest()
 
     def install(self, model):
         """Installs the trigger for a model"""
@@ -689,9 +671,7 @@ class Trigger:
         """Uninstalls the trigger for a model"""
         _drop_trigger(model._meta.db_table, self.get_pgid(model))
 
-        return _cleanup_on_exit(  # pragma: no branch
-            lambda: self.install(model)
-        )
+        return _cleanup_on_exit(lambda: self.install(model))  # pragma: no branch
 
     def enable(self, model):
         """Enables the trigger for a model"""
@@ -699,13 +679,10 @@ class Trigger:
 
         with connection.cursor() as cursor:
             cursor.execute(
-                f'ALTER TABLE {model._meta.db_table} ENABLE TRIGGER'
-                f' {self.get_pgid(model)};'
+                f'ALTER TABLE {model._meta.db_table} ENABLE TRIGGER' f' {self.get_pgid(model)};'
             )
 
-        return _cleanup_on_exit(  # pragma: no branch
-            lambda: self.disable(model)
-        )
+        return _cleanup_on_exit(lambda: self.disable(model))  # pragma: no branch
 
     def disable(self, model):
         """Disables the trigger for a model"""
@@ -713,13 +690,10 @@ class Trigger:
 
         with connection.cursor() as cursor:
             cursor.execute(
-                f'ALTER TABLE {model._meta.db_table} DISABLE TRIGGER'
-                f' {self.get_pgid(model)};'
+                f'ALTER TABLE {model._meta.db_table} DISABLE TRIGGER' f' {self.get_pgid(model)};'
             )
 
-        return _cleanup_on_exit(  # pragma: no branch
-            lambda: self.enable(model)
-        )
+        return _cleanup_on_exit(lambda: self.enable(model))  # pragma: no branch
 
     @contextlib.contextmanager
     def ignore(self, model):
@@ -779,9 +753,7 @@ class FSM(Trigger):
     field = None
     transitions = None
 
-    def __init__(
-        self, *, name=None, condition=None, field=None, transitions=None
-    ):
+    def __init__(self, *, name=None, condition=None, field=None, transitions=None):
         self.field = field or self.field
         self.transitions = transitions or self.transitions
 
@@ -798,11 +770,7 @@ class FSM(Trigger):
 
     def get_func(self, model):
         col = model._meta.get_field(self.field).column
-        transition_uris = (
-            '{'
-            + ','.join([f'{old}:{new}' for old, new in self.transitions])
-            + '}'
-        )
+        transition_uris = '{' + ','.join([f'{old}:{new}' for old, new in self.transitions]) + '}'
 
         return f'''
             SELECT CONCAT(OLD.{col}, ':', NEW.{col}) = ANY('{transition_uris}'::text[])
@@ -887,13 +855,10 @@ def get(*uris, database=None):
         for uri in uris:
             if uri and len(uri.split(':')) == 1:
                 raise ValueError(
-                    'Trigger URI must be in the format of'
-                    ' "app_label.model_name:trigger_name"'
+                    'Trigger URI must be in the format of' ' "app_label.model_name:trigger_name"'
                 )
             elif uri and uri not in registry:
-                raise ValueError(
-                    f'URI "{uri}" not found in pgtrigger registry'
-                )
+                raise ValueError(f'URI "{uri}" not found in pgtrigger registry')
 
         return [registry[uri] for uri in uris]
     else:
@@ -939,10 +904,7 @@ def get_prune_list(database=None):
         database (str, default=None): Only return results from this
             database. Defaults to returning results from all databases
     """
-    installed = {
-        (model._meta.db_table, trigger.get_pgid(model))
-        for model, trigger in get()
-    }
+    installed = {(model._meta.db_table, trigger.get_pgid(model)) for model, trigger in get()}
 
     if isinstance(database, str):
         databases = [database]

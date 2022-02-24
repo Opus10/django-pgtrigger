@@ -54,10 +54,7 @@ class LogEntry(models.Model):
         level=pgtrigger.Row,
         operation=pgtrigger.Update,
         when=pgtrigger.After,
-        func=(
-            f'INSERT INTO {LogEntry._meta.db_table}(level) VALUES (\'ROW\');'
-            ' RETURN NULL;'
-        ),
+        func=(f'INSERT INTO {LogEntry._meta.db_table}(level) VALUES (\'ROW\');' ' RETURN NULL;'),
     ),
 )
 class ToLogModel(models.Model):
@@ -89,17 +86,11 @@ class TestTrigger(models.Model):
     int_field = models.IntegerField(default=0)
     dt_field = models.DateTimeField(default=timezone.now)
     nullable = models.CharField(null=True, default=None, max_length=16)
-    fk_field = models.ForeignKey(
-        'auth.User', null=True, on_delete=models.CASCADE
-    )
-    char_pk_fk_field = models.ForeignKey(
-        CharPk, null=True, on_delete=models.CASCADE
-    )
+    fk_field = models.ForeignKey('auth.User', null=True, on_delete=models.CASCADE)
+    char_pk_fk_field = models.ForeignKey(CharPk, null=True, on_delete=models.CASCADE)
 
 
-@pgtrigger.register(
-    pgtrigger.SoftDelete(name='soft_delete', field='is_active')
-)
+@pgtrigger.register(pgtrigger.SoftDelete(name='soft_delete', field='is_active'))
 class SoftDelete(models.Model):
     """
     For testing soft deletion. Deletions on this model will set
@@ -116,9 +107,7 @@ class FkToSoftDelete(models.Model):
     ref = models.ForeignKey(SoftDelete, on_delete=models.CASCADE)
 
 
-@pgtrigger.register(
-    pgtrigger.SoftDelete(name='soft_delete', field='custom_active')
-)
+@pgtrigger.register(pgtrigger.SoftDelete(name='soft_delete', field='custom_active'))
 class CustomSoftDelete(models.Model):
     """
     For testing soft deletion with a custom active field.
