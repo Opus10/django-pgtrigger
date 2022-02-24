@@ -1,4 +1,8 @@
 # Changelog
+## 2.4.1 (2022-02-24)
+### Trivial
+  - Updated with the latest template, dropped 3.6 supported, added Docker-based development [Wes Kendall, 25e0f0d]
+
 ## 2.4.0 (2021-08-15)
 ### Bug
   - Ensure that generated postgres IDs are lowercase [Wes Kendall, 5c12f66]

@@ -27,7 +27,7 @@ name = "django-pgtrigger"
 packages = [
   { include = "pgtrigger" }
 ]
-version = "2.4.0"
+version = "2.4.1"
 description = "Postgres trigger support integrated with Django models."
 authors = ["Wes Kendall"]
 classifiers = [
