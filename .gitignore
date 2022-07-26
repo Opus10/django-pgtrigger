@@ -342,3 +342,6 @@ tags
 
 # Ignore custom Docker compose DB data
 .db/
+
+# Ignore for PyCharm
+.idea/
