@@ -131,3 +131,26 @@ class FSM(models.Model):
     """Tests valid transitions of a field"""
 
     transition = models.CharField(max_length=32)
+
+
+@pgtrigger.register(
+    pgtrigger.Protect(
+        name='read_only',
+        operation=pgtrigger.Update,
+        condition=pgtrigger.Q(old__created_at__df=pgtrigger.F('new__created_at')),
+    )
+)
+class SaasBaseModel(models.Model):
+    """Tests abstract model does not register trigger"""
+
+    class Meta:
+        abstract = True
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True)
+
+
+class ExampleFromAbstractModel(SaasBaseModel):
+    """Tests model that inherits from abstract model with trigger does register trigger"""
+
+    color = models.CharField(max_length=64)

@@ -710,3 +710,11 @@ def test_trigger_management(mocker):
     pgtrigger.prune()
     pgtrigger.prune()
     deletion_protected_model.delete()
+
+
+@pytest.mark.django_db
+def test_abstract():
+    """Verify pgtrigger handles abstract models"""
+
+    m = models.ExampleFromAbstractModel.objects.create(color='red')
+    assert models.ExampleFromAbstractModel.objects.all().exists()

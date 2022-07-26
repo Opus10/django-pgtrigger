@@ -111,7 +111,8 @@ def register(*triggers):
 
     def _model_wrapper(model_class):
         for trigger in triggers:
-            trigger.register(model_class)
+            if not model_class._meta.abstract:
+                trigger.register(model_class)
 
         return model_class
 
