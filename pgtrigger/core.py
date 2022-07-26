@@ -572,7 +572,7 @@ class Trigger:
         return f'''
             DO $$ BEGIN
                 CREATE TRIGGER {pgid}
-                    {self.when} {self.operation} ON {table}
+                    {self.when} {self.operation} ON "{table}"
                     {self.referencing or ''}
                     FOR EACH {self.level} {self.render_condition(model)}
                     EXECUTE PROCEDURE {pgid}();
@@ -591,7 +591,7 @@ class Trigger:
         pgid = self.get_pgid(model)
         hash = self.get_hash(model)
         table = model._meta.db_table
-        return f'COMMENT ON TRIGGER {pgid} ON {table} IS \'{hash}\''
+        return f'COMMENT ON TRIGGER {pgid} ON "{table}" IS \'{hash}\''
 
     def get_installation_status(self, model):
         """Returns the installation status of a trigger.
@@ -677,7 +677,7 @@ class Trigger:
 
         with connection.cursor() as cursor:
             cursor.execute(
-                f'ALTER TABLE {model._meta.db_table} ENABLE TRIGGER {self.get_pgid(model)};'
+                f'ALTER TABLE "{model._meta.db_table}" ENABLE TRIGGER {self.get_pgid(model)};'
             )
 
         return _cleanup_on_exit(lambda: self.disable(model))  # pragma: no branch
@@ -688,7 +688,7 @@ class Trigger:
 
         with connection.cursor() as cursor:
             cursor.execute(
-                f'ALTER TABLE {model._meta.db_table} DISABLE TRIGGER {self.get_pgid(model)};'
+                f'ALTER TABLE "{model._meta.db_table}" DISABLE TRIGGER {self.get_pgid(model)};'
             )
 
         return _cleanup_on_exit(lambda: self.enable(model))  # pragma: no branch
@@ -826,7 +826,7 @@ class SoftDelete(Trigger):
                 return str(self.value)
 
         return f'''
-            UPDATE {model._meta.db_table}
+            UPDATE "{model._meta.db_table}"
             SET {soft_field} = {_render_value()}
             WHERE "{pk_col}" = OLD."{pk_col}";
             RETURN NULL;
