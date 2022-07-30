@@ -10,6 +10,7 @@ from django.db import connections
 from django.db import DEFAULT_DB_ALIAS
 from django.db import models
 from django.db import router
+from django.db import transaction
 from django.db.models.expressions import Col
 from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
@@ -730,6 +731,12 @@ class Trigger:
                     _ignore.value.remove(ignore_uri)
             else:  # The trigger is already being ignored
                 yield
+
+        if not _ignore.value and transaction.get_connection().in_atomic_block:
+            # We've finished all ignoring of triggers, but we are in a transaction
+            # and still have a reference to the local variable. Reset it
+            with transaction.get_connection().cursor() as cursor:
+                cursor.execute('RESET pgtrigger.ignore;')
 
 
 class Protect(Trigger):

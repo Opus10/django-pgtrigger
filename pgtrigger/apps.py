@@ -5,7 +5,7 @@ from django.db.models.signals import post_migrate
 
 
 # Allow triggers to be specified in model Meta options
-if 'triggers' not in options.DEFAULT_NAMES:
+if 'triggers' not in options.DEFAULT_NAMES:  # pragma: no branch
     options.DEFAULT_NAMES = options.DEFAULT_NAMES + ('triggers',)
 
 
@@ -28,7 +28,7 @@ class PGTriggerConfig(django.apps.AppConfig):
 
         for model in django.apps.apps.get_models():
             for trigger in getattr(model._meta, "triggers", []):
-                if not isinstance(trigger, pgtrigger.Trigger):  # pragma: no branch
+                if not isinstance(trigger, pgtrigger.Trigger):  # pragma: no cover
                     raise TypeError(f"Triggers in {model} Meta must be pgtrigger.Trigger classes")
 
                 trigger.register(model)
