@@ -25,17 +25,17 @@ solve in the docs:
 Quick Start
 ===========
 
-Install ``django-pgtrigger`` with ``pip install django-pgtrigger`` and
+Install ``django-pgtrigger`` with ``pip3 install django-pgtrigger`` and
 add ``pgtrigger`` to ``settings.INSTALLED_APPS``.
 
-Models are decorated with `pgtrigger.register` and supplied with
-`pgtrigger.Trigger` objects. If you don't have access to the model definition,
+Triggers are declared in the ``triggers`` attribute of the model ``Meta``.
+If you don't have access to the model definition,
 you can still call `pgtrigger.register` programmatically.
 
-Users declare the plpgsql code manually
-in a `pgtrigger.Trigger` object or can use the derived triggers in
-``django-pgtrigger`` that implement common scenarios. For example,
-`pgtrigger.Protect` can protect operations on a model, such as deletions:
+Users declare the PL/pgSQL code
+in a `pgtrigger.Trigger` object or use the derived triggers in
+``django-pgtrigger`` for common scenarios. For example,
+`pgtrigger.Protect` protects operations on a model, such as deletions:
 
 .. code-block:: python
 
@@ -43,18 +43,20 @@ in a `pgtrigger.Trigger` object or can use the derived triggers in
     import pgtrigger
 
 
-    @pgtrigger.register(
-        pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
-    )
     class CannotBeDeletedModel(models.Model):
         """This model cannot be deleted!"""
 
-``django-pgtrigger`` aims to alleviate the boilerplate of triggers and
-having to write raw SQL by using common Django idioms. For example, users
+        class Meta:
+            triggers = [
+                pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
+            ]
+
+``django-pgtrigger`` implements common Django idioms. For example, users
 can use `pgtrigger.Q` and `pgtrigger.F` objects to
 conditionally execute triggers based on the ``OLD`` and ``NEW`` row
-being modified. For example, let's only protect deletes
-against "active" rows of a model:
+being modified.
+
+For example, here we protect deletion of "active" rows of a model:
 
 .. code-block:: python
 
@@ -62,17 +64,19 @@ against "active" rows of a model:
     import pgtrigger
 
 
-    @pgtrigger.register(
-        pgtrigger.Protect(
-            name='protect_deletes',
-            operation=pgtrigger.Delete,
-            # Protect deletes when the OLD row of the trigger is still active
-            condition=pgtrigger.Q(old__is_active=True)
-        )
-    )
     class CannotBeDeletedModel(models.Model):
         """Active model object cannot be deleted!"""
         is_active = models.BooleanField(default=True)
+
+        class Meta:
+            triggers = [
+                pgtrigger.Protect(
+                    name='protect_deletes',
+                    operation=pgtrigger.Delete,
+                    # Protect deletes when the OLD row of the trigger is still active
+                    condition=pgtrigger.Q(old__is_active=True)
+                )
+            ]
 
 
 Combining `pgtrigger.Q`, `pgtrigger.F`, and derived `pgtrigger.Trigger`
@@ -90,3 +94,4 @@ After you have gone through the
 tutorial, check out
 `<https://wesleykendall.github.io/django-pgtrigger-tutorial/>`__, which
 is an interactive tutorial written for a Django meetup talk about
+``django-pgtrigger``.
