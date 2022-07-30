@@ -1,4 +1,29 @@
 # Changelog
+## 2.5.0 (2022-07-30)
+### Bug
+  - Ignore non-postgres databases in global operations [Wes Kendall, a1aff5d]
+
+    Some operations, such as pruning triggers, would iterate over all databases
+    in a project, including non-postgres ones. This fix ignores non-postgres
+    databases.
+  - Fixes transaction leak when using ``pgtrigger.ignore()`` [Wes Kendall, 1501d7e]
+
+    ``pgtrigger.ignore()`` would continue to ignore triggers until the end of the
+    transaction once the context manager exited. This is now fixed.
+  - Fixed more issues related to custom table names [Wes Kendall, a0e1f6d]
+
+    Fixes and test cases were added for custom table names that collide
+    with reserved words.
+  - Wrap table names to avoid SQL command conflicts [Zac Miller, 86ee983]
+
+    Prevents models/tables with names like Order from causing Syntax errors
+    and add PyCharm .idea/ folder to .gitignore
+### Feature
+  - Triggers can be specified in model Meta options [Wes Kendall, 5c1cfec]
+
+    Triggers can now be specified with the ``triggers`` attribute of a model's Meta
+    options. This still works alongside the old method of using ``pgtrigger.register``.
+
 ## 2.4.1 (2022-02-24)
 ### Trivial
   - Updated with the latest template, dropped 3.6 supported, added Docker-based development [Wes Kendall, 25e0f0d]
