@@ -17,6 +17,7 @@ INSTALLED_APPS = [
 # We have some multi-database tests, so set up two databases
 DATABASES = {
     'default': dj_database_url.config(),
+    'sqlite': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': 'test_sqlite'},
 }
 DATABASES['other'] = copy.deepcopy(DATABASES['default'])
 if 'NAME' in DATABASES['other']:
