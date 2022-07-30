@@ -125,3 +125,8 @@ Primary Authors
 ===============
 
 - @wesleykendall (Wes Kendall)
+
+Other Contributors
+==================
+
+- @jzmiller1

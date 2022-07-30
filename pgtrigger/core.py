@@ -44,6 +44,14 @@ registry = {}
 _ignore = threading.local()
 
 
+def _quote(label):
+    """Conditionally wraps a label in quotes"""
+    if label.startswith('"'):
+        return label
+    else:
+        return f'"{label}"'
+
+
 def _get_database(model):
     """
     Obtains the database used for a trigger / model pair. The database
@@ -65,7 +73,7 @@ def _get_connection(model):
 def _get_model(table):
     """Obtains a django model based on its table name"""
     for model in django.apps.apps.get_models():  # pragma: no branch
-        if model._meta.db_table == table:
+        if _quote(model._meta.db_table) == _quote(table):
             return model
 
 
@@ -214,7 +222,7 @@ class UpdateOf(_Operation):
         if not columns:
             raise ValueError('Must provide at least one column')
 
-        self.columns = ', '.join(f'"{col}"' for col in columns)
+        self.columns = ', '.join(f'{_quote(col)}' for col in columns)
 
     def __str__(self):
         return f'UPDATE OF {self.columns}'
@@ -296,7 +304,7 @@ class F(models.F):
 
     @property
     def resolved_name(self):
-        return f'{self.row_alias}."{self.col_name}"'
+        return f'{self.row_alias}.{_quote(self.col_name)}'
 
     def resolve_expression(self, query=None, *args, **kwargs):
         return Col(
@@ -364,7 +372,7 @@ def _drop_trigger(table, trigger_pgid):
     model = _get_model(table)
     connection = _get_connection(model)
     with connection.cursor() as cursor:
-        cursor.execute(f'DROP TRIGGER IF EXISTS {trigger_pgid} ON {table};')
+        cursor.execute(f'DROP TRIGGER IF EXISTS {trigger_pgid} ON {_quote(table)};')
 
 
 # Allows Trigger methods to be used as context managers, mostly for
@@ -572,7 +580,7 @@ class Trigger:
         return f'''
             DO $$ BEGIN
                 CREATE TRIGGER {pgid}
-                    {self.when} {self.operation} ON "{table}"
+                    {self.when} {self.operation} ON {_quote(table)}
                     {self.referencing or ''}
                     FOR EACH {self.level} {self.render_condition(model)}
                     EXECUTE PROCEDURE {pgid}();
@@ -591,7 +599,7 @@ class Trigger:
         pgid = self.get_pgid(model)
         hash = self.get_hash(model)
         table = model._meta.db_table
-        return f'COMMENT ON TRIGGER {pgid} ON "{table}" IS \'{hash}\''
+        return f'COMMENT ON TRIGGER {pgid} ON {_quote(table)} IS \'{hash}\''
 
     def get_installation_status(self, model):
         """Returns the installation status of a trigger.
@@ -677,7 +685,8 @@ class Trigger:
 
         with connection.cursor() as cursor:
             cursor.execute(
-                f'ALTER TABLE "{model._meta.db_table}" ENABLE TRIGGER {self.get_pgid(model)};'
+                f'ALTER TABLE {_quote(model._meta.db_table)}'
+                f' ENABLE TRIGGER {self.get_pgid(model)};'
             )
 
         return _cleanup_on_exit(lambda: self.disable(model))  # pragma: no branch
@@ -688,7 +697,8 @@ class Trigger:
 
         with connection.cursor() as cursor:
             cursor.execute(
-                f'ALTER TABLE "{model._meta.db_table}" DISABLE TRIGGER {self.get_pgid(model)};'
+                f'ALTER TABLE {_quote(model._meta.db_table)}'
+                f' DISABLE TRIGGER {self.get_pgid(model)};'
             )
 
         return _cleanup_on_exit(lambda: self.enable(model))  # pragma: no branch
@@ -771,14 +781,14 @@ class FSM(Trigger):
         transition_uris = '{' + ','.join([f'{old}:{new}' for old, new in self.transitions]) + '}'
 
         return f'''
-            SELECT CONCAT(OLD.{col}, ':', NEW.{col}) = ANY('{transition_uris}'::text[])
+            SELECT CONCAT(OLD.{_quote(col)}, ':', NEW.{_quote(col)}) = ANY('{transition_uris}'::text[])
                 INTO _is_valid_transition;
 
-            IF (_is_valid_transition IS FALSE AND OLD.{col} IS DISTINCT FROM NEW.{col}) THEN
+            IF (_is_valid_transition IS FALSE AND OLD.{_quote(col)} IS DISTINCT FROM NEW.{_quote(col)}) THEN
                 RAISE EXCEPTION
                     'pgtrigger: Invalid transition of field "{self.field}" from "%" to "%" on table %',
-                    OLD.{col},
-                    NEW.{col},
+                    OLD.{_quote(col)},
+                    NEW.{_quote(col)},
                     TG_TABLE_NAME;
             ELSE
                 RETURN NEW;
@@ -826,9 +836,9 @@ class SoftDelete(Trigger):
                 return str(self.value)
 
         return f'''
-            UPDATE "{model._meta.db_table}"
+            UPDATE {_quote(model._meta.db_table)}
             SET {soft_field} = {_render_value()}
-            WHERE "{pk_col}" = OLD."{pk_col}";
+            WHERE {_quote(pk_col)} = OLD.{_quote(pk_col)};
             RETURN NULL;
         '''
 
@@ -902,7 +912,9 @@ def get_prune_list(database=None):
         database (str, default=None): Only return results from this
             database. Defaults to returning results from all databases
     """
-    installed = {(model._meta.db_table, trigger.get_pgid(model)) for model, trigger in get()}
+    installed = {
+        (_quote(model._meta.db_table), trigger.get_pgid(model)) for model, trigger in get()
+    }
 
     if isinstance(database, str):
         databases = [database]
@@ -922,7 +934,7 @@ def get_prune_list(database=None):
         prune_list += [
             (trigger[0], trigger[1], trigger[2] == 'O', database)
             for trigger in triggers
-            if (trigger[0], trigger[1]) not in installed
+            if (_quote(trigger[0]), trigger[1]) not in installed
         ]
 
     return prune_list
