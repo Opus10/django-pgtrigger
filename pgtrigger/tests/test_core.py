@@ -521,6 +521,19 @@ def test_custom_trigger_definitions():
             test_model.save()
 
 
+@pytest.mark.django_db
+def test_ignore_no_transaction_leaks():
+    """Verify ignore does not leak during a transaction"""
+    deletion_protected_model = ddf.G(models.TestTrigger)
+    with pgtrigger.ignore('tests.TestTrigger:protect_delete'):
+        deletion_protected_model.delete()
+        assert not models.TestTrigger.objects.exists()
+
+    deletion_protected_model = ddf.G(models.TestTrigger)
+    with pytest.raises(InternalError, match='Cannot delete rows'):
+        deletion_protected_model.delete()
+
+
 @pytest.mark.django_db(transaction=True)
 def test_basic_ignore():
     """Verify basic dynamic ignore functionality"""

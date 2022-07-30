@@ -39,7 +39,7 @@ class ToLogRouter:
 
 @django.test.override_settings(DATABASE_ROUTERS=['pgtrigger.tests.test_multi_db.ToLogRouter'])
 class MultiDB(django.test.TestCase):
-    databases = ['default', 'other']
+    databases = ['default', 'sqlite', 'other']
 
     def setUp(self):
         # Trigger installation is originally executed during

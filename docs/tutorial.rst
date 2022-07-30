@@ -138,13 +138,11 @@ trigger functions.
         in Postgres10 and up.
 
 
-Installing triggers for models
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Defining and installing triggers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Similar to the Django admin, ``pgtrigger`` triggers are registered to models
-using the `pgtrigger.register` decorator. The decorator takes a variable
-amount of `pgtrigger.Trigger` objects that should be installed for the
-model.
+Triggers are defined in the ``triggers`` attribute of the model ``Meta``
+class.
 
 For example, this trigger definition protects this model from being
 deleted:
@@ -155,148 +153,56 @@ deleted:
     import pgtrigger
 
 
-    @pgtrigger.register(
-        pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
-    )
     class CannotDelete(models.Model):
-        field = models.CharField(max_length=16)
+        class Meta:
+            triggers = [
+                pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
+            ]
 
-The triggers are installed automatically when running
+Triggers are installed automatically when running
 ``manage.py migrate``. If a trigger definition is removed from the project,
 the triggers will be removed in the database. If the trigger
 changes, the new one will be created and the old one will be dropped
 during migrations.
 
-There are circumstances when it is undesirable to always install triggers
-after migrations, especially when performing complex multi-step migrations
-where installing a trigger midway could result in errors.
-To turn off creating triggers in migrations, configure the
-``PGTRIGGER_INSTALL_ON_MIGRATE`` setting to ``False``.
-
-Triggers can be programmatically configured with the following code:
-
-* `pgtrigger.install`: Install triggers
-* `pgtrigger.uninstall`: Uninstall triggers
-* `pgtrigger.enable`: Enable triggers
-* `pgtrigger.disable`: Disable triggers
-* `pgtrigger.prune`: Uninstall triggers created by ``django-pgtrigger``
-  that are no longer in the codebase.
-
-Triggers can also be configured with similar management commands.
-See the :ref:`commands` section for more details.
-
-.. note::
-
-    If triggers are disabled (as opposed to uninstalled), they have
-    to be re-enabled again and will not be re-enabled automatically
-    during migrations.
-
-.. warning::
-
-    Installing, uninstalling, enabling, and disabling are table-level
-    operations that call ``ALTER`` on the table. This is a global
-    operation and will affect all running processing. Do not use these
-    methods in application code. If you want to ignore a trigger dynamically
-    in an application, using `pgtrigger.ignore`, which is covered in the
-    next section.
-
-Ignoring trigger execution dynamically
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-As mentioned previously, one should avoid using `pgtrigger.install`,
-`pgtrigger.uninstall`, `pgtrigger.enable`, and `pgtrigger.disable` in
-application code. Use `pgtrigger.ignore` to dynamically ignore a trigger
-in a single thread of execution.
-
-When using `pgtrigger.ignore`, `django-pgconnection <https://django-pgconnection.readthedocs.io>`__
-is used to dynamically set a Postgres variable that trigger objects parse
-and determine if they should proceed.
-
-Because of this, the user needs to additionally set up their project
-with `django-pgconnection <https://django-pgconnection.readthedocs.io>`__
-to use this feature. To do this, make sure ``settings.DATABASES``
-is wrapped in ``pgconnection.configure()`` in ``settings.py`` like so:
-
-.. code-block:: python
-
-    import pgconnection
-
-    DATABASES = pgconnection.configure({
-        'default': {
-            # default database config..
-        }
-    })
-
-
-To ignore a trigger, first be sure that a ``name`` has been provided to
-the trigger, and then reference the model and the trigger name with
-the ``pgtrigger.ignore`` context manager. Here's an example of a model
-that is protected against deletes and uses `pgtrigger.ignore` to ignore
-the trigger:
-
-.. code-block:: python
-
-    from django.db import models
-    import pgtrigger
-
-
-    @pgtrigger.register(
-        pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
-    )
-    class CannotDelete(models.Model):
-        pass
-
-
-    # Bypass deletion protection
-    with pgtrigger.ignore('my_app.CannotDelete:protect_deletes'):
-        CannotDelete.objects.all().delete()
-
-
-As shown above, `pgtrigger.ignore` takes a trigger URI that is formatted as
-``{app_label}.{model_name}:{trigger_name}``. Multiple trigger URIs can
-be given to `pgtrigger.ignore`, and `pgtrigger.ignore` can be nested.
-If no triggers are provided, all triggers are ignored.
-
-Although one should strive to create triggers that produce a consistent
-database (and thus use `pgtrigger.ignore` sparingly), one practical
-use case of `pgtrigger.ignore` is making an "official" interface for
-doing an operation. See ``Official interfaces`` in the
-trigger cookbook for an example.
+If you want to register triggers on external models, install them manually,
+or disable them, see the :ref:`advanced_installation` section for more details. 
 
 Trigger cookbook
 ~~~~~~~~~~~~~~~~
 
-Here are a few more examples of how you can configure triggers
-using the utilities in ``pgtrigger``.
+Here are examples using built-in trigger classes and raw SQL.
 
-Only allowing specific transitions of a field
----------------------------------------------
+Validating field transitions
+----------------------------
 
 Similar to how one can configure a finite state machine on
 a model field with `django-fsm <https://github.com/viewflow/django-fsm>`__,
 the `pgtrigger.FSM` ensures that a field can only do configured
 transitions on update.
 
-For example, this trigger ensures that the "status" field of a model
+For example, this trigger ensures that the ``status`` field of a model
 can only transition from "unpublished" to "published" and from
-"published" to "inactive". Any other updates on the "status" field
+"published" to "inactive". Any other updates on the ``status`` field
 will result in an exception:
 
 .. code-block:: python
 
-    @pgtrigger.register(
-        pgtrigger.FSM(
-            name='status_fsm',
-            field='status',
-            transitions=[
-                ('unpublished', 'published'),
-                ('published', 'inactive'),
-            ]
-        )
-    )
     class MyModel(models.Model):
-        """Enforce valid transitions of a 'status' field"""
+        """Enforce valid transitions of the 'status' field"""
         status = models.CharField(max_length=32, default='unpublished')
+
+        class Meta:
+            triggers = [
+                pgtrigger.FSM(
+                    name='status_fsm',
+                    field='status',
+                    transitions=[
+                        ('unpublished', 'published'),
+                        ('published', 'inactive'),
+                    ]
+                )
+            ]
 
 .. note::
 
@@ -312,25 +218,26 @@ will result in an exception:
 Keeping a field in-sync with another
 ------------------------------------
 
-We can register a `pgtrigger.Trigger` before an update
+Here we create a `pgtrigger.Trigger` that runs before an update
 or insert to ensure that two fields remain in sync.
 
 .. code-block:: python
 
     import pgtrigger
 
-
-    @pgtrigger.register(
-        pgtrigger.Trigger(
-            name='keep_in_sync',
-            operation=pgtrigger.Update | pgtrigger.Insert,
-            when=pgtrigger.Before,
-            func='NEW.in_sync_int = NEW.int_field; RETURN NEW;',
-        )
-    )
     class MyModel(models.Model):
         int_field = models.IntField()
         in_sync_int = models.IntField(help_text='Stays the same as "int_field"')
+
+        class Meta:
+            triggers = [
+                pgtrigger.Trigger(
+                    name='keep_in_sync',
+                    operation=pgtrigger.Update | pgtrigger.Insert,
+                    when=pgtrigger.Before,
+                    func='NEW.in_sync_int = NEW.int_field; RETURN NEW;',
+                )
+            ]
 
 .. note::
 
@@ -344,7 +251,7 @@ Soft-delete models
 ------------------
 
 A soft-delete model is one that sets a field on the model to a value
-upon delete instead of deleting the model from the database. For example, it is
+upon deletion instead of deleting the model from the database. For example, it is
 common is set an ``is_active`` field on a model to ``False`` to soft
 delete it.
 
@@ -356,12 +263,15 @@ a value to set on delete. The value defaults to ``False``. For example:
     import pgtrigger
 
 
-    @pgtrigger.register(
-        pgtrigger.SoftDelete(name='soft_delete', field='is_active')
-    )
     class SoftDeleteModel(models.Model):
         # This field is set to false when the model is deleted
         is_active = models.BooleanField(default=True)
+
+        class Meta:
+            triggers = [
+                pgtrigger.SoftDelete(name='soft_delete', field='is_active')
+            ]
+
 
     m = SoftDeleteModel.objects.create()
     m.delete()
@@ -376,8 +286,7 @@ upon deletion. `pgtrigger.SoftDelete` works with nullable
 
 The `pgtrigger.SoftDelete` trigger allows one to do soft deletes at the
 database level with no instrumentation in code at the application level.
-This reduces the possibility for holes in the application that can
-accidentally delete the model when not going through the appropriate interface.
+This reduces the possibility of application error.
 
 .. note::
 
@@ -392,8 +301,8 @@ accidentally delete the model when not going through the appropriate interface.
 Append-only models
 ------------------
 
-Create an append-only model using the `pgtrigger.Protect`
-utility and registering it for the ``UPDATE`` and ``DELETE`` operations:
+Here we create an append-only model using the `pgtrigger.Protect`
+trigger for the ``UPDATE`` and ``DELETE`` operations:
 
 .. code-block:: python
 
@@ -401,14 +310,16 @@ utility and registering it for the ``UPDATE`` and ``DELETE`` operations:
     from django.db import models
 
 
-    @pgtrigger.register(
-        pgtrigger.Protect(
-            name='protect_updates_and_deletes',
-            operation=(pgtrigger.Update | pgtrigger.Delete)
-        )
-    )
     class AppendOnlyModel(models.Model):
         my_field = models.IntField()
+
+        class Meta:
+            triggers = [
+                pgtrigger.Protect(
+                    name='protect_updates_and_deletes',
+                    operation=(pgtrigger.Update | pgtrigger.Delete)
+                )
+            ]
 
 .. note::
 
@@ -421,6 +332,11 @@ Official interfaces
 
 `pgtrigger.Protect` triggers can be combined with `pgtrigger.ignore` to create
 "official" interfaces for doing database operations in your application.
+
+.. note::
+
+    Ignoring triggers requires additional conifguration. See the
+    :ref:`ignoring_triggers` section to learn more.
 
 For example, let's protect inserts on our custom
 ``User`` model and force all engineers to use one common interface to
@@ -441,21 +357,20 @@ create users:
         return User.objects.create(**kwargs)
 
 
-    @pgtrigger.register(
-        pgtrigger.Protect(name='protect_inserts', operation=pgtrigger.Insert)
-    )
     class User(models.Model):
-        pass
+        class Meta:
+            triggers = [
+                pgtrigger.Protect(name='protect_inserts', operation=pgtrigger.Insert)
+            ]
 
 Users of this application must call ``create_user`` to create users. Any
-other pieces of the application that bypass this interface when creating
-users will have errors.
+other code that creates users will fail.
 
 
 Dynamic deletion protection
 ---------------------------
 
-Only allow models with a ``deletable`` flag to be deleted:
+Here we only allow models with a ``deletable`` flag to be deleted:
 
 .. code-block:: python
 
@@ -463,22 +378,24 @@ Only allow models with a ``deletable`` flag to be deleted:
     from django.db import models
 
 
-    @pgtrigger.register(
-        pgtrigger.Protect(
-            name='protect_deletes',
-            operation=pgtrigger.Delete,
-            condition=pgtrigger.Q(old__is_deletable=False)
-        )
-    )
     class DynamicDeletionModel(models.Model):
         is_deletable = models.BooleanField(default=False)
+
+        class Meta:
+            triggers = [
+                pgtrigger.Protect(
+                    name='protect_deletes',
+                    operation=pgtrigger.Delete,
+                    condition=pgtrigger.Q(old__is_deletable=False)
+                )
+            ]
 
 
 Redundant update protection
 ---------------------------
 
-Want to error every time someone tries to update a
-row with the exact same values? Here's how:
+Here we raise an error when someone makes a redundant update
+to the database:
 
 .. code-block:: python
 
@@ -486,29 +403,27 @@ row with the exact same values? Here's how:
     from django.db import models
 
 
-    @pgtrigger.register(
-        pgtrigger.Protect(
-            name='protect_redundant_updates',
-            operation=pgtrigger.Update,
-            condition=pgtrigger.Condition(
-                'OLD.* IS NOT DISTINCT FROM NEW.*'
-            )
-        )
-    )
     class RedundantUpdateModel(models.Model):
         redundant_field1 = models.BooleanField(default=False)
         redundant_field2 = models.BooleanField(default=False)
+
+        class Meta:
+            triggers = [
+                pgtrigger.Protect(
+                    name='protect_redundant_updates',
+                    operation=pgtrigger.Update,
+                    condition=pgtrigger.Condition(
+                        'OLD.* IS NOT DISTINCT FROM NEW.*'
+                    )
+                )
+            ]
 
 
 Freezing published models
 -------------------------
 
-A common pattern is allowing edits to model before it is "published"
-and restricting edits once it is live. This can be accomplished
-with the `pgtrigger.Protect` trigger and a well-placed condition.
-
-Let's assume we have a ``Post`` model with a ``status`` field that
-we want to freeze once it is published:
+Here we have a ``Post`` model with a ``status`` field. We only allow edits to this model
+when it's not published.
 
 .. code-block::
 
@@ -516,25 +431,25 @@ we want to freeze once it is published:
     from django.db import models
 
 
-    @pgtrigger.register(
-        pgtrigger.Protect(
-            name='freeze_published_model',
-            operation=pgtrigger.Update,
-            condition=pgtrigger.Q(old__status='published')
-        )
-    )
     class Post(models.Model):
         status = models.CharField(default='unpublished')
         content = models.TextField()
+
+        class Meta:
+            triggers = [
+                pgtrigger.Protect(
+                    name='freeze_published_model',
+                    operation=pgtrigger.Update,
+                    condition=pgtrigger.Q(old__status='published')
+                )
+            ]
 
 
 With the above, we've set a condition so that the ``Post`` model
-can no longer be updated once the status field is ``published``.
+can no longer be updated once the status field is "published".
 
-What if we want published posts to be able to be deactivated? With the
-current example, we would never let it go into an inactive status
-since any updates after publishing are protected.
-We can change the condition a bit more to allow this:
+We extend this example by allowing a published model to be able to
+be edited, but only if that status is "inactive"
 
 .. code-block::
 
@@ -542,18 +457,20 @@ We can change the condition a bit more to allow this:
     from django.db import models
 
 
-    @pgtrigger.register(
-        pgtrigger.Protect(
-            name='freeze_published_model_allow_deactivation',
-            operation=pgtrigger.Update,
-            condition=(
-              pgtrigger.Q(old__status='published')
-              & ~pgtrigger.Q(new__status='inactive')
-        )
-    )
     class Post(models.Model):
         status = models.CharField(default='unpublished')
         content = models.TextField()
+
+        class Meta:
+            triggers = [
+                pgtrigger.Protect(
+                    name='freeze_published_model_allow_deactivation',
+                    operation=pgtrigger.Update,
+                    condition=(
+                      pgtrigger.Q(old__status='published')
+                      & ~pgtrigger.Q(new__status='inactive')
+                )
+            ]
 
 
 In the above, we protect updates on any published posts unless
@@ -563,31 +480,12 @@ the update is transitioning the published post into an inactive state.
 Versioned models
 ----------------
 
-We've shown a few `pgtrigger.Before` triggers so far, which are triggers that
-operate before the execution of an operation (e.g. `pgtrigger.SoftDelete`
-and `pgtrigger.Protect`). Here we are going to write a custom `pgtrigger.Trigger`
-class that dynamically increments a model version before an update is
-applied. The example is as follows:
+Here we write a `pgtrigger.Trigger`
+that dynamically increments a model version before an update is
+applied:
 
 .. code-block:: python
 
-    @pgtrigger.register(
-        # Protect anyone editing the version field directly
-        pgtrigger.Protect(
-            name='protect_updates',
-            operation=pgtrigger.Update,
-            condition=pgtrigger.Q(old__version__df=pgtrigger.F('new__version'))
-        ),
-        # Increment the version field on changes
-        pgtrigger.Trigger(
-            name='versioning',
-            when=pgtrigger.Before,
-            operation=pgtrigger.Update,
-            func='NEW.version = NEW.version + 1; RETURN NEW;',
-            # Don't increment version on redundant updates.
-            condition=pgtrigger.Condition('OLD.* IS DISTINCT FROM NEW.*')
-        )
-    )
     class Versioned(models.Model):
         """
         This model is versioned. The "version" field is incremented on every
@@ -596,83 +494,70 @@ applied. The example is as follows:
         version = models.IntegerField(default=0)
         char_field = models.CharField(max_length=32)
 
-In the above, we've registered two triggers:
+        class Meta:
+            triggers = [
+                # Protect anyone editing the version field directly
+                pgtrigger.Protect(
+                    name='protect_updates',
+                    operation=pgtrigger.Update,
+                    condition=pgtrigger.Q(old__version__df=pgtrigger.F('new__version'))
+                ),
+                # Increment the version field on changes
+                pgtrigger.Trigger(
+                    name='versioning',
+                    when=pgtrigger.Before,
+                    operation=pgtrigger.Update,
+                    func='NEW.version = NEW.version + 1; RETURN NEW;',
+                    # Don't increment version on redundant updates.
+                    condition=pgtrigger.Condition('OLD.* IS DISTINCT FROM NEW.*')
+                )
+            ]
 
-1. One that protects updating the "version" field of the model. We don't
+In the above, we've added two triggers:
+
+1. One that protects updating the ``version`` field of the model. We don't
    want people tampering with this field.
-2. A trigger that increments the "version" of the ``NEW`` row before
+2. A trigger that increments the ``version`` of the ``NEW`` row before
    an update is applied.
 
-As you can see, we return the ``NEW`` row in this trigger definition. Postgres
-takes this return value and uses this as the row on which to apply the operation.
-We don't have to actually perform the update ourselves. The return value
-from `pgtrigger.Before` triggers is very important. If you return ``NULL``,
-it will tell Postgres to ignore the operation.
+We return the ``NEW`` row in the second trigger definition. Postgres
+uses this return value for the update operation. We've also ensured that
+the versioning trigger only fires when anything in the row has changed.
 
-In the example, we've also ensured that the versioning trigger only
-fires when anything in the row has changed. We've written a raw SQL condition
-to express this.
-
-Configuring triggers on external models
----------------------------------------
-
-Triggers can be registered for models that are part of third party apps.
-This can be done by manually calling the `pgtrigger.register`
-decorator:
-
-.. code-block:: python
-
-    from django.contrib.auth.models import User
-    import pgtrigger
-
-    # Register a protection trigger for the User model
-    pgtrigger.register(pgtrigger.Protect(...))(User)
 
 .. note::
 
-    Be sure that triggers are registered via an app config's
-    ``ready()`` method so that the registration happens!
-    More information on this
-    `here <https://docs.djangoproject.com/en/3.0/ref/applications/#django.apps.apps.ready>`__.
+    The return value
+    from `pgtrigger.Before` triggers is very important. If you return ``NULL``,
+    it will tell Postgres to ignore the operation.
 
 
 Statement-level triggers and transition tables
 ----------------------------------------------
 
 Most of the terminology and examples around Postgres triggers have been
-centered around "row-level" triggers, i.e. triggers that fire on events
+for "row-level" triggers, i.e. triggers that fire on events
 for every row. However, row-level triggers can be expensive in some
-circumstances. For example, imagine we are doing a bulk Django update
-over a table with 10,000 rows:
+circumstances if doing large bulk operations.
 
-.. code-block:: python
+Statement-level triggers can be used to mitigate these scenarios. Triggers are executed
+once per statement and can be configured with ``level=pgtrigger.Statement`` in
+the trigger definition.
 
-    MyLargeModel.objects.update(is_active=False)
-
-If we had any row-level triggers configured for ``MyLargeModel``, they
-would fire 10,000 times for every updated row even though the query above
-is only issuing one single update statement.
-
-Although triggers are issued at the database level and will not induce
-expensive round trips to the database, it can still be unnecessarily expensive
-to do row-level triggers for certain situations.
-
-Statement-level triggers, in contrast to row-level triggers, are executed
-once per statement. One only needs to provide ``level=pgtrigger.Statement`` to
-the trigger to configure this. However,
-keep in mind that trigger conditions and are largely not applicable to
-statement-level triggers since the ``OLD`` and ``NEW`` row variables are
-always ``NULL``.
-
-Postgres10 introduced the notion of "transition tables"
-to allow users to access old and new rows in a statement-level trigger
-(see `this <https://dba.stackexchange.com/a/177468>`__ for an example).
+In statement level triggers, the ``OLD`` and ``NEW`` row variables are
+always ``NULL``. We instead use "transition tables"
+to access old and new rows.
 One can use the `pgtrigger.Referencing` construct to write a statement-level trigger
-that references the old and new rows.
+that references the old and new rows. See `this example <https://dba.stackexchange.com/a/177468>`__
+for more explanations about these constructs.
 
-For example, imagine we have a log model that logs changes to a table
-and keeps track of an old field and new field for every update.
-We can create a statement-level trigger that logs the old and new
+.. note::
+
+    Transition tables are only available in Postgres 10 and up.
+
+Here we have a history model that keeps track of changes to
+a field for every update of the tracked table.
+We create a statement-level trigger that logs the old and new
 fields from a transition table to this persisted log model like so:
 
 .. code-block:: python
@@ -681,31 +566,33 @@ fields from a transition table to this persisted log model like so:
     import pgtrigger
 
 
-    class LogModel(models.Model):
+    class HistoryModel(models.Model):
         old_field = models.CharField(max_length=32)
         new_field = models.CharField(max_length=32)
 
 
-    @pgtrigger.register(
-        pgtrigger.Trigger(
-            name='statement_level_log',
-            level=pgtrigger.Statement,
-            when=pgtrigger.After,
-            operation=pgtrigger.Update,
-            referencing=pgtrigger.Referencing(old='old_values', new='new_values'),
-            func=f'''
-                INSERT INTO {LogModel._meta.db_table}(old_field, new_field)
-                SELECT
-                    old_values.field AS old_field,
-                    new_values.field AS new_field
-                FROM old_values
-                    JOIN new_values ON old_values.id = new_values.id;
-                RETURN NULL;
-            ''',
-        )
-    )
-    class LoggedModel(models.Model):
+    class TrackedModel(models.Model):
         field = models.CharField(max_length=32)
+
+        class Meta:
+            triggers = [
+                pgtrigger.Trigger(
+                    name='statement_level_log',
+                    level=pgtrigger.Statement,
+                    when=pgtrigger.After,
+                    operation=pgtrigger.Update,
+                    referencing=pgtrigger.Referencing(old='old_values', new='new_values'),
+                    func=f'''
+                        INSERT INTO {HistoryModel._meta.db_table}(old_field, new_field)
+                        SELECT
+                            old_values.field AS old_field,
+                            new_values.field AS new_field
+                        FROM old_values
+                            JOIN new_values ON old_values.id = new_values.id;
+                        RETURN NULL;
+                    ''',
+                )
+            ]
 
 
 With this trigger definition, we'll now have the following happen with only
@@ -713,13 +600,13 @@ one additional query in the trigger:
 
 .. code-block:: python
 
-    LoggedModel.objects.bulk_create([LoggedModel(field='old'), LoggedModel(field='old')])
+    TrackedModel.objects.bulk_create([LoggedModel(field='old'), LoggedModel(field='old')])
 
     # Update all fields to "new"
-    LoggedModel.objects.update(field='new')
+    TrackedModel.objects.update(field='new')
 
-    # The trigger should have persisted these updates
-    print(LogModel.values('old_field', 'new_field'))
+    # The trigger should have tracked these updates
+    print(HistoryModel.values('old_field', 'new_field'))
 
     >>> [{
       'old_field': 'old',
@@ -745,13 +632,125 @@ your application (e.g. the authenticated user) to the triggered event.
 
 Historical tracking and auditing is a problem that is going to be different
 for every organization's needs. Because of the scope of this problem, we
-have created an entire history tracking library called
+have created a history tracking library called
 `django-pghistory <https://django-pghistory.readthedocs.io>`__
-that solves common needs for doing history tracking. It is implemented
+that solves common needs for doing model change tracking. It is implemented
 using ``django-pgtrigger``. Check out
-the `docs here <https://django-pghistory.readthedocs.io>`__ for how you
-can integrate and configure these history tracking triggers into your
-application.
+the `docs here <https://django-pghistory.readthedocs.io>`__.
+
+
+.. _ignoring_triggers:
+
+Ignoring trigger execution dynamically
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use `pgtrigger.ignore` to dynamically ignore a trigger in a single thread of execution.
+Below we ignore deletion protection:
+
+.. code-block:: python
+
+    from django.db import models
+    import pgtrigger
+
+
+    class CannotDelete(models.Model):
+        class Meta:
+            triggers = [
+                pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
+            ]
+
+
+    # Bypass deletion protection
+    with pgtrigger.ignore('my_app.CannotDelete:protect_deletes'):
+        CannotDelete.objects.all().delete()
+
+As shown above, `pgtrigger.ignore` takes a trigger URI that is formatted as
+``{app_label}.{model_name}:{trigger_name}``. Multiple trigger URIs can
+be given to `pgtrigger.ignore`, and `pgtrigger.ignore` can be nested.
+If no triggers are provided, all triggers are ignored.
+
+When used, `django-pgconnection <https://django-pgconnection.readthedocs.io>`__
+dynamically sets a Postgres variable that the trigger understands. This allows us
+to ignore a trigger's execution for a single thread rather than disabling it globally.
+
+To use this feature, you will need to wrap ``settings.DATABASES``
+with ``pgconnection.configure()`` in ``settings.py`` like so:
+
+.. code-block:: python
+
+    import pgconnection
+
+    DATABASES = pgconnection.configure({
+        'default': {
+            # default database config..
+        }
+    })
+
+.. _advanced_installation:
+
+Advanced trigger installation guide
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Manual installation and disabling
+---------------------------------
+
+.. warning::
+
+    Installing, uninstalling, enabling, and disabling triggers are table-level
+    operations that call ``ALTER`` on the table. This is a global
+    operation and will affect all running processing. Do not use these
+    methods in application code. If you want to ignore a trigger dynamically
+    in an application, using `pgtrigger.ignore`, which is covered in
+    the :ref:`ignoring_triggers` section.
+
+There are circumstances when it is undesirable to always install triggers
+after migrations, especially when performing complex multi-step migrations
+where installing a trigger midway could result in errors.
+To turn off creating triggers in migrations, configure the
+``PGTRIGGER_INSTALL_ON_MIGRATE`` setting to ``False``.
+
+Triggers can be programmatically configured with the following code:
+
+* `pgtrigger.install`: Install triggers
+* `pgtrigger.uninstall`: Uninstall triggers
+* `pgtrigger.enable`: Enable triggers
+* `pgtrigger.disable`: Disable triggers
+* `pgtrigger.prune`: Uninstall triggers created by ``django-pgtrigger``
+  that are no longer in the codebase.
+
+Triggers can also be configured with similar management commands.
+See the :ref:`commands` section for more details.
+
+.. note::
+
+    If triggers are disabled (as opposed to uninstalled), they have
+    to be re-enabled again and will not be re-enabled automatically
+    during migrations.
+
+
+
+Configuring triggers on external models
+---------------------------------------
+
+Triggers can be registered for models that are part of third party apps.
+This can be done by manually calling the `pgtrigger.register`
+decorator:
+
+.. code-block:: python
+
+    from django.contrib.auth.models import User
+    import pgtrigger
+
+    # Register a protection trigger for the User model
+    pgtrigger.register(pgtrigger.Protect(...))(User)
+
+.. note::
+
+    Be sure that triggers are registered via an app config's
+    ``ready()`` method so that the registration happens!
+    More information on this
+    `here <https://docs.djangoproject.com/en/3.0/ref/applications/#django.apps.apps.ready>`__.
+
 
 More trigger examples
 ~~~~~~~~~~~~~~~~~~~~~

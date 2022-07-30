@@ -77,16 +77,6 @@ class CharPk(models.Model):
     custom_pk = models.CharField(primary_key=True, max_length=32)
 
 
-@pgtrigger.register(
-    pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete),
-    pgtrigger.Trigger(
-        name='protect_misc_insert',
-        when=pgtrigger.Before,
-        operation=pgtrigger.Insert,
-        func="RAISE EXCEPTION 'no no no!';",
-        condition=pgtrigger.Q(new__field='misc_insert'),
-    ),
-)
 class TestTrigger(models.Model):
     """
     For testing triggers
@@ -98,6 +88,18 @@ class TestTrigger(models.Model):
     nullable = models.CharField(null=True, default=None, max_length=16)
     fk_field = models.ForeignKey('auth.User', null=True, on_delete=models.CASCADE)
     char_pk_fk_field = models.ForeignKey(CharPk, null=True, on_delete=models.CASCADE)
+
+    class Meta:
+        triggers = [
+            pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete),
+            pgtrigger.Trigger(
+                name='protect_misc_insert',
+                when=pgtrigger.Before,
+                operation=pgtrigger.Insert,
+                func="RAISE EXCEPTION 'no no no!';",
+                condition=pgtrigger.Q(new__field='misc_insert'),
+            ),
+        ]
 
 
 @pgtrigger.register(pgtrigger.SoftDelete(name='soft_delete', field='is_active'))

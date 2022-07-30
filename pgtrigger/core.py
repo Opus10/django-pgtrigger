@@ -10,6 +10,7 @@ from django.db import connections
 from django.db import DEFAULT_DB_ALIAS
 from django.db import models
 from django.db import router
+from django.db import transaction
 from django.db.models.expressions import Col
 from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
@@ -59,6 +60,11 @@ def _get_database(model):
     router config.
     """
     return router.db_for_write(model) or DEFAULT_DB_ALIAS
+
+
+def _postgres_databases(databases):
+    """Given an iterable of databases, only return postgres ones"""
+    return [database for database in databases if connections[database].vendor == 'postgresql']
 
 
 def _get_connection(model):
@@ -731,6 +737,12 @@ class Trigger:
             else:  # The trigger is already being ignored
                 yield
 
+        if not _ignore.value and transaction.get_connection().in_atomic_block:
+            # We've finished all ignoring of triggers, but we are in a transaction
+            # and still have a reference to the local variable. Reset it
+            with transaction.get_connection().cursor() as cursor:
+                cursor.execute('RESET pgtrigger.ignore;')
+
 
 class Protect(Trigger):
     """A trigger that raises an exception"""
@@ -922,7 +934,7 @@ def get_prune_list(database=None):
         databases = database or settings.DATABASES
 
     prune_list = []
-    for database in databases:
+    for database in _postgres_databases(databases):
         with connections[database].cursor() as cursor:
             cursor.execute(
                 'SELECT tgrelid::regclass, tgname, tgenabled'
@@ -1064,7 +1076,7 @@ def install_ignore_func(database=None):
     """
     databases = {_get_database(model) for model, _ in get(database=database)}
 
-    for database in databases:
+    for database in _postgres_databases(databases):
         with connections[database].cursor() as cursor:
             cursor.execute(
                 '''
