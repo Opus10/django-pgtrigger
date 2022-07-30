@@ -20,6 +20,10 @@ def test_full_ls(capsys):
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
+        'tests.CustomTableName:protect_delete'
+        '\tdefault'
+        '\t\x1b[92mINSTALLED\x1b[0m'
+        '\t\x1b[92mENABLED\x1b[0m',
         'tests.FSM:fsm' '\tdefault' '\t\x1b[92mINSTALLED\x1b[0m' '\t\x1b[92mENABLED\x1b[0m',
         'tests.SoftDelete:soft_delete'
         '\tdefault'

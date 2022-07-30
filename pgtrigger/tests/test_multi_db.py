@@ -60,6 +60,10 @@ class MultiDB(django.test.TestCase):
                 '\tdefault'
                 '\t\x1b[92mINSTALLED\x1b[0m'
                 '\t\x1b[92mENABLED\x1b[0m',
+                'tests.CustomTableName:protect_delete'
+                '\tdefault'
+                '\t\x1b[92mINSTALLED\x1b[0m'
+                '\t\x1b[92mENABLED\x1b[0m',
                 'tests.FSM:fsm'
                 '\tdefault'
                 '\t\x1b[92mINSTALLED\x1b[0m'
@@ -103,6 +107,10 @@ class MultiDB(django.test.TestCase):
                 '\tdefault'
                 '\t\x1b[92mINSTALLED\x1b[0m'
                 '\t\x1b[91mDISABLED\x1b[0m',
+                'tests.CustomTableName:protect_delete'
+                '\tdefault'
+                '\t\x1b[92mINSTALLED\x1b[0m'
+                '\t\x1b[91mDISABLED\x1b[0m',
                 'tests.FSM:fsm'
                 '\tdefault'
                 '\t\x1b[92mINSTALLED\x1b[0m'
@@ -142,6 +150,10 @@ class MultiDB(django.test.TestCase):
             assert lines == [
                 '',
                 'tests.CustomSoftDelete:soft_delete'
+                '\tdefault'
+                '\t\x1b[92mINSTALLED\x1b[0m'
+                '\t\x1b[92mENABLED\x1b[0m',
+                'tests.CustomTableName:protect_delete'
                 '\tdefault'
                 '\t\x1b[92mINSTALLED\x1b[0m'
                 '\t\x1b[92mENABLED\x1b[0m',
@@ -206,6 +218,7 @@ class MultiDB(django.test.TestCase):
             assert lines == [
                 '',
                 'tests.CustomSoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.CustomTableName:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.FSM:fsm' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.SoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.TestTrigger:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
@@ -235,6 +248,7 @@ class MultiDB(django.test.TestCase):
             assert lines == [
                 '',
                 'tests.CustomSoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.CustomTableName:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.FSM:fsm' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.SoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.TestTrigger:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',

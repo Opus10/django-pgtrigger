@@ -603,6 +603,25 @@ def test_protect():
         deletion_protected_model.delete()
 
 
+@pytest.mark.django_db
+def test_custom_db_table_protect_trigger():
+    """Verify custom DB table names have successful triggers"""
+    deletion_protected_model = ddf.G(models.CustomTableName)
+    with pytest.raises(InternalError, match='Cannot delete rows'):
+        deletion_protected_model.delete()
+
+
+@pytest.mark.django_db
+def test_custom_db_table_ignore():
+    """Verify we can ignore triggers on custom table names"""
+    deletion_protected_model = ddf.G(models.CustomTableName)
+
+    # Ensure we can ignore the deletion trigger
+    with pgtrigger.ignore('tests.CustomTableName:protect_delete'):
+        deletion_protected_model.delete()
+        assert not models.CustomTableName.objects.exists()
+
+
 @pytest.mark.django_db(transaction=True)
 def test_trigger_conditions():
     """Tests triggers with custom conditions"""

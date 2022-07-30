@@ -4,6 +4,16 @@ from django.utils import timezone
 import pgtrigger
 
 
+@pgtrigger.register(
+    pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete),
+)
+class CustomTableName(models.Model):
+    int_field = models.IntegerField(null=True, unique=True)
+
+    class Meta:
+        db_table = "order"
+
+
 class TestModel(models.Model):
     int_field = models.IntegerField(null=True, unique=True)
     char_field = models.CharField(max_length=128, null=True)
