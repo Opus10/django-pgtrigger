@@ -28,6 +28,7 @@ from pgtrigger.core import Truncate
 from pgtrigger.core import uninstall
 from pgtrigger.core import Update
 from pgtrigger.core import UpdateOf
+from pgtrigger.version import __version__
 
 if django.VERSION < (3, 2):
     default_app_config = 'pgtrigger.apps.PGTriggerConfig'
@@ -64,4 +65,5 @@ __all__ = [
     'uninstall',
     'Update',
     'UpdateOf',
+    '__version__',
 ]

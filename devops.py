@@ -123,9 +123,8 @@ def _generate_changelog_and_tag(old_version, new_version):
     _shell('git tidy-log > CHANGELOG.md')
 
     # Generate a requirements.txt for readthedocs.org
-    _shell('echo "poetry" > docs/requirements.txt')
+    _shell('poetry export --dev --without-hashes -f requirements.txt > docs/requirements.txt')
     _shell('echo "." >> docs/requirements.txt')
-    _shell('poetry export --dev --without-hashes -f requirements.txt ' '>> docs/requirements.txt')
 
     # Add all updated files
     _shell('git add pyproject.toml CHANGELOG.md docs/requirements.txt')
