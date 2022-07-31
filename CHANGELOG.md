@@ -1,4 +1,8 @@
 # Changelog
+## 2.5.1 (2022-07-31)
+### Trivial
+  - Updated with latest Django template, fixing doc builds [Wes Kendall, 4b175a4]
+
 ## 2.5.0 (2022-07-30)
 ### Bug
   - Ignore non-postgres databases in global operations [Wes Kendall, a1aff5d]
