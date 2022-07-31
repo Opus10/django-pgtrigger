@@ -62,7 +62,7 @@ else
 endif
 
 
-# Ensure we are logged into the Gitlab docker registry and start a detached container
+# Pull the latest container and start a detached run
 .PHONY: docker-start
 docker-start:
 	$(DOCKER_CMD) pull opus10/circleci-public-django-app

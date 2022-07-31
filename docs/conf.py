@@ -26,6 +26,8 @@ import sys
 import django
 import sphinx_rtd_theme
 
+import pgtrigger
+
 
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('..'))
@@ -85,7 +87,7 @@ author = u'Opus 10 Engineering'
 # built documents.
 #
 # The short X.Y version.
-version = _shell_stdout("poetry version | rev | cut -f 1 -d' ' | rev")
+version = pgtrigger.__version__
 
 # The full version, including alpha/beta/rc tags.
 release = version
