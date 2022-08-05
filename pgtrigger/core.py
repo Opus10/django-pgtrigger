@@ -1,22 +1,18 @@
 import contextlib
 import copy
 import hashlib
+import inspect
 import logging
 import threading
 
 import django.apps
 from django.conf import settings
-from django.db import connections
-from django.db import DEFAULT_DB_ALIAS
-from django.db import models
-from django.db import router
-from django.db import transaction
+from django.db import connections, DEFAULT_DB_ALIAS, models, NotSupportedError, router, transaction
 from django.db.models.expressions import Col
 from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
 from django.db.models.sql.datastructures import BaseTable
 from django.db.utils import ProgrammingError
-import pgconnection
 
 
 LOGGER = logging.getLogger('pgtrigger')
@@ -91,36 +87,52 @@ def _is_concurrent_statement(sql):
     return sql.startswith('create') and 'concurrently' in sql
 
 
-def _inject_pgtrigger_ignore(sql, sql_vars, cursor):  # pragma: no cover
+def _inject_pgtrigger_ignore(execute, sql, params, many, context):  # pragma: no cover
     """
-    A pgconnection pre_execute hook that sets a pgtrigger.ignore
+    A connection execution wrapper that sets a pgtrigger.ignore
     variable in the executed SQL. This lets other triggers know when
     they should ignore execution
     """
-    if cursor.name:
-        # A named cursor automatically prepends
-        # "NO SCROLL CURSOR WITHOUT HOLD FOR" to the query, which
-        # causes invalid SQL to be generated. There is no way
-        # to override this behavior in psycopg2, so context tracking
-        # is ignored for named cursors. Django only names cursors
-        # for iterators and other statements that read the database,
-        # so it seems to be safe to ignore named cursors.
-        # TODO(@wesleykendall): Find a way to generate valid SQL
-        # for local variables within a named cursor declaration.
-        return None
-    elif _is_concurrent_statement(sql):
-        # Concurrent index creation is incompatible with local variable
-        # setting. Ignore this specific statement for now
-        return None
+    cursor = context['cursor']
 
-    sql = ('SET LOCAL pgtrigger.ignore=\'{' + ','.join(_ignore.value) + '}\';') + sql
+    # A named cursor automatically prepends
+    # "NO SCROLL CURSOR WITHOUT HOLD FOR" to the query, which
+    # causes invalid SQL to be generated. There is no way
+    # to override this behavior in psycopg2, so ignoring triggers
+    # cannot happen for named cursors. Django only names cursors
+    # for iterators and other statements that read the database,
+    # so it seems to be safe to ignore named cursors.
+    #
+    # Concurrent index creation is also incompatible with local variable
+    # setting. Ignore these cases for now.
+    if not cursor.name and not _is_concurrent_statement(sql):
+        sql = "SET LOCAL pgtrigger.ignore='{" + ",".join(_ignore.value) + "}';" + sql
 
-    return sql, sql_vars
+    return execute(sql, params, many, context)
 
 
 def register(*triggers):
     """
-    Register the given triggers with wrapped Model class
+    Register the given triggers with wrapped Model class.
+
+    Args:
+        *triggers (`pgtrigger.Trigger`): Trigger classes to register.
+
+    Examples:
+        Register by decorating a model::
+
+            @pgtrigger.register(
+                pgtrigger.Protect(
+                    name="append_only",
+                    operation=(pgtrigger.Update | pgtrigger.Delete)
+                )
+            )
+            class MyModel(models.Model):
+                pass
+
+        Register by calling functionally::
+
+            pgtrigger.register(trigger_object)(MyModel)
     """
 
     def _model_wrapper(model_class):
@@ -132,23 +144,71 @@ def register(*triggers):
     return _model_wrapper
 
 
-class _Level:
+class _Serializable:
+    def get_init_vals(self):
+        """Returns class initialization args so that they are properly serialized for migrations"""
+        parameters = inspect.signature(self.__init__).parameters
+
+        for key, val in parameters.items():
+            if key != "self" and (
+                not hasattr(self, key) or val.kind == inspect.Parameter.VAR_KEYWORD
+            ):  # pragma: no cover
+                raise ValueError(
+                    f"Could not automatically serialize Trigger {self.__class__} for migrations."
+                    ' Implement "get_init_vals()" on the trigger class. See the'
+                    ' FAQ in the django-pgtrigger docs for more information.'
+                )
+
+        args = tuple(
+            item
+            for key, val in parameters.items()
+            if val.kind == inspect.Parameter.VAR_POSITIONAL
+            for item in getattr(self, key)
+        )
+
+        kwargs = {
+            key: getattr(self, key)
+            for key, value in parameters.items()
+            if key != "self" and val.kind != inspect.Parameter.VAR_POSITIONAL
+        }
+
+        return args, kwargs
+
+    def deconstruct(self):
+        """For supporting Django migrations"""
+        path = f"{self.__class__.__module__}.{self.__class__.__name__}"
+        path = path.replace("pgtrigger.core", "pgtrigger")
+        args, kwargs = self.get_init_vals()
+        return path, args, kwargs
+
+    def __eq__(self, other):
+        return self.get_init_vals() == other.get_init_vals()
+
+
+class _Primitive(_Serializable):
+    """Boilerplate for some of the primitive operations"""
+
     def __init__(self, name):
+        assert name in self.values
         self.name = name
 
     def __str__(self):
         return self.name
 
 
+class Level(_Primitive):
+    values = ("ROW", "STATEMENT")
+
+
 #: For specifying row-level triggers (the default)
-Row = _Level('ROW')
+Row = Level('ROW')
 
 #: For specifying statement-level triggers
-Statement = _Level('STATEMENT')
+Statement = Level('STATEMENT')
 
 
-class Referencing:
-    """For specifying the REFERENCING construct of a statement-level trigger"""
+class Referencing(_Serializable):
+    """For specifying the REFERENCING clause of a statement-level trigger"""
 
     def __init__(self, *, old=None, new=None):
         if not old and not new:
@@ -171,71 +231,73 @@ class Referencing:
         return ref
 
 
-class _When:
-    def __init__(self, name):
-        self.name = name
-
-    def __str__(self):
-        return self.name
+class When(_Primitive):
+    values = ("BEFORE", "AFTER", "INSTEAD OF")
 
 
-#: For specifying "BEFORE" in the "when" clause of a trigger
-Before = _When('BEFORE')
+#: For specifying ``BEFORE`` in the when clause of a trigger.
+Before = When('BEFORE')
 
-#: For specifying "AFTER" in the "when" clause of a trigger
-After = _When('AFTER')
+#: For specifying ``AFTER`` in the when clause of a trigger.
+After = When('AFTER')
 
-#: For specifying "INSTEAD OF" in the "when" clause of a trigger
-InsteadOf = _When('INSTEAD OF')
+#: For specifying ``INSTEAD OF`` in the when clause of a trigger.
+InsteadOf = When('INSTEAD OF')
 
 
-class _Operation:
-    def __init__(self, name):
-        self.name = name
+class Operation(_Primitive):
+    values = ("UPDATE", "DELETE", "TRUNCATE", "INSERT")
 
     def __or__(self, other):
-        return _Operations(self, other)
-
-    def __str__(self):
-        return self.name
+        assert isinstance(other, Operation)
+        return Operations(self, other)
 
 
-class _Operations(_Operation):
+class Operations(Operation):
+    """For providing multiple operations ``OR``ed together.
+
+    Note that using the ``|`` operator is preferred syntax.
+    """
+
     def __init__(self, *operations):
+        for operation in operations:
+            assert isinstance(operation, Operation)
+
         self.operations = operations
 
     def __str__(self):
         return ' OR '.join(str(operation) for operation in self.operations)
 
 
-#: For specifying "UPDATE" in the "operation" clause of a trigger
-Update = _Operation('UPDATE')
+#: For specifying ``UPDATE`` as the trigger operation.
+Update = Operation('UPDATE')
 
-#: For specifying "DELETE" in the "operation" clause of a trigger
-Delete = _Operation('DELETE')
+#: For specifying ``DELETE`` as the trigger operation.
+Delete = Operation('DELETE')
 
-#: For specifying "TRUNCATE" in the "operation" clause of a trigger
-Truncate = _Operation('TRUNCATE')
+#: For specifying ``TRUNCATE`` as the trigger operation.
+Truncate = Operation('TRUNCATE')
 
-#: For specifying "INSERT" in the "operation" clause of a trigger
-Insert = _Operation('INSERT')
+#: For specifying ``INSERT`` as the trigger operation.
+Insert = Operation('INSERT')
 
 
-class UpdateOf(_Operation):
-    """For specifying "UPDATE OF" in the "operation" clause of a trigger"""
+class UpdateOf(Operation):
+    """For specifying ``UPDATE OF`` as the trigger operation."""
 
     def __init__(self, *columns):
         if not columns:
             raise ValueError('Must provide at least one column')
 
-        self.columns = ', '.join(f'{_quote(col)}' for col in columns)
+        self.columns = columns
 
     def __str__(self):
-        return f'UPDATE OF {self.columns}'
+        columns = ', '.join(f'{_quote(col)}' for col in self.columns)
+        return f'UPDATE OF {columns}'
 
 
-class Condition:
-    """For specifying free-form SQL in the "condition" clause of a trigger"""
+class Condition(_Serializable):
+    """For specifying free-form SQL in the condition of a trigger."""
 
     sql = None
 
@@ -251,8 +313,8 @@ class Condition:
 
 class _OldNewQuery(Query):
     """
-    A special Query object for referencing the OLD and NEW variables in a
-    trigger. Only used by the Q object
+    A special Query object for referencing the ``OLD`` and ``NEW`` variables in a
+    trigger. Only used by the `pgtrigger.Q` object.
     """
 
     def build_lookup(self, lookups, lhs, rhs):
@@ -292,7 +354,7 @@ class _OldNewQuery(Query):
 
 class F(models.F):
     """
-    Similar to Django's F object, allows referencing the old and new
+    Similar to Django's ``F`` object, allows referencing the old and new
     rows in a trigger condition.
     """
 
@@ -308,6 +370,11 @@ class F(models.F):
 
         self.col_name = self.name[5:]
 
+    def deconstruct(self):
+        path, args, kwargs = super().deconstruct()
+        path = path.replace("pgtrigger.core", "pgtrigger")
+        return path, args, kwargs
+
     @property
     def resolved_name(self):
         return f'{self.row_alias}.{_quote(self.col_name)}'
@@ -322,7 +389,8 @@ class F(models.F):
 @models.fields.Field.register_lookup
 class IsDistinctFrom(models.Lookup):
     """
-    A custom IS DISTINCT FROM field lookup for common trigger conditions
+    A custom ``IS DISTINCT FROM`` field lookup for common trigger conditions.
+    For example, ``pgtrigger.Q(old__field__df=pgtrigger.F("new__field"))``.
     """
 
     lookup_name = 'df'
@@ -337,7 +405,8 @@ class IsDistinctFrom(models.Lookup):
 @models.fields.Field.register_lookup
 class IsNotDistinctFrom(models.Lookup):
     """
-    A custom IS NOT DISTINCT FROM field lookup for common trigger conditions
+    A custom ``IS NOT DISTINCT FROM`` field lookup for common trigger conditions.
+    For example, ``pgtrigger.Q(old__field__ndf=pgtrigger.F("new__field"))``.
     """
 
     lookup_name = 'ndf'
@@ -351,9 +420,14 @@ class IsNotDistinctFrom(models.Lookup):
 
 class Q(models.Q, Condition):
     """
-    Similar to Django's Q object, allows referencing the old and new
+    Similar to Django's ``Q`` object, allows referencing the old and new
     rows in a trigger condition.
     """
+
+    def deconstruct(self):
+        path, args, kwargs = super().deconstruct()
+        path = path.replace("pgtrigger.core", "pgtrigger")
+        return path, args, kwargs
 
     def resolve(self, model):
         connection = _get_connection(model)
@@ -374,11 +448,16 @@ class Q(models.Q, Condition):
         return sql
 
 
+def _render_uninstall(table, trigger_pgid):
+    return f'DROP TRIGGER IF EXISTS {trigger_pgid} ON {_quote(table)};'
+
+
 def _drop_trigger(table, trigger_pgid):
     model = _get_model(table)
     connection = _get_connection(model)
+    uninstall_sql = _render_uninstall(table, trigger_pgid)
     with connection.cursor() as cursor:
-        cursor.execute(f'DROP TRIGGER IF EXISTS {trigger_pgid} ON {_quote(table)};')
+        cursor.execute(uninstall_sql)
 
 
 # Allows Trigger methods to be used as context managers, mostly for
@@ -389,7 +468,42 @@ def _cleanup_on_exit(cleanup):
     cleanup()
 
 
-class Trigger:
+def _render_ignore_func():
+    """
+    Triggers can be ignored dynamically by help of a special function that's installed.
+    The definition of this function is here.
+
+    Note: This function is global and shared by all triggers in the current
+    implementation. It isn't uninstalled when triggers are uninstalled.
+    """
+    return '''
+        CREATE OR REPLACE FUNCTION _pgtrigger_should_ignore(
+            table_name NAME,
+            trigger_name NAME
+        )
+        RETURNS BOOLEAN AS $$
+            DECLARE
+                _pgtrigger_ignore TEXT[];
+                _result BOOLEAN;
+            BEGIN
+                BEGIN
+                    SELECT INTO _pgtrigger_ignore
+                        CURRENT_SETTING('pgtrigger.ignore');
+                    EXCEPTION WHEN OTHERS THEN
+                END;
+                IF _pgtrigger_ignore IS NOT NULL THEN
+                    SELECT CONCAT(table_name, ':', trigger_name) = ANY(_pgtrigger_ignore)
+                    INTO _result;
+                    RETURN _result;
+                ELSE
+                    RETURN FALSE;
+                END IF;
+            END;
+        $$ LANGUAGE plpgsql;
+    '''
+
+
+class Trigger(_Serializable):
     """
     For specifying a free-form PL/pgSQL trigger function or for
     creating derived trigger classes.
@@ -425,13 +539,13 @@ class Trigger:
         self.func = func or self.func
         self.declare = declare or self.declare
 
-        if not self.level or not isinstance(self.level, _Level):
+        if not self.level or not isinstance(self.level, Level):
             raise ValueError(f'Invalid "level" attribute: {self.level}')
 
-        if not self.when or not isinstance(self.when, _When):
+        if not self.when or not isinstance(self.when, When):
             raise ValueError(f'Invalid "when" attribute: {self.when}')
 
-        if not self.operation or not isinstance(self.operation, _Operation):
+        if not self.operation or not isinstance(self.operation, Operation):
             raise ValueError(f'Invalid "operation" attribute: {self.operation}')
 
         if self.level == Row and self.referencing:
@@ -517,7 +631,15 @@ class Trigger:
                     ' Use a different name for the trigger.'
                 )
 
-            registry[self.get_uri(model)] = (model, self)
+            registry[uri] = (model, self)
+
+            # If we support migration integration, patch the constraints of
+            # the model
+            if getattr(settings, 'PGTRIGGER_MIGRATIONS', True):  # pragma: no branch
+                model._meta.constraints = list(model._meta.constraints) + [self]
+                model._meta.original_attrs["constraints"] = list(
+                    model._meta.original_attrs.get("constraints", [])
+                ) + [self]
 
         return _cleanup_on_exit(lambda: self.unregister(*models))
 
@@ -525,6 +647,12 @@ class Trigger:
         """Unregister model classes with the trigger"""
         for model in models:
             del registry[self.get_uri(model)]
+
+        # If we support migration integration, patch the constraints of
+        # the model
+        if getattr(settings, 'PGTRIGGER_MIGRATIONS', True):  # pragma: no branch
+            model._meta.constraints.remove(self)
+            model._meta.original_attrs["constraints"].remove(self)
 
         return _cleanup_on_exit(lambda: self.register(*models))
 
@@ -605,7 +733,7 @@ class Trigger:
         pgid = self.get_pgid(model)
         hash = self.get_hash(model)
         table = model._meta.db_table
-        return f'COMMENT ON TRIGGER {pgid} ON {_quote(table)} IS \'{hash}\''
+        return f"COMMENT ON TRIGGER {pgid} ON {_quote(table)} IS '{hash}'"
 
     def get_installation_status(self, model):
         """Returns the installation status of a trigger.
@@ -661,27 +789,32 @@ class Trigger:
         rendered_trigger = self.render_trigger(model)
         return hashlib.sha1(f'{rendered_func} {rendered_trigger}'.encode()).hexdigest()
 
-    def install(self, model):
-        """Installs the trigger for a model"""
-        connection = _get_connection(model)
-
-        # Ensure we have the function to ignore execution of triggers
-        install_ignore_func(database=_get_database(model))
-
+    def render_install(self, model):
+        ignore_func = _render_ignore_func()
         rendered_func = self.render_func(model)
         rendered_trigger = self.render_trigger(model)
         rendered_comment = self.render_comment(model)
 
+        return f"{ignore_func}; {rendered_func}; {rendered_trigger}; {rendered_comment};"
+
+    def install(self, model):
+        """Installs the trigger for a model"""
+        connection = _get_connection(model)
+        install_sql = self.render_install(model)
         with connection.cursor() as cursor:
-            cursor.execute(rendered_func)
-            cursor.execute(rendered_trigger)
-            cursor.execute(rendered_comment)
+            cursor.execute(install_sql)
 
         return _cleanup_on_exit(lambda: self.uninstall(model))
 
+    def render_uninstall(self, model):
+        return _render_uninstall(model._meta.db_table, self.get_pgid(model))
+
     def uninstall(self, model):
         """Uninstalls the trigger for a model"""
-        _drop_trigger(model._meta.db_table, self.get_pgid(model))
+        connection = _get_connection(model)
+        uninstall_sql = self.render_uninstall(model)
+        with connection.cursor() as cursor:
+            cursor.execute(uninstall_sql)
 
         return _cleanup_on_exit(lambda: self.install(model))  # pragma: no branch
 
@@ -712,6 +845,8 @@ class Trigger:
     @contextlib.contextmanager
     def ignore(self, model):
         """Ignores the trigger in a single thread of execution"""
+        connection = transaction.get_connection()
+
         with contextlib.ExitStack() as pre_execute_hook:
 
             # Create the table name / trigger name URI to pass down to the
@@ -725,7 +860,7 @@ class Trigger:
                 # If this is the first time we are ignoring trigger execution,
                 # register the pre_execute_hook
                 pre_execute_hook.enter_context(
-                    pgconnection.pre_execute_hook(_inject_pgtrigger_ignore)
+                    connection.execute_wrapper(_inject_pgtrigger_ignore)
                 )
 
             if ignore_uri not in _ignore.value:
@@ -737,15 +872,52 @@ class Trigger:
             else:  # The trigger is already being ignored
                 yield
 
-        if not _ignore.value and transaction.get_connection().in_atomic_block:
+        if not _ignore.value and connection.in_atomic_block:
             # We've finished all ignoring of triggers, but we are in a transaction
             # and still have a reference to the local variable. Reset it
-            with transaction.get_connection().cursor() as cursor:
+            with connection.cursor() as cursor:
                 cursor.execute('RESET pgtrigger.ignore;')
+
+    # All following attributes are available so that the trigger works as
+    # a constraint in Django's migration system.
+    @property
+    def contains_expressions(self):  # pragma: no cover
+        return False
+
+    def constraint_sql(self, model, schema_editor):  # pragma: no cover
+        return ""
+
+    def create_sql(self, model, schema_editor):
+        if schema_editor.connection.vendor != 'postgresql':  # pragma: no cover
+            raise NotSupportedError("Triggers are only supported on PostgreSQL databases.")
+
+        sql = self.render_install(model)
+
+        # Note: Django 3.2 introduced differences in how SQL is executed for
+        # migration commands. Be sure to escape the special "%" character
+        return sql.replace("%", "%%") if django.VERSION < (3, 2) else sql
+
+    def remove_sql(self, model, schema_editor):
+        sql = self.render_uninstall(model)
+
+        # Note: Django 3.2 introduced differences in how SQL is executed for
+        # migration commands. Be sure to escape the special "%" character
+        return sql.replace("%", "%%") if django.VERSION < (3, 2) else sql
+
+    def validate(self, model, instance, exclude=None, using=DEFAULT_DB_ALIAS):
+        """
+        Triggers cannot be ran in software, so the validation check cannot happen
+        like it can for other constraints.
+        """
+        pass
+
+    def clone(self):
+        _, args, kwargs = self.deconstruct()
+        return self.__class__(*args, **kwargs)
 
 
 class Protect(Trigger):
-    """A trigger that raises an exception"""
+    """A trigger that raises an exception."""
 
     when = Before
 
@@ -813,7 +985,7 @@ class SoftDelete(Trigger):
 
     Supply the trigger with the "field" that will be set
     upon deletion and the "value" to which it should be set.
-    The "value" defaults to False.
+    The "value" defaults to ``False``.
 
     .. note::
 
@@ -857,11 +1029,17 @@ class SoftDelete(Trigger):
 
 def get(*uris, database=None):
     """
-    Get triggers matching URIs or all triggers registered to models.
-    If a database is provided, will only enable triggers
-    registered to a particular database.
+    Get registered trigger objects.
 
-    A URI is in the format of "app_label.model_name:trigger_name"
+    Args:
+        *uris (str): URIs of triggers to get. If none are provided,
+            all triggers are returned. URIs are in the format of
+            ``{app_label}.{model_name}:{trigger_name}``.
+        database (str, default=None): Only get triggers from this
+            database.
+
+    Returns:
+        List[`pgtrigger.Trigger`]: Matching trigger objects.
     """
     if database and uris:
         raise ValueError('Cannot supply both trigger URIs and a database')
@@ -891,10 +1069,13 @@ def get(*uris, database=None):
 
 def install(*uris, database=None):
     """
-    Install registered triggers matching URIs or all triggers if URIs aren't
-    provided. If URIs aren't provided, prune any orphaned triggers from the
-    database. If a database is provided, will only install triggers
-    registered to a particular database.
+    Install triggers.
+
+    Args:
+        *uris (str): URIs of triggers to install. If none are provided,
+            all triggers are installed and orphaned triggers are pruned.
+        database (str, default=None): Only install triggers from this
+            database.
     """
     if uris:
         model_triggers = get(*uris, database=database)
@@ -960,7 +1141,7 @@ def prune(database=None):
 
     Args:
         database (str, default=None): Only prune triggers from this
-            database. Defaults to returning results from all databases
+            database.
     """
     for trigger in get_prune_list(database=database):
         LOGGER.info(
@@ -972,9 +1153,13 @@ def prune(database=None):
 
 def enable(*uris, database=None):
     """
-    Enables registered triggers matching URIs or all triggers if no URIs
-    are provided. If a database is provided, will only enable triggers
-    registered to a particular database.
+    Enables registered triggers.
+
+    Args:
+        *uris (str): URIs of triggers to enable. If none are provided,
+            all triggers are enabled.
+        database (str, default=None): Only enable triggers from this
+            database.
     """
     if uris:
         model_triggers = get(*uris, database=database)
@@ -996,15 +1181,13 @@ def enable(*uris, database=None):
 
 def uninstall(*uris, database=None):
     """
-    Uninstalls registered triggers matching URIs or all triggers if no
-    URIs are provided. If no URIs are provided, will also try to prune
-    any lingering triggers that are no longer in the code base.
+    Uninstalls triggers.
 
-    Running migrations will re-install any existing triggers. This
-    behavior is overridable with ``settings.PGTRIGGER_INSTALL_ON_MIGRATE``
-
-    If a database is provided, will only uninstall triggers
-    registered to a particular database.
+    Args:
+        *uris (str): URIs of triggers to uninstall. If none are provided,
+            all triggers are uninstalled and orphaned triggers are pruned.
+        database (str, default=None): Only uninstall triggers from this
+            database.
     """
     if uris:
         model_triggers = get(*uris, database=database)
@@ -1029,9 +1212,13 @@ def uninstall(*uris, database=None):
 
 def disable(*uris, database=None):
     """
-    Disables registered triggers matching URIs or all triggers if no URIs are
-    provided. If a database is provided, will only disable triggers
-    registered to a particular database.
+    Disables triggers.
+
+    Args:
+        *uris (str): URIs of triggers to disable. If none are provided,
+            all triggers are disabled.
+        database (str, default=None): Only disable triggers from this
+            database.
     """
     if uris:
         model_triggers = get(*uris, database=database)
@@ -1058,50 +1245,22 @@ def ignore(*uris):
     an individual thread.
     If no URIs are provided, ignore all pgtriggers from executing in an
     individual thread.
+
+    Examples:
+
+        Ingore triggers in a context manager::
+
+            with pgtrigger.ignore("my_app.Model:trigger_name"):
+                # Do stuff while ignoring trigger
+
+        Ignore multiple triggers as a decorator::
+
+            @pgtrigger.ignore("my_app.Model:trigger_name", "my_app.Model:other_trigger")
+            def my_func():
+                # Do stuff while ignoring trigger
     """
     with contextlib.ExitStack() as stack:
         for model, trigger in get(*uris):
             stack.enter_context(trigger.ignore(model))
 
         yield
-
-
-def install_ignore_func(database=None):
-    """
-    pgtrigger uses a special postgres function to determine when a trigger
-    should be ignored. This installs the function.
-
-    This function is automatically installed when all triggers are installed
-    with pgtrigger.install()
-    """
-    databases = {_get_database(model) for model, _ in get(database=database)}
-
-    for database in _postgres_databases(databases):
-        with connections[database].cursor() as cursor:
-            cursor.execute(
-                '''
-                CREATE OR REPLACE FUNCTION _pgtrigger_should_ignore(
-                    table_name NAME,
-                    trigger_name NAME
-                )
-                RETURNS BOOLEAN AS $$
-                    DECLARE
-                        _pgtrigger_ignore TEXT[];
-                        _result BOOLEAN;
-                    BEGIN
-                        BEGIN
-                            SELECT INTO _pgtrigger_ignore
-                                CURRENT_SETTING('pgtrigger.ignore');
-                            EXCEPTION WHEN OTHERS THEN
-                        END;
-                        IF _pgtrigger_ignore IS NOT NULL THEN
-                            SELECT CONCAT(table_name, ':', trigger_name) = ANY(_pgtrigger_ignore)
-                            INTO _result;
-                            RETURN _result;
-                        ELSE
-                            RETURN FALSE;
-                        END IF;
-                    END;
-                $$ LANGUAGE plpgsql;
-                '''
-            )

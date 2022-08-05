@@ -1,110 +1,98 @@
 django-pgtrigger
 ################
 
-``django-pgtrigger`` provides primitives for configuring
+``django-pgtrigger`` helps you write
 `Postgres triggers <https://www.postgresql.org/docs/current/sql-createtrigger.html>`__
-on Django models.
+for your Django models. It is compatible with Python 3.7 to 3.10 and Django 2.2 to 4.1.
 
-Triggers can solve a
-wide variety of database-level problems more elegantly and reliably
-than in the application-level of Django. Here are some common
-problems that can be solved with triggers, many of which we later show how to
-solve in the docs:
+Why should I use triggers?
+==========================
 
-1. Protecting updates and deletes or rows or columns (``pgtrigger.Protect``).
-2. Soft deleting models by setting a field to a value on delete (``pgtrigger.SoftDelete``).
-3. Tracking changes to models or columns change, or when specific conditions
-   happen (`django-pghistory <https://django-pghistory.readthedocs.io>`__ uses ``django-pgtrigger`` to do this).
-4. Keeping fields in sync with other fields.
-5. Ensuring that engineers use an official interface
-   (e.g. engineers must use ``User.objects.create_user`` and not
+Triggers can solve a variety of complex problems much more reliably and succinctly than application code. For example,
+
+1. Protecting operations on rows or columns (``pgtrigger.Protect``).
+2. Soft-deleting models (``pgtrigger.SoftDelete``).
+3. Snapshotting and tracking model changes (`django-pghistory <https://django-pghistory.readthedocs.io>`).
+4. Enforcing field transitions (``pgtrigger.FSM``).
+5. Building official interfaces
+   (e.g. enforcing use of ``User.objects.create_user`` and not
    ``User.objects.create``).
-6. Only allowing a status field of a model to transition through certain
-   states (``pgtrigger.FSM``).
+6. Versioning models, mirroring fields, computing unique model hashes, and the list goes on...
 
-Quick Start
+All of these examples require no overridden methods, no base models, and no signal handling.
+
+Quick start
 ===========
 
 Install ``django-pgtrigger`` with ``pip3 install django-pgtrigger`` and
 add ``pgtrigger`` to ``settings.INSTALLED_APPS``.
 
-Triggers are declared in the ``triggers`` attribute of the model ``Meta``.
-If you don't have access to the model definition,
-you can still call ``pgtrigger.register`` programmatically.
-
-Users declare the PL/pgSQL code
-in a ``pgtrigger.Trigger`` object or use the derived triggers in
-``django-pgtrigger`` for common scenarios. For example,
-``pgtrigger.Protect`` protects operations on a model, such as deletions:
+``pgtrigger.Trigger`` objects are added to ``triggers`` in model
+``Meta``. ``django-pgtrigger`` comes with several trigger classes,
+such as ``pgtrigger.Protect``. In the following, we're protecting
+the model from being deleted:
 
 .. code-block:: python
 
-    from django.db import models
-    import pgtrigger
-
-
-    class CannotBeDeletedModel(models.Model):
+    class ProtectedModel(models.Model):
         """This model cannot be deleted!"""
 
         class Meta:
             triggers = [
-                pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
+                pgtrigger.Protect(name="protect_deletes", operation=pgtrigger.Delete)
             ]
 
-``django-pgtrigger`` implements common Django idioms.
-For example, users can use ``pgtrigger.Q`` and ``pgtrigger.F`` objects to
-conditionally execute triggers based on the ``OLD`` and ``NEW`` row
-being modified.
+When migrations are created and executed, ``ProtectedModel`` will raise an internal
+database error anytime someone tries to delete it.
 
-For example, here we protect deletion of "active" rows of a model:
+Let's extend this example further and only protect deletions on inactive objects.
+In this example, the trigger conditionally runs when the row being deleted
+(the ``OLD`` row in trigger terminology) is still active:
 
 .. code-block:: python
 
-    from django.db import models
-    import pgtrigger
-
-
-    class CannotBeDeletedModel(models.Model):
-        """Active model object cannot be deleted!"""
+    class ProtectedModel(models.Model):
+        """Active object cannot be deleted!"""
         is_active = models.BooleanField(default=True)
 
         class Meta:
             triggers = [
                 pgtrigger.Protect(
-                    name='protect_deletes',
+                    name="protect_deletes",
                     operation=pgtrigger.Delete,
-                    # Protect deletes when the OLD row of the trigger is still active
                     condition=pgtrigger.Q(old__is_active=True)
                 )
             ]
 
 
-Combining ``pgtrigger.Q``, ``pgtrigger.F``, and derived ``pgtrigger.Trigger``
-objects can solve a wide array of Django problems without ever having to
-write raw SQL. Users, however, can still customize
-triggers and write as much raw SQL as needed for their use case.
+``django-pgtrigger`` uses ``pgtrigger.Q`` and ``pgtrigger.F`` objects to
+conditionally execute triggers based on the ``OLD`` and ``NEW`` rows.
+Combining these Django idioms with ``pgtrigger.Trigger`` objects
+can solve a wide variety of problems without ever writing SQL. Users,
+however, can still use raw SQL for complex cases.
 
+Triggers are installed like other database objects. Run
+``python manage.py makemigrations`` and ``python manage.py migrate`` to install triggers.
 
-Tutorial
-========
-
-For a complete run-through of ``django-pgtrigger`` and all derived
-triggers (along with a trigger cookbook!), read the
-`pgtrigger docs <https://django-pgtrigger.readthedocs.io/>`__. The docs
-have a full tutorial of how to configure triggers and lots of code examples.
-
-After you have gone through the
-tutorial in the docs, check out
-`<https://wesleykendall.github.io/django-pgtrigger-tutorial/>`__, which
-is an interactive tutorial written for a Django meetup talk about
-``django-pgtrigger``.
-
+If triggers are new to you, don't fret.
+The `pgtrigger docs <https://django-pgtrigger.readthedocs.io/>`__ break
+down the core components of a trigger in the tutorial. They also
+provide many more examples.
 
 Documentation
 =============
 
-`View the django-pgtrigger docs here
-<https://django-pgtrigger.readthedocs.io/>`_.
+`View the pgtrigger docs here <https://django-pgtrigger.readthedocs.io/>`__
+
+Other Material
+==============
+
+After you've read the docs, check out
+`this tutorial <https://wesleykendall.github.io/django-pgtrigger-tutorial/>`__
+with interactive examples from a Django meetup talk.
+
+The `DjangoCon 2021 talk <https://www.youtube.com/watch?v=Tte3d4JjxCk>`__
+also breaks down triggers and shows several examples.
 
 Installation
 ============
@@ -125,7 +113,7 @@ contributing changes, view `CONTRIBUTING.rst <CONTRIBUTING.rst>`_.
 Primary Authors
 ===============
 
-- @wesleykendall (Wes Kendall)
+- @wesleykendall (Wes Kendall, wesleykendall@protonmail.com)
 
 Other Contributors
 ==================
