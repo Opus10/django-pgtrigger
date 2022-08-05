@@ -1,4 +1,24 @@
 # Changelog
+## 3.0.0 (2022-08-05)
+### Api-Break
+  - Integration with Django's migration system. [Wes Kendall, a7c4aaa]
+
+    Triggers are fully integrated with Django's migration system, and they are no longer
+    installed at the end of migrations by default. Users instead need to run
+    ``python manage.py makemigrations`` to make trigger migrations for their applications.
+
+    Triggers for models in third-party apps must be migrated with the
+    ``python manage.py pgtrigger makemigrations`` command.
+
+    For instructions on upgrading or preserving legacy behavior, see the frequently
+    asked questions of the docs.
+### Feature
+  - Remove dependency on ``django-pgconnection``. [Wes Kendall, e8987c8]
+
+    Users no longer have to wrap ``settings.DATABASES`` with
+    ``django-pgconnection`` in order to use the ``pgtrigger.ignore``
+    function.
+
 ## 2.5.1 (2022-07-31)
 ### Trivial
   - Updated with latest Django template, fixing doc builds [Wes Kendall, 4b175a4]
@@ -88,7 +108,7 @@
     By default, all functions and management commands operate over all databases in a
     multi-database setup. This behavior can be overridden with the ``--database`` flag.
 
-    When calling ``python manage.py migrate``, only the database being migrated will have
+    When calling ``manage.py migrate``, only the database being migrated will have
     relevant triggers installed. This fits into how Django supports multi-database
     migrations.
 
@@ -113,16 +133,16 @@
   - Trigger management commands [Wes Kendall, be26d33]
 
     Adds the ability to manage triggers by name
-    with the ``python manage.py pgtrigger`` management command. This
+    with the ``manage.py pgtrigger`` management command. This
     change includes the following subcommands:
 
-    - ``python manage.py pgtrigger ls``: List all triggers, their installation
+    - ``manage.py pgtrigger ls``: List all triggers, their installation
       status, and whether they are enabled or disabled.
-    - ``python manage.py pgtrigger install``: Install triggers.
-    - ``python manage.py pgtrigger uninstall``: Uninstall triggers.
-    - ``python manage.py pgtrigger enable``: Enable triggers.
-    - ``python manage.py pgtrigger disable``: Disable triggers.
-    - ``python manage.py pgtrigger prune``: Prune triggers.
+    - ``manage.py pgtrigger install``: Install triggers.
+    - ``manage.py pgtrigger uninstall``: Uninstall triggers.
+    - ``manage.py pgtrigger enable``: Enable triggers.
+    - ``manage.py pgtrigger disable``: Disable triggers.
+    - ``manage.py pgtrigger prune``: Prune triggers.
 
     Because of this change, names are now enforced for every trigger
     and must be unique for every model. Users that wish to
