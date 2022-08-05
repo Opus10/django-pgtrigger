@@ -13,7 +13,6 @@ from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
 from django.db.models.sql.datastructures import BaseTable
 from django.db.utils import ProgrammingError
-import pgconnection
 
 
 LOGGER = logging.getLogger('pgtrigger')
@@ -88,31 +87,28 @@ def _is_concurrent_statement(sql):
     return sql.startswith('create') and 'concurrently' in sql
 
 
-def _inject_pgtrigger_ignore(sql, sql_vars, cursor):  # pragma: no cover
+def _inject_pgtrigger_ignore(execute, sql, params, many, context):  # pragma: no cover
     """
-    A pgconnection pre_execute hook that sets a pgtrigger.ignore
+    A connection execution wrapper that sets a pgtrigger.ignore
     variable in the executed SQL. This lets other triggers know when
     they should ignore execution
     """
-    if cursor.name:
-        # A named cursor automatically prepends
-        # "NO SCROLL CURSOR WITHOUT HOLD FOR" to the query, which
-        # causes invalid SQL to be generated. There is no way
-        # to override this behavior in psycopg2, so context tracking
-        # is ignored for named cursors. Django only names cursors
-        # for iterators and other statements that read the database,
-        # so it seems to be safe to ignore named cursors.
-        # TODO(@wesleykendall): Find a way to generate valid SQL
-        # for local variables within a named cursor declaration.
-        return None
-    elif _is_concurrent_statement(sql):
-        # Concurrent index creation is incompatible with local variable
-        # setting. Ignore this specific statement for now
-        return None
+    cursor = context['cursor']
 
-    sql = ('SET LOCAL pgtrigger.ignore=\'{' + ','.join(_ignore.value) + '}\';') + sql
+    # A named cursor automatically prepends
+    # "NO SCROLL CURSOR WITHOUT HOLD FOR" to the query, which
+    # causes invalid SQL to be generated. There is no way
+    # to override this behavior in psycopg2, so ignoring triggers
+    # cannot happen for named cursors. Django only names cursors
+    # for iterators and other statements that read the database,
+    # so it seems to be safe to ignore named cursors.
+    #
+    # Concurrent index creation is also incompatible with local variable
+    # setting. Ignore these cases for now.
+    if not cursor.name and not _is_concurrent_statement(sql):
+        sql = "SET LOCAL pgtrigger.ignore='{" + ",".join(_ignore.value) + "}';" + sql
 
-    return sql, sql_vars
+    return execute(sql, params, many, context)
 
 
 def register(*triggers):
@@ -849,6 +845,8 @@ class Trigger(_Serializable):
     @contextlib.contextmanager
     def ignore(self, model):
         """Ignores the trigger in a single thread of execution"""
+        connection = transaction.get_connection()
+
         with contextlib.ExitStack() as pre_execute_hook:
 
             # Create the table name / trigger name URI to pass down to the
@@ -862,7 +860,7 @@ class Trigger(_Serializable):
                 # If this is the first time we are ignoring trigger execution,
                 # register the pre_execute_hook
                 pre_execute_hook.enter_context(
-                    pgconnection.pre_execute_hook(_inject_pgtrigger_ignore)
+                    connection.execute_wrapper(_inject_pgtrigger_ignore)
                 )
 
             if ignore_uri not in _ignore.value:
@@ -874,10 +872,10 @@ class Trigger(_Serializable):
             else:  # The trigger is already being ignored
                 yield
 
-        if not _ignore.value and transaction.get_connection().in_atomic_block:
+        if not _ignore.value and connection.in_atomic_block:
             # We've finished all ignoring of triggers, but we are in a transaction
             # and still have a reference to the local variable. Reset it
-            with transaction.get_connection().cursor() as cursor:
+            with connection.cursor() as cursor:
                 cursor.execute('RESET pgtrigger.ignore;')
 
     # All following attributes are available so that the trigger works as

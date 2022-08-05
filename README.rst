@@ -3,7 +3,7 @@ django-pgtrigger
 
 ``django-pgtrigger`` helps you write
 `Postgres triggers <https://www.postgresql.org/docs/current/sql-createtrigger.html>`__
-for your Django models.
+for your Django models. It is compatible with Python 3.7 to 3.10 and Django 2.2 to 4.1.
 
 Why should I use triggers?
 ==========================
