@@ -1,7 +1,6 @@
 import copy
 
 import dj_database_url
-import pgconnection
 
 
 SECRET_KEY = 'django-pgtrigger'
@@ -22,8 +21,6 @@ DATABASES = {
 DATABASES['other'] = copy.deepcopy(DATABASES['default'])
 if 'NAME' in DATABASES['other']:
     DATABASES['other']['NAME'] += '_other'
-
-DATABASES = pgconnection.configure(DATABASES)
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
