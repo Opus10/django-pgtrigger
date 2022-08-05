@@ -15,6 +15,9 @@ from pgtrigger.core import install
 from pgtrigger.core import InsteadOf
 from pgtrigger.core import IsDistinctFrom
 from pgtrigger.core import IsNotDistinctFrom
+from pgtrigger.core import Level
+from pgtrigger.core import Operation
+from pgtrigger.core import Operations
 from pgtrigger.core import Protect
 from pgtrigger.core import prune
 from pgtrigger.core import Q
@@ -28,6 +31,7 @@ from pgtrigger.core import Truncate
 from pgtrigger.core import uninstall
 from pgtrigger.core import Update
 from pgtrigger.core import UpdateOf
+from pgtrigger.core import When
 from pgtrigger.version import __version__
 
 if django.VERSION < (3, 2):
@@ -52,6 +56,9 @@ __all__ = [
     'InsteadOf',
     'IsDistinctFrom',
     'IsNotDistinctFrom',
+    'Level',
+    'Operation',
+    'Operations',
     'Protect',
     'prune',
     'Q',
@@ -65,5 +72,6 @@ __all__ = [
     'uninstall',
     'Update',
     'UpdateOf',
+    'When',
     '__version__',
 ]

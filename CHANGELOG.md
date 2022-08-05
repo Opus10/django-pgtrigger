@@ -88,7 +88,7 @@
     By default, all functions and management commands operate over all databases in a
     multi-database setup. This behavior can be overridden with the ``--database`` flag.
 
-    When calling ``manage.py migrate``, only the database being migrated will have
+    When calling ``python manage.py migrate``, only the database being migrated will have
     relevant triggers installed. This fits into how Django supports multi-database
     migrations.
 
@@ -113,16 +113,16 @@
   - Trigger management commands [Wes Kendall, be26d33]
 
     Adds the ability to manage triggers by name
-    with the ``manage.py pgtrigger`` management command. This
+    with the ``python manage.py pgtrigger`` management command. This
     change includes the following subcommands:
 
-    - ``manage.py pgtrigger ls``: List all triggers, their installation
+    - ``python manage.py pgtrigger ls``: List all triggers, their installation
       status, and whether they are enabled or disabled.
-    - ``manage.py pgtrigger install``: Install triggers.
-    - ``manage.py pgtrigger uninstall``: Uninstall triggers.
-    - ``manage.py pgtrigger enable``: Enable triggers.
-    - ``manage.py pgtrigger disable``: Disable triggers.
-    - ``manage.py pgtrigger prune``: Prune triggers.
+    - ``python manage.py pgtrigger install``: Install triggers.
+    - ``python manage.py pgtrigger uninstall``: Uninstall triggers.
+    - ``python manage.py pgtrigger enable``: Enable triggers.
+    - ``python manage.py pgtrigger disable``: Disable triggers.
+    - ``python manage.py pgtrigger prune``: Prune triggers.
 
     Because of this change, names are now enforced for every trigger
     and must be unique for every model. Users that wish to
