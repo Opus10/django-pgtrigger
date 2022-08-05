@@ -38,6 +38,11 @@ def test_statement_row_level_logging():
 
     # The row-level trigger should have produced five entries
     assert models.LogEntry.objects.filter(level='ROW').count() == 5
+    obj = models.ToLogModel.objects.first()
+    obj.save()
+
+    # A duplicate update shouldn't fire any more row-level log entries
+    assert models.LogEntry.objects.filter(level='ROW').count() == 5
 
 
 @pytest.mark.django_db
@@ -525,7 +530,7 @@ def test_custom_trigger_definitions():
 def test_ignore_no_transaction_leaks():
     """Verify ignore does not leak during a transaction"""
     deletion_protected_model = ddf.G(models.TestTrigger)
-    with pgtrigger.ignore('tests.TestTrigger:protect_delete'):
+    with pgtrigger.ignore('tests.TestTriggerProxy:protect_delete'):
         deletion_protected_model.delete()
         assert not models.TestTrigger.objects.exists()
 
@@ -541,7 +546,7 @@ def test_basic_ignore():
     with pytest.raises(InternalError, match='Cannot delete rows'):
         deletion_protected_model.delete()
 
-    with pgtrigger.ignore('tests.TestTrigger:protect_delete'):
+    with pgtrigger.ignore('tests.TestTriggerProxy:protect_delete'):
         deletion_protected_model.delete()
 
     assert not models.TestTrigger.objects.exists()
@@ -559,8 +564,8 @@ def test_nested_ignore():
     with pytest.raises(InternalError, match='Cannot delete rows'):
         deletion_protected_model1.delete()
 
-    with pgtrigger.ignore('tests.TestTrigger:protect_delete'):
-        with pgtrigger.ignore('tests.TestTrigger:protect_delete'):
+    with pgtrigger.ignore('tests.TestTriggerProxy:protect_delete'):
+        with pgtrigger.ignore('tests.TestTriggerProxy:protect_delete'):
             deletion_protected_model1.delete()
         deletion_protected_model2.delete()
 
@@ -583,7 +588,7 @@ def test_multiple_ignores():
     with pytest.raises(InternalError, match='no no no!'):
         models.TestTrigger.objects.create(field='misc_insert')
 
-    with pgtrigger.ignore('tests.TestTrigger:protect_delete'):
+    with pgtrigger.ignore('tests.TestTriggerProxy:protect_delete'):
         deletion_protected_model1.delete()
         with pytest.raises(InternalError, match='no no no!'):
             models.TestTrigger.objects.create(field='misc_insert')
@@ -692,6 +697,7 @@ def test_trigger_conditions():
 
 
 @pytest.mark.django_db(databases=['default', 'other'], transaction=True)
+@pytest.mark.order(-2)  # This is a leaky test that modifies the schema. Always run last
 def test_trigger_management(mocker):
     """Verifies dropping and recreating triggers works"""
     deletion_protected_model = ddf.G(models.TestTrigger)

@@ -6,9 +6,13 @@ Table of Contents
 
    index
    installation
-   tutorial
+   basics
+   cookbook
+   ignoring_triggers
+   advanced_installation
    multi_db
-   commands
-   package
+   faq
+   further_reading
+   api_reference
    release_notes
    contributing

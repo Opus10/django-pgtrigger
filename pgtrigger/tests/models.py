@@ -64,7 +64,8 @@ class LogEntry(models.Model):
         level=pgtrigger.Row,
         operation=pgtrigger.Update,
         when=pgtrigger.After,
-        func=(f'INSERT INTO {LogEntry._meta.db_table}(level) VALUES (\'ROW\');' ' RETURN NULL;'),
+        condition=pgtrigger.Q(old__field__df=pgtrigger.F("new__field")),
+        func=(f'INSERT INTO {LogEntry._meta.db_table}(level) VALUES (\'ROW\'); RETURN NULL;'),
     ),
 )
 class ToLogModel(models.Model):
@@ -91,7 +92,6 @@ class TestTrigger(models.Model):
 
     class Meta:
         triggers = [
-            pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete),
             pgtrigger.Trigger(
                 name='protect_misc_insert',
                 when=pgtrigger.Before,
@@ -100,6 +100,16 @@ class TestTrigger(models.Model):
                 condition=pgtrigger.Q(new__field='misc_insert'),
             ),
         ]
+
+
+class TestTriggerProxy(TestTrigger):
+    """
+    For testing triggers on proxy models
+    """
+
+    class Meta:
+        proxy = True
+        triggers = [pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete)]
 
 
 @pgtrigger.register(pgtrigger.SoftDelete(name='soft_delete', field='is_active'))

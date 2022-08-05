@@ -29,11 +29,11 @@ def test_full_ls(capsys):
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTrigger:protect_delete'
+        'tests.TestTrigger:protect_misc_insert'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTrigger:protect_misc_insert'
+        'tests.TestTriggerProxy:protect_delete'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
@@ -60,7 +60,7 @@ def test_subset_ls(capsys):
         'pgtrigger',
         'ls',
         'tests.SoftDelete:soft_delete',
-        'tests.TestTrigger:protect_delete',
+        'tests.TestTriggerProxy:protect_delete',
     )
 
     captured = capsys.readouterr()
@@ -71,7 +71,7 @@ def test_subset_ls(capsys):
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTrigger:protect_delete'
+        'tests.TestTriggerProxy:protect_delete'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
@@ -89,7 +89,7 @@ def test_main_commands(capsys):
         'pgtrigger',
         'ls',
         'tests.SoftDelete:soft_delete',
-        'tests.TestTrigger:protect_delete',
+        'tests.TestTriggerProxy:protect_delete',
     )
 
     captured = capsys.readouterr()
@@ -97,7 +97,7 @@ def test_main_commands(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestTrigger:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
+        'tests.TestTriggerProxy:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
     ]
 
     call_command('pgtrigger', 'install')
@@ -105,7 +105,7 @@ def test_main_commands(capsys):
         'pgtrigger',
         'ls',
         'tests.SoftDelete:soft_delete',
-        'tests.TestTrigger:protect_delete',
+        'tests.TestTriggerProxy:protect_delete',
     )
 
     captured = capsys.readouterr()
@@ -116,7 +116,7 @@ def test_main_commands(capsys):
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTrigger:protect_delete'
+        'tests.TestTriggerProxy:protect_delete'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
@@ -127,7 +127,7 @@ def test_main_commands(capsys):
         'pgtrigger',
         'ls',
         'tests.SoftDelete:soft_delete',
-        'tests.TestTrigger:protect_delete',
+        'tests.TestTriggerProxy:protect_delete',
     )
 
     captured = capsys.readouterr()
@@ -138,7 +138,7 @@ def test_main_commands(capsys):
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[91mDISABLED\x1b[0m',
-        'tests.TestTrigger:protect_delete'
+        'tests.TestTriggerProxy:protect_delete'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[91mDISABLED\x1b[0m',
@@ -149,7 +149,7 @@ def test_main_commands(capsys):
         'pgtrigger',
         'ls',
         'tests.SoftDelete:soft_delete',
-        'tests.TestTrigger:protect_delete',
+        'tests.TestTriggerProxy:protect_delete',
     )
 
     captured = capsys.readouterr()
@@ -160,7 +160,7 @@ def test_main_commands(capsys):
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTrigger:protect_delete'
+        'tests.TestTriggerProxy:protect_delete'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
@@ -238,7 +238,7 @@ def test_main_commands_w_args(capsys):
         'pgtrigger',
         'ls',
         'tests.SoftDelete:soft_delete',
-        'tests.TestTrigger:protect_delete',
+        'tests.TestTriggerProxy:protect_delete',
     )
 
     captured = capsys.readouterr()
@@ -246,7 +246,7 @@ def test_main_commands_w_args(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestTrigger:protect_delete'
+        'tests.TestTriggerProxy:protect_delete'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
@@ -257,7 +257,7 @@ def test_main_commands_w_args(capsys):
         'pgtrigger',
         'ls',
         'tests.SoftDelete:soft_delete',
-        'tests.TestTrigger:protect_delete',
+        'tests.TestTriggerProxy:protect_delete',
     )
 
     captured = capsys.readouterr()
@@ -268,7 +268,7 @@ def test_main_commands_w_args(capsys):
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTrigger:protect_delete'
+        'tests.TestTriggerProxy:protect_delete'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
@@ -279,7 +279,7 @@ def test_main_commands_w_args(capsys):
         'pgtrigger',
         'ls',
         'tests.SoftDelete:soft_delete',
-        'tests.TestTrigger:protect_delete',
+        'tests.TestTriggerProxy:protect_delete',
     )
 
     captured = capsys.readouterr()
@@ -290,7 +290,7 @@ def test_main_commands_w_args(capsys):
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[91mDISABLED\x1b[0m',
-        'tests.TestTrigger:protect_delete'
+        'tests.TestTriggerProxy:protect_delete'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
@@ -301,7 +301,7 @@ def test_main_commands_w_args(capsys):
         'pgtrigger',
         'ls',
         'tests.SoftDelete:soft_delete',
-        'tests.TestTrigger:protect_delete',
+        'tests.TestTriggerProxy:protect_delete',
     )
 
     captured = capsys.readouterr()
@@ -312,7 +312,7 @@ def test_main_commands_w_args(capsys):
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTrigger:protect_delete'
+        'tests.TestTriggerProxy:protect_delete'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',

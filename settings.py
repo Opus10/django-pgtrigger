@@ -26,3 +26,9 @@ if 'NAME' in DATABASES['other']:
 DATABASES = pgconnection.configure(DATABASES)
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
+# Turn off pgtrigger migrations for normal manage.py use
+PGTRIGGER_MIGRATIONS = False
+
+# Ensure that we always install triggers if running locally
+PGTRIGGER_INSTALL_ON_MIGRATE = True
