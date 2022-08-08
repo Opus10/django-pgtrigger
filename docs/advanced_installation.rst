@@ -18,37 +18,30 @@ For example, here we protect Django's ``User`` models from being deleted:
                 pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
             ]
 
-Note that this syntax does not work for default many-to-many "through" models.
-See the next section for details.
-
 Default many-to-many "through" models
 -------------------------------------
 
-When defining a many-to-many relationship, Django uses a separate relationship model,
-called the "through" model. If you want to install triggers for the default
-through model, you will need to define them on an unmanaged model that uses the
-database table of the through model.
-
+Similar to third-party models, we can also install triggers against default
+many-to-many "through" models by using a proxy model. 
 Here we protect Django ``User`` group relationships from being deleted:
-
 
 .. code-block:: python
 
-    class UserGroupTriggers(models.Model):
+    class UserGroupTriggers(User.groups.through):
         class Meta:
-            managed = False
-            db_table = User.groups.through._meta.db_table
+            proxy = True
             triggers = [
                 pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
             ]
 
-Although ``django-pgtrigger`` allows installing triggers against unmanaged models,
-we recommend only using this feature for this specific use case.
 
-.. note::
+.. warning::
 
-    If a third-party through model is used, be sure to set the ``dependencies``
-    of the migration to depend on the third-party app's last migration.
+    Django doesn't fully support making proxy models from default through relationships.
+    Reversing migrations can sometimes throw ``InvalidBases`` errors.
+    We recommend creating a custom through model when possible. See
+    the `Django docs on making custom "through" models <https://docs.djangoproject.com/en/4.0/topics/db/models/#extra-fields-on-many-to-many-relationships>`__.
+
 
 Programmatically registering triggers
 -------------------------------------
