@@ -1,9 +1,7 @@
-from itertools import chain
-from unittest.mock import patch
-
+from django.apps import apps
 from django.db.migrations import autodetector
 from django.db.migrations.operations.fields import AddField
-from django.db.migrations.operations.models import IndexOperation
+from django.db.migrations.operations.models import CreateModel, IndexOperation
 
 
 def _add_trigger(schema_editor, model, trigger):
@@ -27,18 +25,11 @@ def _remove_trigger(schema_editor, model, trigger):
 class TriggerOperationMixin:
     def allow_migrate_model_trigger(self, schema_editor, model):
         """
-        We allow users to write triggers for unmanaged models in order
-        to support triggers for M2M relationships.
-
-        In order to support this, we temporarily patch the options of the model
-        when determining migrations. This will leave it up to the router to
-        decide if the trigger should be installed for this particular
-        model.
+        The check for determinig if a trigger is migrated
         """
-        with patch.object(model._meta.concrete_model._meta, 'managed', True):
-            return schema_editor.connection.vendor == 'postgresql' and self.allow_migrate_model(
-                schema_editor.connection.alias, model._meta.concrete_model
-            )
+        return schema_editor.connection.vendor == 'postgresql' and self.allow_migrate_model(
+            schema_editor.connection.alias, model._meta.concrete_model
+        )
 
 
 class AddTrigger(TriggerOperationMixin, IndexOperation):
@@ -134,6 +125,21 @@ class RemoveTrigger(TriggerOperationMixin, IndexOperation):
         return f"remove_{self.model_name_lower}_{self.name.lower()}"
 
 
+def _inject_m2m_dependency_in_proxy(proxy_op):
+    """
+    Django does not properly add dependencies to m2m fields that are base classes for
+    proxy models. Inject the dependency here
+    """
+    for base in proxy_op.bases:
+        model = apps.get_model(base)
+        creator = model._meta.auto_created
+        if creator:
+            for field in creator._meta.many_to_many:
+                if field.remote_field.through == model:
+                    app_label, model_name = creator._meta.label_lower.split(".")
+                    proxy_op._auto_deps.append((app_label, model_name, field.name, True))
+
+
 class MigrationAutodetector(autodetector.MigrationAutodetector):
     """An autodetector that detects triggers"""
 
@@ -146,9 +152,7 @@ class MigrationAutodetector(autodetector.MigrationAutodetector):
         Piggyback off of constraint generation hooks to generate
         trigger migration operations
         """
-        for app_label, model_name in sorted(
-            self.kept_model_keys | self.kept_proxy_keys | self.kept_unmanaged_keys
-        ):
+        for app_label, model_name in sorted(self.kept_model_keys | self.kept_proxy_keys):
             old_model_name = self.renamed_models.get((app_label, model_name), model_name)
             old_model_state = self.from_state.models[app_label, old_model_name]
             new_model_state = self.to_state.models[app_label, model_name]
@@ -188,16 +192,14 @@ class MigrationAutodetector(autodetector.MigrationAutodetector):
     def generate_created_models(self):
         super().generate_created_models()
 
-        old_keys = self.old_model_keys | self.old_unmanaged_keys
-        added_models = self.new_model_keys - old_keys
-        added_unmanaged_models = self.new_unmanaged_keys - old_keys
-        all_added_models = chain(
-            sorted(added_models, key=self.swappable_first_key, reverse=True),
-            sorted(added_unmanaged_models, key=self.swappable_first_key, reverse=True),
-        )
+        added_models = self.new_model_keys - self.old_model_keys
+        added_models = sorted(added_models, key=self.swappable_first_key, reverse=True)
 
-        for app_label, model_name in all_added_models:
+        for app_label, model_name in added_models:
             model_state = self.to_state.models[app_label, model_name]
+
+            if not model_state.options.get("managed", True):
+                continue  # pragma: no cover
 
             related_fields = {
                 op.name: op.field
@@ -218,29 +220,21 @@ class MigrationAutodetector(autodetector.MigrationAutodetector):
                     dependencies=related_dependencies,
                 )
 
-    def generate_deleted_models(self):
-        new_keys = self.new_model_keys | self.new_unmanaged_keys
-        deleted_models = self.old_model_keys - new_keys
-        deleted_unmanaged_models = self.old_unmanaged_keys - new_keys
-        all_deleted_models = chain(sorted(deleted_models), sorted(deleted_unmanaged_models))
-        for app_label, model_name in all_deleted_models:
-            model_state = self.from_state.models[app_label, model_name]
-
-            if not model_state.options.get("managed", True):
-                for trigger in model_state.options.pop("triggers", []):
-                    self.add_operation(
-                        app_label,
-                        RemoveTrigger(model_name=model_name, name=trigger.name),
-                        dependencies=[(app_label, model_name, None, True)],
-                    )
-
-        return super().generate_deleted_models()
-
     def generate_created_proxies(self):
         super().generate_created_proxies()
 
         added = self.new_proxy_keys - self.old_proxy_keys
         for app_label, model_name in sorted(added):
+            # Django has a bug that prevents it from injecting a dependency
+            # to an M2M through model when a proxy model inherits it.
+            # Inject an additional dependency for created proxies to
+            # avoid this
+            for op in self.generated_operations.get(app_label, []):
+                if isinstance(op, CreateModel) and op.options.get(  # pragma: no branch
+                    "proxy", False
+                ):
+                    _inject_m2m_dependency_in_proxy(op)
+
             model_state = self.to_state.models[app_label, model_name]
             assert model_state.options.get("proxy")
 

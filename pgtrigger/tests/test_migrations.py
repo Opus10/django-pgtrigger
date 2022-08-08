@@ -15,6 +15,14 @@ import pgtrigger.core
 import pgtrigger.tests.models as test_models
 
 
+def migration_dir():
+    return pathlib.Path(__file__).parent / "migrations"
+
+
+def num_migration_files():
+    return len(list(migration_dir().glob("0*.py")))
+
+
 @pytest.fixture
 def reset_triggers():
     """Ensures all triggers are uninstalled before the tests"""
@@ -28,22 +36,17 @@ def reset_triggers():
 @pytest.fixture
 def reset_migrations(tmp_path):
     """Ensures the migration dir is reset after the test"""
-    migration_dir = pathlib.Path(__file__).parent / "migrations"
-    num_migrations = len(list(migration_dir.glob("0*.py")))
-    shutil.copytree(migration_dir, tmp_path / "migrations")
+    num_orig_migrations = num_migration_files()
+    shutil.copytree(migration_dir(), tmp_path / "migrations")
 
     yield
 
     # Migrate back to the initial migration of the test to allevitate
     # some of the issues when re-using a test DB
-    call_command("migrate", "tests", str(num_migrations).rjust(4, "0"))
+    call_command("migrate", "tests", str(num_orig_migrations).rjust(4, "0"))
 
-    shutil.rmtree(migration_dir)
-    shutil.copytree(tmp_path / "migrations", migration_dir)
-
-
-def num_files(dir_path):
-    return len(list(dir_path.iterdir()))
+    shutil.rmtree(migration_dir())
+    shutil.copytree(tmp_path / "migrations", migration_dir())
 
 
 def assert_all_triggers_installed():
@@ -64,11 +67,10 @@ def test_makemigrations_existing_models(settings):
     assert not settings.PGTRIGGER_INSTALL_ON_MIGRATE
     assert settings.PGTRIGGER_MIGRATIONS
 
-    migration_dir = pathlib.Path(__file__).parent / "migrations"
-    num_orig_migrations = num_files(migration_dir)
+    num_orig_migrations = num_migration_files()
 
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 1
+    assert num_migration_files() == num_orig_migrations + 1
 
     call_command("migrate")
     assert_all_triggers_installed()
@@ -83,11 +85,11 @@ def test_makemigrations_existing_models(settings):
 
     with trigger.register(test_models.TestModel):
         call_command("makemigrations")
-        assert num_files(migration_dir) == num_orig_migrations + 2
+        assert num_migration_files() == num_orig_migrations + 2
 
         # As a sanity check, ensure makemigrations doesnt make dups
         call_command("makemigrations")
-        assert num_files(migration_dir) == num_orig_migrations + 2
+        assert num_migration_files() == num_orig_migrations + 2
 
         # Before migrating, I should be able to make a ``TestModel``
         ddf.G("tests.TestModel")
@@ -103,7 +105,7 @@ def test_makemigrations_existing_models(settings):
         # We should have a new migration
         trigger.operation = pgtrigger.Update
         call_command("makemigrations")
-        assert num_files(migration_dir) == num_orig_migrations + 3
+        assert num_migration_files() == num_orig_migrations + 3
 
         call_command("migrate")
         assert_all_triggers_installed()
@@ -116,7 +118,7 @@ def test_makemigrations_existing_models(settings):
     # The trigger is now removed from the registry. It should create
     # a new migration
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 4
+    assert num_migration_files() == num_orig_migrations + 4
 
     call_command("migrate")
     assert_all_triggers_installed()
@@ -143,7 +145,7 @@ def test_makemigrations_existing_models(settings):
     )
     with trigger.register(test_models.TestModel):
         call_command("makemigrations")
-        assert num_files(migration_dir) == num_orig_migrations + 5
+        assert num_migration_files() == num_orig_migrations + 5
 
         call_command("migrate")
         assert_all_triggers_installed()
@@ -158,7 +160,8 @@ def test_makemigrations_existing_models(settings):
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.usefixtures("reset_triggers", "reset_migrations")
 @pytest.mark.order(-1)  # This is a possibly leaky test if it fails midway. Always run last
-@pytest.mark.independent  # Run independently of test suite since it creates models and issues
+# Run independently of core test suite since since this creates/removes models
+@pytest.mark.independent
 def test_makemigrations_create_remove_models(settings):
     """
     Tests migration scenarios where models are dynamically added and
@@ -167,11 +170,10 @@ def test_makemigrations_create_remove_models(settings):
     assert not settings.PGTRIGGER_INSTALL_ON_MIGRATE
     assert settings.PGTRIGGER_MIGRATIONS
 
-    migration_dir = pathlib.Path(__file__).parent / "migrations"
-    num_orig_migrations = num_files(migration_dir)
+    num_orig_migrations = num_migration_files()
 
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 1
+    assert num_migration_files() == num_orig_migrations + 1
 
     call_command("migrate")
     assert_all_triggers_installed()
@@ -190,7 +192,7 @@ def test_makemigrations_create_remove_models(settings):
     test_models.DynamicTestModel = DynamicTestModel
 
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 2
+    assert num_migration_files() == num_orig_migrations + 2
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -211,7 +213,7 @@ def test_makemigrations_create_remove_models(settings):
     DynamicTestModel._meta.original_attrs["triggers"] = DynamicTestModel._meta.triggers
 
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 3
+    assert num_migration_files() == num_orig_migrations + 3
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -228,7 +230,7 @@ def test_makemigrations_create_remove_models(settings):
     apps.clear_cache()
 
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 4
+    assert num_migration_files() == num_orig_migrations + 4
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -247,7 +249,7 @@ def test_makemigrations_create_remove_models(settings):
     test_models.DynamicProxyModel = DynamicProxyModel
 
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 5
+    assert num_migration_files() == num_orig_migrations + 5
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -268,7 +270,7 @@ def test_makemigrations_create_remove_models(settings):
     DynamicProxyModel._meta.original_attrs["triggers"] = DynamicProxyModel._meta.triggers
 
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 6
+    assert num_migration_files() == num_orig_migrations + 6
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -285,32 +287,31 @@ def test_makemigrations_create_remove_models(settings):
     apps.clear_cache()
 
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 7
+    assert num_migration_files() == num_orig_migrations + 7
     call_command("migrate")
     assert_all_triggers_installed()
 
     # We can delete the original model
     protected_model.delete()
 
-    # Create a new unmanaged model on auth_models.User group relationships and add it
+    # Create a new proxy model on auth_models.User group relationships and add it
     # to the test models
-    class DynamicUnmanagedModel(models.Model):
+    class DynamicThroughModel(auth_models.User.groups.through):
         class Meta:
-            managed = False
-            db_table = auth_models.User.groups.through._meta.db_table
+            proxy = True
             triggers = [
                 pgtrigger.Protect(name="protect_deletes", operation=pgtrigger.Delete),
                 pgtrigger.Protect(name="protect_inserts", operation=pgtrigger.Insert),
             ]
 
-    test_models.DynamicUnmanagedModel = DynamicUnmanagedModel
+    test_models.DynamicThroughModel = DynamicThroughModel
 
     # Sanity check that we cannot insert or delete a group
     protected_model = ddf.G(auth_models.User)
     protected_model.groups.add(ddf.G(auth_models.Group))
 
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 8
+    assert num_migration_files() == num_orig_migrations + 8
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -321,13 +322,13 @@ def test_makemigrations_create_remove_models(settings):
         protected_model.groups.clear()
 
     # Keep only deletion protection and migrate
-    DynamicUnmanagedModel._meta.triggers = [
+    DynamicThroughModel._meta.triggers = [
         pgtrigger.Protect(name="protect_deletes", operation=pgtrigger.Delete)
     ]
-    DynamicUnmanagedModel._meta.original_attrs["triggers"] = DynamicUnmanagedModel._meta.triggers
+    DynamicThroughModel._meta.original_attrs["triggers"] = DynamicThroughModel._meta.triggers
 
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 9
+    assert num_migration_files() == num_orig_migrations + 9
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -338,14 +339,19 @@ def test_makemigrations_create_remove_models(settings):
         protected_model.groups.clear()
 
     # Remove the model and verify it migrates
-    del test_models.DynamicUnmanagedModel
-    del apps.app_configs["tests"].models["dynamicunmanagedmodel"]
+    del test_models.DynamicThroughModel
+    del apps.app_configs["tests"].models["dynamicthroughmodel"]
     apps.clear_cache()
 
     call_command("makemigrations")
-    assert num_files(migration_dir) == num_orig_migrations + 10
+    assert num_migration_files() == num_orig_migrations + 10
     call_command("migrate")
     assert_all_triggers_installed()
 
     # We can delete the groups
     protected_model.groups.clear()
+
+    # Django has a known issue with using a default through model as a base in
+    # migrations. We revert the migrations we just made so that the test doesn't
+    # pass when it cleans up all migrations
+    call_command("migrate", "tests", str(num_orig_migrations + 7).rjust(4, "0"))

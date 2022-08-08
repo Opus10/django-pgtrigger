@@ -116,12 +116,9 @@ class TestTriggerProxy(TestTrigger):
         ]
 
 
-class TestDefaultThrough(models.Model):
-    """For testing built-in "through" models of M2M fields"""
-
+class TestDefaultThrough(TestTrigger.m2m_field.through):
     class Meta:
-        managed = False
-        db_table = TestTrigger.m2m_field.through._meta.db_table
+        proxy = True
         triggers = [
             pgtrigger.Protect(name='protect_it', operation=pgtrigger.Delete),
         ]

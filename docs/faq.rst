@@ -69,10 +69,7 @@ All triggers now appear in migrations when running ``python manage.py makemigrat
 Almost all users can simply run ``python manage.py makemigrations`` after upgrading. If, however, you have triggers on third-party models or many-to-many default "through" models, use these instructions to migrate them:
 
 1. If you already ran ``python manage.py makemigrations``, delete any new migrations made for these third-party apps.
-2. Declare proxy models for the third-party models, register triggers in the ``Meta.triggers`` or those, and call ``python manage.py makemigrations``.
-3. For triggers on a default many-to-many "through" models, create an unmanaged model with the database table of the "through" models. Add triggers to ``Meta.triggers`` and run ``python manage.py makemigrations``.
-
-For 2) and 3), see more examples in the :ref:`advanced_installation` section.
+2. Declare proxy models for the third-party or many-to-many "through" models, register triggers in the ``Meta.triggers``, and call ``python manage.py makemigrations``. See code examples in the :ref:`advanced_installation` section.
 
 If you'd like to keep the legacy installation behavior, set ``PGTRIGGER_MIGRATIONS`` to ``False`` to turn off trigger migrations and set ``PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` so that triggers are always installed at the end of ``python manage.py migrate``.
 
