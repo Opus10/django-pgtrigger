@@ -6,18 +6,8 @@ Advanced Installation
 Third-party models
 ------------------
 
-Declare triggers on third-party models by making a
-proxy model. Use the ``python manage.py pgtrigger makemigrations``
-command to install them instead of the built-in ``python manage.py makemigrations``.
-
-.. warning::
-
-    If you have previously called ``python manage.py makemigrations`` with third-party triggers,
-    a migration file will be stored in the third-party app instead of your project. You will need
-    to delete this migration file for correct behavior.
-
-Here we make a proxy model for Django's ``auth.User`` model and register
-a protection trigger:
+Install triggers on third-party models by declaring them on a proxy model.
+For example, here we protect Django's ``User`` models from being deleted:
 
 .. code-block:: python
 
@@ -28,15 +18,37 @@ a protection trigger:
                 pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
             ]
 
-After this, we call ``python manage.py pgtrigger makemigrations``, which takes the
-third-party app label with triggers (in our case, ``auth``) and the internal app label where the migrations
-are stored (in our case, ``internal``)::
+Note that this syntax does not work for default many-to-many "through" models.
+See the next section for details.
 
-    python manage.py pgtrigger makemigrations auth internal
+Default many-to-many "through" models
+-------------------------------------
 
-After this, ``python manage.py migrate`` will install the trigger. Subsequent calls to
-``python manage.py makemigrations`` will also avoid picking up the triggers from the third-party
-app.
+When defining a many-to-many relationship, Django uses a separate relationship model,
+called the "through" model. If you want to install triggers for the default
+through model, you will need to define them on an unmanaged model that uses the
+database table of the through model.
+
+Here we protect Django ``User`` group relationships from being deleted:
+
+
+.. code-block:: python
+
+    class UserGroupTriggers(models.Model):
+        class Meta:
+            managed = False
+            db_table = User.groups.through._meta.db_table
+            triggers = [
+                pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
+            ]
+
+Although ``django-pgtrigger`` allows installing triggers against unmanaged models,
+we recommend only using this feature for this specific use case.
+
+.. note::
+
+    If a third-party through model is used, be sure to set the ``dependencies``
+    of the migration to depend on the third-party app's last migration.
 
 Programmatically registering triggers
 -------------------------------------
@@ -46,15 +58,29 @@ It can be used as a decorator on a model or called like so:
 
 .. code-block:: python
 
-    # Register a protection trigger for Django's User model
-    pgtrigger.register(pgtrigger.Protect(...))(User)
+    # Register a protection trigger for a model
+    pgtrigger.register(pgtrigger.Protect(...))(MyModel)
 
-.. note::
+.. warning::
 
-    Be sure that triggers are registered via an app config's
-    ``ready()`` method so that the registration happens exactly once.
-    `See the Django docs <https://docs.djangoproject.com/en/3.0/ref/applications/#django.apps.apps.ready>`__.
+    Although triggers can be registered programmatically, we don't recommend doing
+    this except for advanced use cases. Registering a trigger
+    to a model of a third-party app will create migrations in that app. This could
+    result in migrations not being added to your codebase, which can result in triggers
+    not being installed.
 
+Turning off migration integration
+---------------------------------
+
+``django-pgtrigger`` patches Django's migration system so that triggers are installed
+and updated in migrations. If this is undesirable, you can
+disable the migration integration by setting ``settings.PGTRIGGER_MIGRATIONS`` to
+``False``. After this, you are left with two options:
+
+1. Manually install triggers with the commands detailed in the next section.
+2. Run trigger installation after every ``python manage.py migrate`` by setting
+   ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True``. Keep in mind that
+   reversing migrations can cause issues when installing triggers this way.
 
 Manual installation, enabling, and disabling
 --------------------------------------------
@@ -63,7 +89,7 @@ Manual installation, enabling, and disabling
 
     Installing, uninstalling, enabling, and disabling triggers are global operations
     that call ``ALTER`` on the table. These should never be called in application code,
-    and they interfere with migrations. Only use them when absolutely necessary or
+    and they will also interfere with migrations. Only use them when absolutely necessary or
     when manually managing trigger installations outside of migrations.
     If you want to temporarily ignore a trigger in an application, see the
     :ref:`ignoring_triggers` section.
@@ -80,5 +106,15 @@ command in the :ref:`commands` section:
 * `pgtrigger.prune`: Uninstall triggers created by ``django-pgtrigger``
   that are no longer in the codebase.
 
-If you simply want to see the status of all installed triggers,
-run ``python manage.py pgtrigger ls``.
+Showing installation status
+---------------------------
+
+Use ``python manage.py pgtrigger ls`` to see the installation status of individual triggers
+or all triggers at once.
+
+Triggers can be in one of three installation states: ``INSTALLED``, ``UNINSTALLED``, or ``PRUNED``.
+When in a ``PRUNED`` state, the trigger is installed but no longer exists in the application.
+
+Triggers are also either ``ENABLED`` or ``DISABLED``. Triggers are enabled by default unless a user
+explicitly disables it after installation. Once disabled, triggers must be enabled
+again to run.

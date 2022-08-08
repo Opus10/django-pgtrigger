@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 
@@ -89,6 +90,7 @@ class TestTrigger(models.Model):
     nullable = models.CharField(null=True, default=None, max_length=16)
     fk_field = models.ForeignKey('auth.User', null=True, on_delete=models.CASCADE)
     char_pk_fk_field = models.ForeignKey(CharPk, null=True, on_delete=models.CASCADE)
+    m2m_field = models.ManyToManyField(User, related_name="+")
 
     class Meta:
         triggers = [
@@ -109,7 +111,20 @@ class TestTriggerProxy(TestTrigger):
 
     class Meta:
         proxy = True
-        triggers = [pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete)]
+        triggers = [
+            pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete),
+        ]
+
+
+class TestDefaultThrough(models.Model):
+    """For testing built-in "through" models of M2M fields"""
+
+    class Meta:
+        managed = False
+        db_table = TestTrigger.m2m_field.through._meta.db_table
+        triggers = [
+            pgtrigger.Protect(name='protect_it', operation=pgtrigger.Delete),
+        ]
 
 
 @pgtrigger.register(pgtrigger.SoftDelete(name='soft_delete', field='is_active'))

@@ -7,16 +7,19 @@ import threading
 
 import django.apps
 from django.conf import settings
-from django.db import connections, DEFAULT_DB_ALIAS, models, NotSupportedError, router, transaction
+from django.db import connections, DEFAULT_DB_ALIAS, models, router, transaction
 from django.db.models.expressions import Col
 from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
 from django.db.models.sql.datastructures import BaseTable
 from django.db.utils import ProgrammingError
 
+import pgtrigger.features
+import pgtrigger.registry
 
+
+# The core pgtrigger logger
 LOGGER = logging.getLogger('pgtrigger')
-_unset = object()
 
 # Postgres only allows identifiers to be 63 chars max. Since "pgtrigger_"
 # is the prefix for trigger names, and since an additional "_" and
@@ -33,12 +36,11 @@ UNINSTALLED = 'UNINSTALLED'
 OUTDATED = 'OUTDATED'
 PRUNE = 'PRUNE'
 
-
-# All registered triggers for each model
-registry = {}
-
 # All triggers currently being ignored
 _ignore = threading.local()
+
+# A sentinel value to determine if a kwarg is unset
+_unset = object()
 
 
 def _quote(label):
@@ -75,7 +77,7 @@ def _get_connection(model):
 def _get_model(table):
     """Obtains a django model based on its table name"""
     for model in django.apps.apps.get_models():  # pragma: no branch
-        if _quote(model._meta.db_table) == _quote(table):
+        if _quote(model._meta.db_table) == _quote(table) and not model._meta.proxy:
             return model
 
 
@@ -182,7 +184,7 @@ class _Serializable:
         return path, args, kwargs
 
     def __eq__(self, other):
-        return self.get_init_vals() == other.get_init_vals()
+        return self.__class__ == other.__class__ and self.get_init_vals() == other.get_init_vals()
 
 
 class _Primitive(_Serializable):
@@ -605,54 +607,42 @@ class Trigger(_Serializable):
         return self.func
 
     def get_uri(self, model):
-        """The URI for the trigger in the registry"""
+        """The URI for the trigger"""
+
         return f'{model._meta.app_label}.{model._meta.object_name}:{self.name}'
 
     def register(self, *models):
         """Register model classes with the trigger"""
-        # Compute the unique trigger function names that are already
-        # registered in order to prevent an accidental collision
-        registered_function_names = {
-            trigger.get_pgid(model) for model, trigger in registry.values()
-        }
+        registry = pgtrigger.registry.get()
 
         for model in models:
-            uri = self.get_uri(model)
-            if uri in registry:
-                raise ValueError(
-                    f'Trigger with name "{self.name}" is already'
-                    f' registered for model "{model}"'
-                )
+            registry[self.get_uri(model)] = (model, self)
 
-            if self.get_pgid(model) in registered_function_names:
-                raise ValueError(
-                    f'Trigger with name "{self.name}" on model "{model}"'
-                    ' has a trigger function name that is already taken.'
-                    ' Use a different name for the trigger.'
-                )
+            # Add the trigger to Meta.triggers.
+            # Note, pgtrigger's App.ready() method auto-registers any
+            # triggers in Meta already, meaning the trigger may already exist. If so, ignore it
+            if pgtrigger.features.migrations():  # pragma: no branch
+                if self not in getattr(model._meta, "triggers", []):
+                    model._meta.triggers = list(getattr(model._meta, "triggers", [])) + [self]
 
-            registry[uri] = (model, self)
-
-            # If we support migration integration, patch the constraints of
-            # the model
-            if getattr(settings, 'PGTRIGGER_MIGRATIONS', True):  # pragma: no branch
-                model._meta.constraints = list(model._meta.constraints) + [self]
-                model._meta.original_attrs["constraints"] = list(
-                    model._meta.original_attrs.get("constraints", [])
-                ) + [self]
+                if self not in model._meta.original_attrs.get("triggers", []):
+                    model._meta.original_attrs["triggers"] = list(
+                        model._meta.original_attrs.get("triggers", [])
+                    ) + [self]
 
         return _cleanup_on_exit(lambda: self.unregister(*models))
 
     def unregister(self, *models):
         """Unregister model classes with the trigger"""
+        registry = pgtrigger.registry.get()
+
         for model in models:
             del registry[self.get_uri(model)]
 
-        # If we support migration integration, patch the constraints of
-        # the model
-        if getattr(settings, 'PGTRIGGER_MIGRATIONS', True):  # pragma: no branch
-            model._meta.constraints.remove(self)
-            model._meta.original_attrs["constraints"].remove(self)
+        # If we support migration integration, remove from Meta triggers
+        if pgtrigger.features.migrations():  # pragma: no branch
+            model._meta.triggers.remove(self)
+            model._meta.original_attrs["triggers"].remove(self)
 
         return _cleanup_on_exit(lambda: self.register(*models))
 
@@ -878,154 +868,6 @@ class Trigger(_Serializable):
             with connection.cursor() as cursor:
                 cursor.execute('RESET pgtrigger.ignore;')
 
-    # All following attributes are available so that the trigger works as
-    # a constraint in Django's migration system.
-    @property
-    def contains_expressions(self):  # pragma: no cover
-        return False
-
-    def constraint_sql(self, model, schema_editor):  # pragma: no cover
-        return ""
-
-    def create_sql(self, model, schema_editor):
-        if schema_editor.connection.vendor != 'postgresql':  # pragma: no cover
-            raise NotSupportedError("Triggers are only supported on PostgreSQL databases.")
-
-        sql = self.render_install(model)
-
-        # Note: Django 3.2 introduced differences in how SQL is executed for
-        # migration commands. Be sure to escape the special "%" character
-        return sql.replace("%", "%%") if django.VERSION < (3, 2) else sql
-
-    def remove_sql(self, model, schema_editor):
-        sql = self.render_uninstall(model)
-
-        # Note: Django 3.2 introduced differences in how SQL is executed for
-        # migration commands. Be sure to escape the special "%" character
-        return sql.replace("%", "%%") if django.VERSION < (3, 2) else sql
-
-    def validate(self, model, instance, exclude=None, using=DEFAULT_DB_ALIAS):
-        """
-        Triggers cannot be ran in software, so the validation check cannot happen
-        like it can for other constraints.
-        """
-        pass
-
-    def clone(self):
-        _, args, kwargs = self.deconstruct()
-        return self.__class__(*args, **kwargs)
-
-
-class Protect(Trigger):
-    """A trigger that raises an exception."""
-
-    when = Before
-
-    def get_func(self, model):
-        return f'''
-            RAISE EXCEPTION
-                'pgtrigger: Cannot {str(self.operation).lower()} rows from % table',
-                TG_TABLE_NAME;
-        '''
-
-
-class FSM(Trigger):
-    """Enforces a finite state machine on a field.
-
-    Supply the trigger with the "field" that transitions and then
-    a list of tuples of valid transitions to the "transitions" argument.
-
-    .. note::
-
-        Only non-null ``CharField`` fields are currently supported.
-    """
-
-    when = Before
-    operation = Update
-    field = None
-    transitions = None
-
-    def __init__(self, *, name=None, condition=None, field=None, transitions=None):
-        self.field = field or self.field
-        self.transitions = transitions or self.transitions
-
-        if not self.field:  # pragma: no cover
-            raise ValueError('Must provide "field" for FSM')
-
-        if not self.transitions:  # pragma: no cover
-            raise ValueError('Must provide "transitions" for FSM')
-
-        super().__init__(name=name, condition=condition)
-
-    def get_declare(self, model):
-        return [('_is_valid_transition', 'BOOLEAN')]
-
-    def get_func(self, model):
-        col = model._meta.get_field(self.field).column
-        transition_uris = '{' + ','.join([f'{old}:{new}' for old, new in self.transitions]) + '}'
-
-        return f'''
-            SELECT CONCAT(OLD.{_quote(col)}, ':', NEW.{_quote(col)}) = ANY('{transition_uris}'::text[])
-                INTO _is_valid_transition;
-
-            IF (_is_valid_transition IS FALSE AND OLD.{_quote(col)} IS DISTINCT FROM NEW.{_quote(col)}) THEN
-                RAISE EXCEPTION
-                    'pgtrigger: Invalid transition of field "{self.field}" from "%" to "%" on table %',
-                    OLD.{_quote(col)},
-                    NEW.{_quote(col)},
-                    TG_TABLE_NAME;
-            ELSE
-                RETURN NEW;
-            END IF;
-        '''  # noqa
-
-
-class SoftDelete(Trigger):
-    """Sets a field to a value when a delete happens.
-
-    Supply the trigger with the "field" that will be set
-    upon deletion and the "value" to which it should be set.
-    The "value" defaults to ``False``.
-
-    .. note::
-
-        This trigger currently only supports nullable ``BooleanField``,
-        ``CharField``, and ``IntField`` fields.
-    """
-
-    when = Before
-    operation = Delete
-    field = None
-    value = False
-
-    def __init__(self, *, name=None, condition=None, field=None, value=_unset):
-        self.field = field or self.field
-        self.value = value if value is not _unset else self.value
-
-        if not self.field:  # pragma: no cover
-            raise ValueError('Must provide "field" for soft delete')
-
-        super().__init__(name=name, condition=condition)
-
-    def get_func(self, model):
-        soft_field = model._meta.get_field(self.field).column
-        pk_col = model._meta.pk.column
-
-        def _render_value():
-            if self.value is None:
-                return 'NULL'
-            elif isinstance(self.value, str):
-                return f"'{self.value}'"
-            else:
-                return str(self.value)
-
-        return f'''
-            UPDATE {_quote(model._meta.db_table)}
-            SET {soft_field} = {_render_value()}
-            WHERE {_quote(pk_col)} = OLD.{_quote(pk_col)};
-            RETURN NULL;
-        '''
-
 
 def get(*uris, database=None):
     """
@@ -1041,6 +883,8 @@ def get(*uris, database=None):
     Returns:
         List[`pgtrigger.Trigger`]: Matching trigger objects.
     """
+    registry = pgtrigger.registry.get()
+
     if database and uris:
         raise ValueError('Cannot supply both trigger URIs and a database')
 
@@ -1264,3 +1108,114 @@ def ignore(*uris):
             stack.enter_context(trigger.ignore(model))
 
         yield
+
+
+class Protect(Trigger):
+    """A trigger that raises an exception."""
+
+    when = Before
+
+    def get_func(self, model):
+        return f'''
+            RAISE EXCEPTION
+                'pgtrigger: Cannot {str(self.operation).lower()} rows from % table',
+                TG_TABLE_NAME;
+        '''
+
+
+class FSM(Trigger):
+    """Enforces a finite state machine on a field.
+
+    Supply the trigger with the "field" that transitions and then
+    a list of tuples of valid transitions to the "transitions" argument.
+
+    .. note::
+
+        Only non-null ``CharField`` fields are currently supported.
+    """
+
+    when = Before
+    operation = Update
+    field = None
+    transitions = None
+
+    def __init__(self, *, name=None, condition=None, field=None, transitions=None):
+        self.field = field or self.field
+        self.transitions = transitions or self.transitions
+
+        if not self.field:  # pragma: no cover
+            raise ValueError('Must provide "field" for FSM')
+
+        if not self.transitions:  # pragma: no cover
+            raise ValueError('Must provide "transitions" for FSM')
+
+        super().__init__(name=name, condition=condition)
+
+    def get_declare(self, model):
+        return [('_is_valid_transition', 'BOOLEAN')]
+
+    def get_func(self, model):
+        col = model._meta.get_field(self.field).column
+        transition_uris = '{' + ','.join([f'{old}:{new}' for old, new in self.transitions]) + '}'
+
+        return f'''
+            SELECT CONCAT(OLD.{_quote(col)}, ':', NEW.{_quote(col)}) = ANY('{transition_uris}'::text[])
+                INTO _is_valid_transition;
+
+            IF (_is_valid_transition IS FALSE AND OLD.{_quote(col)} IS DISTINCT FROM NEW.{_quote(col)}) THEN
+                RAISE EXCEPTION
+                    'pgtrigger: Invalid transition of field "{self.field}" from "%" to "%" on table %',
+                    OLD.{_quote(col)},
+                    NEW.{_quote(col)},
+                    TG_TABLE_NAME;
+            ELSE
+                RETURN NEW;
+            END IF;
+        '''  # noqa
+
+
+class SoftDelete(Trigger):
+    """Sets a field to a value when a delete happens.
+
+    Supply the trigger with the "field" that will be set
+    upon deletion and the "value" to which it should be set.
+    The "value" defaults to ``False``.
+
+    .. note::
+
+        This trigger currently only supports nullable ``BooleanField``,
+        ``CharField``, and ``IntField`` fields.
+    """
+
+    when = Before
+    operation = Delete
+    field = None
+    value = False
+
+    def __init__(self, *, name=None, condition=None, field=None, value=_unset):
+        self.field = field or self.field
+        self.value = value if value is not _unset else self.value
+
+        if not self.field:  # pragma: no cover
+            raise ValueError('Must provide "field" for soft delete')
+
+        super().__init__(name=name, condition=condition)
+
+    def get_func(self, model):
+        soft_field = model._meta.get_field(self.field).column
+        pk_col = model._meta.pk.column
+
+        def _render_value():
+            if self.value is None:
+                return 'NULL'
+            elif isinstance(self.value, str):
+                return f"'{self.value}'"
+            else:
+                return str(self.value)
+
+        return f'''
+            UPDATE {_quote(model._meta.db_table)}
+            SET {soft_field} = {_render_value()}
+            WHERE {_quote(pk_col)} = OLD.{_quote(pk_col)};
+            RETURN NULL;
+        '''

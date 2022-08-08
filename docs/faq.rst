@@ -3,30 +3,36 @@
 Frequently Asked Questions
 ==========================
 
-How can I be sure triggers are working?
----------------------------------------
+Triggers are scary, don't you think?
+------------------------------------
 
-Triggers are not much different than constraints. Triggers are installed against your model tables, and they raise internal database exceptions in your Django app when errors happen. You can be sure they are working by writing tests.
+If you have no problem with the database enforcing a uniqueness constraint, what's the problem with it enforcing other relevant problems? For example, a trigger can more reliably enforce state transitions of a column than application code.
+
+The best way to get over fear of triggers is by writing basic test cases for them. You can also be sure they are installed by running ``python manage.py pgtrigger ls``.
 
 How do I test triggers?
 -----------------------
 
-Manipulate your models in your test suite and verify the expected result happens. Similar to constraints, there is nothing magical about testing triggers. Keep in mind that when a trigger fails, a ``django.db.utils.InternalError`` is raised.
+Manipulate your models in your test suite and verify the expected result happens. When a trigger fails, a ``django.db.utils.InternalError`` is raised.
+
+If you've turned off migrations for your test suite, call `pgtrigger.install` after the database is set up or set ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` to ensure triggers are installed for your tests.
+
+.. warning::
+
+    Be sure the ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` setting is isolated to your test suite, otherwise it could
+    cause unexpected problems in production when reversing migrations.
 
 Why not just use Django signals?
 --------------------------------
 
 Django signals can easily be bypassed, and they don't fire in model operations like ``bulk_create``. If you are solving a database-level problem, such as protecting deletes, triggers are much more reliable.
 
-Why does ``AddConstraint`` appear in migrations?
-------------------------------------------------
-
-``django-pgtrigger`` piggybacks off of Django model constraints to integrate with Django's migration system. When a trigger is added or removed, you will see ``AddConstraint`` or ``RemoveConstraint`` operations appear in migrations.
-
 My triggers are causing errors in migrations. What's going on?
 --------------------------------------------------------------
 
-If your triggers access mutliple tables, keep in mind that you might need set these tables as dependencies for your migration.
+If your triggers access mutliple tables across apps, you may encounter installation issues if you haven't declared those apps as ``dependencies`` in the migration file.
+
+If you have ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` set to ``True``, this can also cause trigger installation issues when migrations are reversed. Your database tables should be fine, but triggers may be in an inconsistent state. You can use ``python manage.py pgtrigger ls`` to see the status of all triggers.
 
 How do I disable triggers in my application?
 --------------------------------------------
@@ -44,30 +50,31 @@ where ``args`` is a list of positional arguments and ``kwargs`` is a dictionary 
 Patches are causing my application to fail. How can I disable them?
 -------------------------------------------------------------------
 
-``django-pgtrigger`` patches the minimum amount of Django functionality necessary to integrate with the migration system. If this causes errors in your application, the following settings can be disabled:
+``django-pgtrigger`` patches the minimum amount of Django functionality necessary to integrate with the migration system. If this causes errors in your application, set ``settings.PGTRIGGER_MIGRATIONS`` to ``False`` to turn off integration with the migration system. You will need to manually install triggers or set ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` to always install triggers after migrations.
 
-- ``PGTRIGGER_MODEL_META``: Setting this to ``False`` will disable the ability to specify triggers in model ``Meta``. You must explicitly register every trigger with `pgtrigger.register`.
-- ``PGTRIGGER_MIGRATIONS``: Setting this to ``False`` will turn off integration with the migration system. You will need to manually install triggers or set ``PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` to always install triggers after migrations.
-- ``PGTRIGGER_PATCH_CHECKS``: Setting this to ``False`` will avoid patching Django's check framework. If, however, any of your trigger names aren't globally unique, you'll need to change them or silence the check another way.
+If patching-related errors still happen, set ``settings.PGTRIGGER_MODEL_META`` to ``False`` to disable specifying triggers in model ``Meta``. You must explicitly register every trigger with `pgtrigger.register`, and triggers on third-party models may not be discovered.
 
 How do I migrate to version 3.0?
 --------------------------------
 
 Version 3 integrates with the migration system and also drops the need for configuring ``django-pgconnection`` for using `pgtrigger.ignore`. It also fully supports the ``Meta.triggers`` syntax for registering triggers.
 
-The majority of users can simply run ``python manage.py makemigrations`` after upgrading, but read below if you've configured triggers for third-party models or want to use new syntax for registering triggers.
+The majority of users can simply run ``python manage.py makemigrations`` after upgrading if you have no triggers registered to third-party models or many-to-many default "through" models. Read below for more details on the upgrades, and follow the special instructions if any of the former cases apply to you.
 
 Integration with Django migrations
 **********************************
 
-All triggers now appear in migrations when running ``python manage.py makemigrations``. Triggers from version 2 will appear as new ``AddConstraint`` operations and succeed when running ``migrate`` even if previously installed. Remember, however, that triggers will be deleted if the migrations are reversed.
+All triggers now appear in migrations when running ``python manage.py makemigrations``. Triggers from version 2 will appear as new ``AddTrigger`` operations. They will succeed when running ``migrate`` even if previously installed. Remember, however, that triggers will be deleted if the migrations are reversed.
 
-Almost all users can simply run ``python manage.py makemigrations`` after upgrading. If, however, you have registered third-party models that have triggers, use these instructions to migrate them:
+Almost all users can simply run ``python manage.py makemigrations`` after upgrading. If, however, you have triggers on third-party models or many-to-many default "through" models, use these instructions to migrate them:
 
-1. If you already ran ``python manage.py makemigrations``, delete any new migrations made in these third-party apps.
-2. Running ``python manage.py pgtrigger makemigrations <third_party_app> <internal_app>``, where ``third_party_app`` is the app label of the third party app and ``internal_app`` is the app label where the migration file will be created. This ensures that the migrations remain in your project.
+1. If you already ran ``python manage.py makemigrations``, delete any new migrations made for these third-party apps.
+2. Declare proxy models for the third-party models, register triggers in the ``Meta.triggers`` or those, and call ``python manage.py makemigrations``.
+3. For triggers on a default many-to-many "through" models, create an unmanaged model with the database table of the "through" models. Add triggers to ``Meta.triggers`` and run ``python manage.py makemigrations``.
 
-If you'd like to keep the legacy installation behavior, set ``PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` to install all triggers at the end of migrations, and set ``PGTRIGGER_MIGRATIONS`` to ``False`` to turn off integration with the migration system.
+For 2) and 3), see more examples in the :ref:`advanced_installation` section.
+
+If you'd like to keep the legacy installation behavior, set ``PGTRIGGER_MIGRATIONS`` to ``False`` to turn off trigger migrations and set ``PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` so that triggers are always installed at the end of ``python manage.py migrate``.
 
 Dropping of ``django-pgconnection`` dependency
 **********************************************
@@ -78,7 +85,7 @@ for `pgtrigger.ignore` to function properly.
 New ``Meta.triggers`` syntax
 ****************************
 
-Version 2.5 introduced the ability to register triggers on your model's ``Meta.triggers`` list. User can still use `pgtrigger.register` to register triggers programmatically.
+Version 2.5 introduced the ability to register triggers on your model's ``Meta.triggers`` list. User can still use `pgtrigger.register` to register triggers programmatically, but it has been deprecated.
 
 How can I contact the author?
 -----------------------------

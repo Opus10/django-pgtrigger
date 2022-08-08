@@ -7,7 +7,20 @@ from django.db.utils import NotSupportedError
 import pytest
 
 import pgtrigger.core
+import pgtrigger.registry
 from pgtrigger.tests import models
+
+
+@pytest.mark.django_db
+def test_through_model():
+    """
+    Tests the "ThroughTrigger" model to verify that triggers execute on M2M through models
+    """
+    test_trigger = ddf.G(models.TestTrigger)
+    test_trigger.m2m_field.add(ddf.G("auth.User"))
+
+    with pytest.raises(InternalError, match="Cannot delete"):
+        test_trigger.m2m_field.clear()
 
 
 @pytest.mark.django_db
@@ -390,7 +403,7 @@ def test_registry():
     """
     Tests dynamically registering and unregistering triggers
     """
-    init_registry_size = len(pgtrigger.core.registry)
+    init_registry_size = len(pgtrigger.registry.get())
     # The trigger registry should already be populated with our test triggers
     assert init_registry_size >= 6
 
@@ -405,18 +418,18 @@ def test_registry():
     # Register/unregister in context managers. The state should be the same
     # at the end as the beginning
     with trigger.register(models.TestModel):
-        assert len(pgtrigger.core.registry) == init_registry_size + 1
-        assert f'tests.TestModel:{trigger.name}' in pgtrigger.core.registry
+        assert len(pgtrigger.registry.get()) == init_registry_size + 1
+        assert f'tests.TestModel:{trigger.name}' in pgtrigger.registry.get()
 
         with trigger.unregister(models.TestModel):
-            assert len(pgtrigger.core.registry) == init_registry_size
-            assert f'tests.TestModel:{trigger.name}' not in pgtrigger.core.registry
+            assert len(pgtrigger.registry.get()) == init_registry_size
+            assert f'tests.TestModel:{trigger.name}' not in pgtrigger.registry.get()
 
         # Try obtaining trigger by alias
         assert pgtrigger.get('tests.TestModel:my_aliased_trigger')
 
-    assert len(pgtrigger.core.registry) == init_registry_size
-    assert f'tests.TestModel:{trigger.name}' not in pgtrigger.core.registry
+    assert len(pgtrigger.registry.get()) == init_registry_size
+    assert f'tests.TestModel:{trigger.name}' not in pgtrigger.registry.get()
     with pytest.raises(ValueError, match='not found'):
         pgtrigger.get(f'tests.TestModel:{trigger.name}')
 
@@ -431,7 +444,7 @@ def test_duplicate_trigger_names(mocker):
     trigger1 = pgtrigger.Trigger(
         name='mytrigger', when=pgtrigger.Before, operation=pgtrigger.Insert
     )
-    trigger2 = pgtrigger.Trigger(
+    trigger2 = pgtrigger.Protect(
         name='mytrigger', when=pgtrigger.Before, operation=pgtrigger.Insert
     )
     trigger3 = pgtrigger.Trigger(
@@ -445,7 +458,7 @@ def test_duplicate_trigger_names(mocker):
     # NOTE - use context managers to ensure we don't keep around
     # these registered triggers in other tests
     with trigger1.register(models.TestModel):
-        with pytest.raises(ValueError, match='already registered'):
+        with pytest.raises(ValueError, match='already used'):
             with trigger2.register(models.TestModel):
                 pass
 
@@ -454,8 +467,22 @@ def test_duplicate_trigger_names(mocker):
     # Check that a conflict cannot happen in the generated postgres ID.
     # NOTE - use context managers to ensure we don't keep around
     # these registered triggers in other tests
-    with pytest.raises(ValueError, match='that is already taken'):
+    with pytest.raises(ValueError, match='that\'s already in use'):
         with trigger1.register(models.TestModel):
+            pass
+
+
+def test_duplicate_trigger_names_proxy_model(mocker):
+    """Test that duplicate trigger names are detected when using proxy models"""
+
+    # TestTriggerProxy registers "protect_delete" for TestTrigger.
+    # If we try to register this trigger directly on TestTrigger, it should result
+    # in a duplicate error
+    trigger = pgtrigger.Trigger(
+        name='protect_delete', when=pgtrigger.Before, operation=pgtrigger.Insert
+    )
+    with pytest.raises(ValueError, match='already used'):
+        with trigger.register(models.TestTrigger):
             pass
 
 
@@ -540,18 +567,19 @@ def test_ignore_no_transaction_leaks():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_basic_ignore():
+@pytest.mark.parametrize("model_class", [models.TestTriggerProxy, models.CustomTableName])
+def test_basic_ignore(model_class):
     """Verify basic dynamic ignore functionality"""
-    deletion_protected_model = ddf.G(models.TestTrigger)
+    deletion_protected_model = ddf.G(model_class)
     with pytest.raises(InternalError, match='Cannot delete rows'):
         deletion_protected_model.delete()
 
-    with pgtrigger.ignore('tests.TestTriggerProxy:protect_delete'):
+    with pgtrigger.ignore(f'tests.{model_class.__name__}:protect_delete'):
         deletion_protected_model.delete()
 
     assert not models.TestTrigger.objects.exists()
 
-    deletion_protected_model = ddf.G(models.TestTrigger)
+    deletion_protected_model = ddf.G(model_class)
     with pytest.raises(InternalError, match='Cannot delete rows'):
         deletion_protected_model.delete()
 

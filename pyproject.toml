@@ -84,7 +84,7 @@ pytest-order = "^1.0.1"
 
 [tool.pytest.ini_options]
 xfail_strict = true
-addopts = "--reuse-db"
+addopts = "--reuse-db -m 'not independent'"
 testpaths = "pgtrigger/tests"
 norecursedirs = ".venv"
 DJANGO_SETTINGS_MODULE = "test_settings"
