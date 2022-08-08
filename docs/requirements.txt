@@ -12,7 +12,7 @@ chardet==4.0.0; python_full_version >= "3.7.0" and python_version < "4" and (pyt
 click==8.1.3; python_version >= "3.7" and python_full_version >= "3.7.0" and python_version < "4" and (python_version >= "3.7" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.7")
 colorama==0.4.5
 cookiecutter==1.7.3; python_version >= "2.7" and python_full_version < "3.0.0" or python_full_version >= "3.5.0"
-coverage==6.4.2; python_version >= "3.7"
+coverage==6.4.3; python_version >= "3.7"
 distlib==0.3.5; python_version >= "3.6" and python_full_version >= "3.6.1" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6")
 dj-database-url==0.5.0
 django-dynamic-fixture==3.1.1

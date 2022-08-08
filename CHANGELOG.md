@@ -1,12 +1,15 @@
 # Changelog
-## 3.1.0 (2022-08-07)
-### Bug
-  - Fixed issues with proxy models and M2M "through" models. [Wes Kendall, 52aa81f]
+## 3.2.0 (2022-08-08)
+### Feature
+  - Support proxy models on default many-to-many "through" relationships. [Wes Kendall, 4cb0f65]
 
-    Proxy models weren't creating migrations, and M2M "through" models are
-    handled by making an unmanaged model that points to the right DB table.
+    Previously one had to use an unmanaged model to declare triggers on default
+    many-to-many "through" relationships. Users can now define a proxy model
+    on these instead.
 
-## 3.0.0 (2022-08-05)
+    Support for unmanaged models was dropped.
+
+## 3.1.0 (2022-08-08)
 ### Api-Break
   - Integration with Django's migration system. [Wes Kendall, 6916c14]
 
@@ -19,6 +22,11 @@
 
     For instructions on upgrading or preserving legacy behavior, see the frequently
     asked questions of the docs.
+### Bug
+  - Fixed issues with proxy models and M2M "through" models. [Wes Kendall, 52aa81f]
+
+    Proxy models weren't creating migrations, and M2M "through" models are
+    handled by making an unmanaged model that points to the right DB table.
 ### Feature
   - Remove dependency on ``django-pgconnection``. [Wes Kendall, af0c908]
 
