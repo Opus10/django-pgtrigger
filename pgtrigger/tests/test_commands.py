@@ -3,7 +3,7 @@ from unittest import mock
 from django.core.management import call_command
 import pytest
 
-from pgtrigger import core
+import pgtrigger.registry
 
 
 @pytest.mark.django_db(databases=['default', 'other'])
@@ -26,6 +26,10 @@ def test_full_ls(capsys):
         '\t\x1b[92mENABLED\x1b[0m',
         'tests.FSM:fsm' '\tdefault' '\t\x1b[92mINSTALLED\x1b[0m' '\t\x1b[92mENABLED\x1b[0m',
         'tests.SoftDelete:soft_delete'
+        '\tdefault'
+        '\t\x1b[92mINSTALLED\x1b[0m'
+        '\t\x1b[92mENABLED\x1b[0m',
+        'tests.TestDefaultThrough:protect_it'
         '\tdefault'
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
@@ -172,7 +176,7 @@ def test_prune(capsys):
     """Test pruning a trigger"""
     # Make it appear as though the trigger has been renamed and is no
     # longer installed
-    with mock.patch.dict(core.registry, {}, clear=True):
+    with mock.patch.dict(pgtrigger.registry._registry, {}, clear=True):
         call_command('pgtrigger', 'ls')
         captured = capsys.readouterr()
         lines = sorted(captured.out.split('\n'))
@@ -208,7 +212,7 @@ def test_outdated(capsys, mocker):
     # Make it appear like the trigger is out of date by changing
     # its hash
     mocker.patch.object(
-        core.registry['tests.SoftDelete:soft_delete'][1],
+        pgtrigger.registry._registry['tests.SoftDelete:soft_delete'][1],
         'get_hash',
         return_value='hash',
     )

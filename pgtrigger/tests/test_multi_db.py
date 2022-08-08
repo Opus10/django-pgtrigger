@@ -72,6 +72,10 @@ class MultiDB(django.test.TestCase):
                 '\tdefault'
                 '\t\x1b[92mINSTALLED\x1b[0m'
                 '\t\x1b[92mENABLED\x1b[0m',
+                'tests.TestDefaultThrough:protect_it'
+                '\tdefault'
+                '\t\x1b[92mINSTALLED\x1b[0m'
+                '\t\x1b[92mENABLED\x1b[0m',
                 'tests.TestTrigger:protect_misc_insert'
                 '\tdefault'
                 '\t\x1b[92mINSTALLED\x1b[0m'
@@ -119,6 +123,10 @@ class MultiDB(django.test.TestCase):
                 '\tdefault'
                 '\t\x1b[92mINSTALLED\x1b[0m'
                 '\t\x1b[91mDISABLED\x1b[0m',
+                'tests.TestDefaultThrough:protect_it'
+                '\tdefault'
+                '\t\x1b[92mINSTALLED\x1b[0m'
+                '\t\x1b[91mDISABLED\x1b[0m',
                 'tests.TestTrigger:protect_misc_insert'
                 '\tdefault'
                 '\t\x1b[92mINSTALLED\x1b[0m'
@@ -162,6 +170,10 @@ class MultiDB(django.test.TestCase):
                 '\t\x1b[92mINSTALLED\x1b[0m'
                 '\t\x1b[92mENABLED\x1b[0m',
                 'tests.SoftDelete:soft_delete'
+                '\tdefault'
+                '\t\x1b[92mINSTALLED\x1b[0m'
+                '\t\x1b[92mENABLED\x1b[0m',
+                'tests.TestDefaultThrough:protect_it'
                 '\tdefault'
                 '\t\x1b[92mINSTALLED\x1b[0m'
                 '\t\x1b[92mENABLED\x1b[0m',
@@ -221,6 +233,7 @@ class MultiDB(django.test.TestCase):
                 'tests.CustomTableName:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.FSM:fsm' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.SoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.TestDefaultThrough:protect_it' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.TestTrigger:protect_misc_insert' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.TestTriggerProxy:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.ToLogModel:after_update_row_test'
@@ -251,6 +264,7 @@ class MultiDB(django.test.TestCase):
                 'tests.CustomTableName:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.FSM:fsm' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.SoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
+                'tests.TestDefaultThrough:protect_it' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.TestTrigger:protect_misc_insert' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.TestTriggerProxy:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
                 'tests.ToLogModel:after_update_row_test'
