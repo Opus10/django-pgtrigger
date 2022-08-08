@@ -1,19 +1,26 @@
 # Changelog
+## 3.1.0 (2022-08-07)
+### Bug
+  - Fixed issues with proxy models and M2M "through" models. [Wes Kendall, 52aa81f]
+
+    Proxy models weren't creating migrations, and M2M "through" models are
+    handled by making an unmanaged model that points to the right DB table.
+
 ## 3.0.0 (2022-08-05)
 ### Api-Break
-  - Integration with Django's migration system. [Wes Kendall, a7c4aaa]
+  - Integration with Django's migration system. [Wes Kendall, 6916c14]
 
     Triggers are fully integrated with Django's migration system, and they are no longer
     installed at the end of migrations by default. Users instead need to run
     ``python manage.py makemigrations`` to make trigger migrations for their applications.
 
-    Triggers for models in third-party apps must be migrated with the
-    ``python manage.py pgtrigger makemigrations`` command.
+    Triggers for models in third-party apps are declared with proxy models. Triggers
+    for default many-to-many "through" models are declared with unmanaged models.
 
     For instructions on upgrading or preserving legacy behavior, see the frequently
     asked questions of the docs.
 ### Feature
-  - Remove dependency on ``django-pgconnection``. [Wes Kendall, e8987c8]
+  - Remove dependency on ``django-pgconnection``. [Wes Kendall, af0c908]
 
     Users no longer have to wrap ``settings.DATABASES`` with
     ``django-pgconnection`` in order to use the ``pgtrigger.ignore``
