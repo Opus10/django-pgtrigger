@@ -84,6 +84,45 @@ def test_customer_soft_delete():
     assert not models.CustomSoftDelete.objects.get().custom_active
 
 
+@pytest.mark.django_db(transaction=True)
+def test_deferred_trigger():
+    """
+    Tests deferrable execution of a trigger
+    """
+    # Make the LogEntry model a soft delete model where
+    # "level" is set to "inactive"
+    trigger = pgtrigger.Protect(
+        name='protect_delete',
+        when=pgtrigger.After,
+        operation=pgtrigger.Delete,
+        timing=pgtrigger.Deferred,
+    )
+    with trigger.register(models.TestModel):
+        with trigger.install(models.TestModel):
+            obj = ddf.G(models.TestModel)
+            deferring_worked = False
+            with pytest.raises(InternalError, match="Cannot delete"):
+                with transaction.atomic():
+                    obj.delete()
+                    # Deletion works within the transaction, but fails
+                    # when the transaction commits.
+                    assert not models.TestModel.objects.exists()
+                    deferring_worked = True
+
+            assert deferring_worked
+            assert models.TestModel.objects.exists()
+            obj = models.TestModel.objects.get()
+
+            # Verify that we can ignore deferrable triggers
+            with pgtrigger.ignore("tests.TestModel:protect_delete"):
+                with transaction.atomic():
+                    obj.delete()
+                    assert not models.TestModel.objects.exists()
+
+                # The object should still not exist outside of the transaction
+                assert not models.TestModel.objects.exists()
+
+
 @pytest.mark.django_db
 def test_soft_delete_different_values():
     """
@@ -425,11 +464,30 @@ def test_arg_checks():
     with pytest.raises(ValueError, match='Invalid "operation"'):
         pgtrigger.Trigger(when=pgtrigger.Before, operation='invalid')
 
+    with pytest.raises(ValueError, match='Invalid "timing"'):
+        pgtrigger.Trigger(when=pgtrigger.Before, operation=pgtrigger.Update, timing='timing')
+
     with pytest.raises(ValueError, match='Row-level triggers cannot have'):
         pgtrigger.Trigger(
             when=pgtrigger.Before,
             operation=pgtrigger.Update,
             referencing=pgtrigger.Referencing(old='old_table'),
+        )
+
+    with pytest.raises(ValueError, match='must have "level" attribute'):
+        pgtrigger.Trigger(
+            level=pgtrigger.Statement,
+            when=pgtrigger.After,
+            operation=pgtrigger.Update,
+            timing=pgtrigger.Immediate,
+        )
+
+    with pytest.raises(ValueError, match='must have "when" attribute'):
+        pgtrigger.Trigger(
+            level=pgtrigger.Row,
+            when=pgtrigger.Before,
+            operation=pgtrigger.Update,
+            timing=pgtrigger.Immediate,
         )
 
     with pytest.raises(ValueError, match='Must define func'):

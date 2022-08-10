@@ -313,6 +313,17 @@ class UpdateOf(Operation):
         return f'UPDATE OF {columns}'
 
 
+class Timing(_Primitive):
+    values = ("IMMEDIATE", "DEFERRED")
+
+
+#: For deferrable triggers that run immediately by default
+Immediate = Timing('IMMEDIATE')
+
+#: For deferrable triggers that run at the end of the transaction by default
+Deferred = Timing('DEFERRED')
+
+
 class Condition(_Serializable):
     """For specifying free-form SQL in the condition of a trigger."""
 
@@ -534,6 +545,7 @@ class Trigger(_Serializable):
     referencing = None
     func = None
     declare = None
+    timing = None
 
     def __init__(
         self,
@@ -546,6 +558,7 @@ class Trigger(_Serializable):
         referencing=None,
         func=None,
         declare=None,
+        timing=None,
     ):
         self.name = name or self.name
         self.level = level or self.level
@@ -555,6 +568,7 @@ class Trigger(_Serializable):
         self.referencing = referencing or self.referencing
         self.func = func or self.func
         self.declare = declare or self.declare
+        self.timing = timing or self.timing
 
         if not self.level or not isinstance(self.level, Level):
             raise ValueError(f'Invalid "level" attribute: {self.level}')
@@ -565,8 +579,17 @@ class Trigger(_Serializable):
         if not self.operation or not isinstance(self.operation, Operation):
             raise ValueError(f'Invalid "operation" attribute: {self.operation}')
 
+        if self.timing and not isinstance(self.timing, Timing):
+            raise ValueError(f'Invalid "timing" attribute: {self.timing}')
+
         if self.level == Row and self.referencing:
             raise ValueError('Row-level triggers cannot have a "referencing" attribute')
+
+        if self.timing and self.level != Row:
+            raise ValueError('Deferrable triggers must have "level" attribute as "pgtrigger.Row"')
+
+        if self.timing and self.when != After:
+            raise ValueError('Deferrable triggers must have "when" attribute as "pgtrigger.After"')
 
         if not self.name:
             raise ValueError('Trigger must have "name" attribute')
@@ -716,10 +739,17 @@ class Trigger(_Serializable):
         """Renders the trigger declaration SQL statement"""
         table = model._meta.db_table
         pgid = self.get_pgid(model)
+
+        constraint = 'CONSTRAINT' if self.timing else ''
+        timing = f'DEFERRABLE INITIALLY {self.timing}' if self.timing else ''
+
+        # Note: Postgres 14 has CREATE OR REPLACE syntax that
+        # we might consider using.
         return f'''
             DROP TRIGGER IF EXISTS {pgid} on {_quote(table)};
-            CREATE TRIGGER {pgid}
+            CREATE {constraint} TRIGGER {pgid}
                 {self.when} {self.operation} ON {_quote(table)}
+                {timing}
                 {self.referencing or ''}
                 FOR EACH {self.level} {self.render_condition(model)}
                 EXECUTE PROCEDURE {pgid}();
