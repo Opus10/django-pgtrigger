@@ -7,7 +7,7 @@ import threading
 
 import django.apps
 from django.conf import settings
-from django.db import connections, DEFAULT_DB_ALIAS, models, router, transaction
+from django.db import connections, DEFAULT_DB_ALIAS, models, router
 from django.db.models.expressions import Col
 from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
@@ -876,7 +876,7 @@ class Trigger(_Serializable):
     @contextlib.contextmanager
     def ignore(self, model):
         """Ignores the trigger in a single thread of execution"""
-        connection = transaction.get_connection()
+        connection = _get_connection(model)
 
         with contextlib.ExitStack() as pre_execute_hook:
 
@@ -885,9 +885,9 @@ class Trigger(_Serializable):
             ignore_uri = f'{model._meta.db_table}:{self.get_pgid(model)}'
 
             if not hasattr(_ignore, 'value'):
-                _ignore.value = set()
+                _ignore.value = {}
 
-            if not _ignore.value:
+            if _inject_pgtrigger_ignore not in connection.execute_wrappers:
                 # If this is the first time we are ignoring trigger execution,
                 # register the pre_execute_hook
                 pre_execute_hook.enter_context(
@@ -896,15 +896,15 @@ class Trigger(_Serializable):
 
             if ignore_uri not in _ignore.value:
                 try:
-                    _ignore.value.add(ignore_uri)
+                    _ignore.value[ignore_uri] = connection
                     yield
                 finally:
-                    _ignore.value.remove(ignore_uri)
+                    del _ignore.value[ignore_uri]
             else:  # The trigger is already being ignored
                 yield
 
-        if not _ignore.value and connection.in_atomic_block:
-            # We've finished all ignoring of triggers, but we are in a transaction
+        if not any(c == connection for c in _ignore.value.values()) and connection.in_atomic_block:
+            # We've finished ignoring of triggers for the connection, but we are in a transaction
             # and still have a reference to the local variable. Reset it
             with connection.cursor() as cursor:
                 cursor.execute('RESET pgtrigger.ignore;')
