@@ -13,6 +13,7 @@ from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
 from django.db.models.sql.datastructures import BaseTable
 from django.db.utils import ProgrammingError
+import psycopg2.extensions
 
 import pgtrigger.features
 import pgtrigger.registry
@@ -89,6 +90,16 @@ def _is_concurrent_statement(sql):
     return sql.startswith('create') and 'concurrently' in sql
 
 
+def _is_transaction_errored(cursor):
+    """
+    True if the current transaction is in an errored state
+    """
+    return (
+        cursor.connection.get_transaction_status()
+        == psycopg2.extensions.TRANSACTION_STATUS_INERROR
+    )
+
+
 def _inject_pgtrigger_ignore(execute, sql, params, many, context):  # pragma: no cover
     """
     A connection execution wrapper that sets a pgtrigger.ignore
@@ -107,7 +118,11 @@ def _inject_pgtrigger_ignore(execute, sql, params, many, context):  # pragma: no
     #
     # Concurrent index creation is also incompatible with local variable
     # setting. Ignore these cases for now.
-    if not cursor.name and not _is_concurrent_statement(sql):
+    if (
+        not cursor.name
+        and not _is_concurrent_statement(sql)
+        and not _is_transaction_errored(cursor)
+    ):
         sql = "SET LOCAL pgtrigger.ignore='{" + ",".join(_ignore.value) + "}';" + sql
 
     return execute(sql, params, many, context)
