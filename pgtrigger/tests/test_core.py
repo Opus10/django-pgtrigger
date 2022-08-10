@@ -107,6 +107,27 @@ def test_soft_delete_different_values():
 
 
 @pytest.mark.django_db(transaction=True)
+def test_updating_trigger_condition():
+    """
+    Tests re-installing a trigger when the condition changes
+    """
+    # Make the LogEntry model a soft delete model where
+    # "level" is set to "inactive"
+    trigger = pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete)
+    with trigger.install(models.LogEntry):
+        le = ddf.G(models.LogEntry, level="good")
+
+        with pytest.raises(InternalError, match='Cannot delete'):
+            le.delete()
+
+        # Protect deletes when "level" is "bad". The trigger should be reinstalled
+        # appropriately
+        trigger.condition = pgtrigger.Q(old__level="bad")
+        with trigger.install(models.LogEntry):
+            le.delete()
+
+
+@pytest.mark.django_db(transaction=True)
 def test_fsm():
     """
     Verifies the FSM test model cannot make invalid transitions
