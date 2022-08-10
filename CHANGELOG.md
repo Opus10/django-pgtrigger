@@ -1,4 +1,16 @@
 # Changelog
+## 3.3.0 (2022-08-09)
+### Bug
+  - Fixes ignoring triggers with nested transactions [Wes Kendall, d32113d]
+
+    ``pgtrigger.ignore`` avoids injecting SQL when transactions are in a failed
+    state, allowing for one to use nested transactions while ignoring triggers.
+  - Fixed issue re-installing triggers with different conditions. [Wes Kendall, 68e29d2]
+
+    Triggers with conditions that change were not successfully
+    re-installed with ``pgtrigger.install``. Note that this only affects
+    legacy installation and not installation with the new migration system.
+
 ## 3.2.0 (2022-08-08)
 ### Feature
   - Support proxy models on default many-to-many "through" relationships. [Wes Kendall, 4cb0f65]
