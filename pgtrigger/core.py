@@ -702,16 +702,12 @@ class Trigger(_Serializable):
         table = model._meta.db_table
         pgid = self.get_pgid(model)
         return f'''
-            DO $$ BEGIN
-                CREATE TRIGGER {pgid}
-                    {self.when} {self.operation} ON {_quote(table)}
-                    {self.referencing or ''}
-                    FOR EACH {self.level} {self.render_condition(model)}
-                    EXECUTE PROCEDURE {pgid}();
-            EXCEPTION
-                -- Ignore issues if the trigger already exists
-                WHEN duplicate_object THEN null;
-            END $$;
+            DROP TRIGGER IF EXISTS {pgid} on {_quote(table)};
+            CREATE TRIGGER {pgid}
+                {self.when} {self.operation} ON {_quote(table)}
+                {self.referencing or ''}
+                FOR EACH {self.level} {self.render_condition(model)}
+                EXECUTE PROCEDURE {pgid}();
         '''
 
     def render_comment(self, model):
