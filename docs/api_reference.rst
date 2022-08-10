@@ -136,6 +136,17 @@ Referencing clause
 
 .. autoclass:: pgtrigger.Referencing
 
+Timing clause
+-------------
+
+.. autodata:: pgtrigger.Immediate
+  
+  For specifying ``IMMEDIATE`` as the default timing for deferrable triggers
+
+.. autodata:: pgtrigger.Deferred
+
+  For specifying ``DEFERRED`` as the default timing for deferrable triggers
+
 Conditions
 ----------
 .. autoclass:: pgtrigger.Condition

@@ -108,6 +108,17 @@ triggers.
         The ``REFERENCING`` construct for statement-level triggers is only available
         in Postgres 10 and up.
 
+* **timing** *(optional)*
+
+    Create a deferrable ``CONSTRAINT`` trigger when set. Use `pgtrigger.Immediate` to
+    execute the trigger at the end of a statement and `pgtrigger.Deferred` to execute it
+    at the end of a transaction.
+
+    .. note::
+
+        Deferrable triggers must have the ``level`` set to `pgtrigger.Row` and ``when``
+        set to `pgtrigger.After`.
+
 
 Defining and installing triggers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
