@@ -12,7 +12,7 @@ Triggers can solve a variety of complex problems much more reliably and succinct
 
 1. Protecting operations on rows or columns (``pgtrigger.Protect``).
 2. Soft-deleting models (``pgtrigger.SoftDelete``).
-3. Snapshotting and tracking model changes (`django-pghistory <https://django-pghistory.readthedocs.io>`).
+3. Snapshotting and tracking model changes (`django-pghistory <https://django-pghistory.readthedocs.io/>`__).
 4. Enforcing field transitions (``pgtrigger.FSM``).
 5. Building official interfaces
    (e.g. enforcing use of ``User.objects.create_user`` and not

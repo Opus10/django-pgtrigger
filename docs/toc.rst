@@ -11,6 +11,7 @@ Table of Contents
    ignoring_triggers
    advanced_installation
    multi_db
+   deferrable
    faq
    further_reading
    api_reference

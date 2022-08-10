@@ -97,30 +97,71 @@ def test_deferred_trigger():
         operation=pgtrigger.Delete,
         timing=pgtrigger.Deferred,
     )
-    with trigger.register(models.TestModel):
-        with trigger.install(models.TestModel):
-            obj = ddf.G(models.TestModel)
-            deferring_worked = False
-            with pytest.raises(InternalError, match="Cannot delete"):
-                with transaction.atomic():
-                    obj.delete()
-                    # Deletion works within the transaction, but fails
-                    # when the transaction commits.
-                    assert not models.TestModel.objects.exists()
-                    deferring_worked = True
-
-            assert deferring_worked
-            assert models.TestModel.objects.exists()
-            obj = models.TestModel.objects.get()
-
-            # Verify that we can ignore deferrable triggers
-            with pgtrigger.ignore("tests.TestModel:protect_delete"):
-                with transaction.atomic():
-                    obj.delete()
-                    assert not models.TestModel.objects.exists()
-
-                # The object should still not exist outside of the transaction
+    with trigger.register(models.TestModel), trigger.install(models.TestModel):
+        obj = ddf.G(models.TestModel)
+        deferring_worked = False
+        with pytest.raises(InternalError, match="Cannot delete"):
+            with transaction.atomic():
+                obj.delete()
+                # Deletion works within the transaction, but fails
+                # when the transaction commits.
                 assert not models.TestModel.objects.exists()
+                deferring_worked = True
+
+        assert deferring_worked
+        assert models.TestModel.objects.exists()
+        obj = models.TestModel.objects.get()
+
+        # Verify that we can ignore deferrable triggers
+        with pgtrigger.ignore("tests.TestModel:protect_delete"):
+            with transaction.atomic():
+                obj.delete()
+                assert not models.TestModel.objects.exists()
+
+            # The object should still not exist outside of the transaction
+            assert not models.TestModel.objects.exists()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_constraints():
+    """
+    Tests running ``pgtrigger.constraints`` on deferrable triggers
+    """
+    # Not every trigger is deferrable, so this should raise an error
+    with transaction.atomic():
+        with pytest.raises(ValueError, match="is not deferrable"):
+            pgtrigger.constraints(pgtrigger.Immediate)
+
+    # Make the LogEntry model a soft delete model where
+    # "level" is set to "inactive"
+    trigger = pgtrigger.Protect(
+        name='protect_delete',
+        when=pgtrigger.After,
+        operation=pgtrigger.Delete,
+        timing=pgtrigger.Deferred,
+    )
+    with trigger.register(models.TestModel), trigger.install(models.TestModel):
+
+        # Verify we have to be in a transaction
+        with pytest.raises(RuntimeError, match="not in a transaction"):
+            pgtrigger.constraints(pgtrigger.Immediate, "tests.TestModel:protect_delete")
+
+        obj = ddf.G(models.TestModel)
+        with transaction.atomic():
+            # This "with" is only here to validate that ignoring the trigger will
+            # NOT happen. After this "with" is done, the transaction still hasn't finished
+            # and the trigger hasn't executed yet, so it won't be ignored.
+            with pgtrigger.ignore("tests.TestModel:protect_delete"):
+                obj.delete()
+                # Deletion works within the transaction so far since trigger is deferred
+                assert not models.TestModel.objects.exists()
+
+            # When we set constraints to Immediate, it should fail inside
+            # of the transaction
+            with pytest.raises(InternalError, match="Cannot delete"):
+                # The first statement does nothing because the trigger is already deferred
+                pgtrigger.constraints(pgtrigger.Deferred, "tests.TestModel:protect_delete")
+                pgtrigger.constraints(pgtrigger.Immediate, "tests.TestModel:protect_delete")
 
 
 @pytest.mark.django_db

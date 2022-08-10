@@ -392,6 +392,23 @@ look like.
     queries executed by triggers do not involve expensive round-trips from the application.
     A less-complex row-level trigger may be worth the performance cost.
 
+Ensuring child models exist
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Consider a ``Profile`` model that has a ``OneToOne`` to Django's ``User`` model:
+
+.. code-block:: python
+
+    class Profile(models.Model):
+        user = models.OneToOneField(User, on_delete=models.CASCADE)
+
+We use a "deferrable" trigger to ensure a ``Profile`` exists for every ``User``.
+Deferrable triggers can execute at the end of a transaction,
+allowing us to check for the existence of a ``Profile`` after creating a
+``User``.
+
+This example is continued in the :ref:`deferrable` section.
+
 Tracking model history and changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

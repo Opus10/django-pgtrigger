@@ -86,5 +86,6 @@ Other advanced topics are available:
 * :ref:`ignoring_triggers`
 * :ref:`advanced_installation`
 * :ref:`multi_db`
+* :ref:`deferrable`
 
 View the :ref:`faq` for everything else.
