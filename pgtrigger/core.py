@@ -1,3 +1,4 @@
+import collections
 import contextlib
 import copy
 import hashlib
@@ -1123,6 +1124,43 @@ def disable(*uris, database=None):
         trigger.disable(model)
 
 
+def constraints(timing, *uris):
+    """
+    Set deferrable constraint timing for the given triggers, which
+    will persist until overridden or until end of transaction.
+    Must be in a transaction to run this.
+
+    Args:
+        timing (``pgtrigger.Timing``): The timing value that overrides
+            the default trigger timing.
+        *uris (str): Trigger URIs over which to set constraint timing.
+            If none are provided, all trigger constraint timing will
+            be set. All triggers must be deferrable.
+
+    Raises:
+        RuntimeError: If the database of any triggers is not in a transaction.
+        ValueError: If any triggers are not deferrable.
+    """
+
+    model_triggers_by_db = collections.defaultdict(list)
+    for model, trigger in get(*uris):
+        if not trigger.timing:
+            raise ValueError(
+                f"Trigger {trigger.name} on model {model._meta.label_lower} is not deferrable."
+            )
+
+        model_triggers_by_db[_get_database(model)].append((model, trigger))
+
+    for db, model_triggers in model_triggers_by_db.items():
+        if not connections[db].in_atomic_block:
+            raise RuntimeError(f"Database {db} is not in a transaction.")
+
+        names = ', '.join(trigger.get_pgid(model) for model, trigger in model_triggers)
+
+        with connections[db].cursor() as cursor:
+            cursor.execute(f'SET CONSTRAINTS {names} {timing}')
+
+
 @contextlib.contextmanager
 def ignore(*uris):
     """
@@ -1130,6 +1168,10 @@ def ignore(*uris):
     an individual thread.
     If no URIs are provided, ignore all pgtriggers from executing in an
     individual thread.
+
+    Args:
+        *uris (str): Trigger URIs to ignore. If none are provided, all
+            triggers will be ignored.
 
     Examples:
 
