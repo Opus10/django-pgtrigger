@@ -2,6 +2,7 @@ import datetime as dt
 
 import ddf
 from django.contrib.auth.models import User
+from django.db import IntegrityError, transaction
 from django.db.utils import InternalError
 from django.db.utils import NotSupportedError
 import pytest
@@ -125,6 +126,26 @@ def test_updating_trigger_condition():
         trigger.condition = pgtrigger.Q(old__level="bad")
         with trigger.install(models.LogEntry):
             le.delete()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_nested_transactions():
+    """Verifies a trigger can be ignored during nested transactions"""
+    ddf.G(models.CustomTableName, int_field=1)
+    trigger = pgtrigger.Protect(
+        name='protect_insert',
+        when=pgtrigger.Before,
+        operation=pgtrigger.Insert,
+    )
+    with trigger.register(models.CustomTableName):
+        with trigger.install(models.CustomTableName):
+            with transaction.atomic():
+                with pgtrigger.ignore("tests.CustomTableName:protect_insert"):
+                    try:
+                        with transaction.atomic():  # pragma: no branch
+                            models.CustomTableName.objects.create(int_field=1)
+                    except IntegrityError:
+                        models.CustomTableName.objects.create(int_field=2)
 
 
 @pytest.mark.django_db(transaction=True)
