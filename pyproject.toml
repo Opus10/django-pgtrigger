@@ -88,3 +88,6 @@ addopts = "--reuse-db -m 'not independent'"
 testpaths = "pgtrigger/tests"
 norecursedirs = ".venv"
 DJANGO_SETTINGS_MODULE = "test_settings"
+markers = [
+    "independent: marks tests that should run independently of normal suite"
+]
