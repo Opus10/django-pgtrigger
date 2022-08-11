@@ -10,7 +10,6 @@ from pgtrigger.core import (
     disable,
     enable,
     F,
-    FSM,
     get,
     ignore,
     Immediate,
@@ -22,23 +21,20 @@ from pgtrigger.core import (
     Level,
     Operation,
     Operations,
-    Protect,
     prune,
     Q,
     Referencing,
     register,
     Row,
-    SoftDelete,
     Statement,
     Timing,
-    Trigger,
     Truncate,
     uninstall,
     Update,
     UpdateOf,
-    UpdateSearchVector,
     When,
 )
+from pgtrigger.triggers import FSM, Protect, SoftDelete, Trigger, UpdateSearchVector
 from pgtrigger.version import __version__
 
 if django.VERSION < (3, 2):
