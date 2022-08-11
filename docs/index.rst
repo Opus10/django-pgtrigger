@@ -14,10 +14,11 @@ Triggers can solve a variety of complex problems much more reliably and succinct
 2. Soft-deleting models (`pgtrigger.SoftDelete`).
 3. Snapshotting and tracking model changes (`django-pghistory <https://django-pghistory.readthedocs.io>`__).
 4. Enforcing field transitions (`pgtrigger.FSM`).
-5. Building official interfaces
+5. Keeping a search vector updated for full-text search (`pgtrigger.UpdateSearchVector`).
+6. Building official interfaces
    (e.g. enforcing use of ``User.objects.create_user`` and not
    ``User.objects.create``).
-6. Versioning models, mirroring fields, computing unique model hashes, and the list goes on...
+7. Versioning models, mirroring fields, computing unique model hashes, and the list goes on...
 
 All of these examples require no overridden methods, no base models, and no signal handling.
 
