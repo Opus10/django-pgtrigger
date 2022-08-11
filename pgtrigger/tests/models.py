@@ -1,8 +1,29 @@
 from django.contrib.auth.models import User
+from django.contrib.postgres.search import SearchVectorField
 from django.db import models
 from django.utils import timezone
 
 import pgtrigger
+
+
+class SearchModel(models.Model):
+    body_vector = SearchVectorField()
+    title_body_vector = SearchVectorField()
+
+    title = models.CharField(max_length=128)
+    body = models.TextField()
+
+    class Meta:
+        triggers = [
+            pgtrigger.UpdateSearchVector(
+                name="add_body_to_vector", vector_field="body_vector", document_fields=["body"]
+            ),
+            pgtrigger.UpdateSearchVector(
+                name="add_body_title_to_vector",
+                vector_field="title_body_vector",
+                document_fields=["body", "title"],
+            ),
+        ]
 
 
 @pgtrigger.register(

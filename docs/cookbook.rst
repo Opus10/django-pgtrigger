@@ -171,7 +171,6 @@ its full path to `pgtrigger.ignore`. All users must use ``create_user`` to creat
     Ignoring triggers is covered in the
     :ref:`ignoring_triggers` section.
 
-
 Conditional deletion protection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -191,7 +190,6 @@ Here we only allow models with a ``deletable`` flag to be deleted:
                     condition=pgtrigger.Q(old__is_deletable=False)
                 )
             ]
-
 
 Redundant update protection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -215,7 +213,6 @@ to the database:
                     )
                 )
             ]
-
 
 Freezing published models
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -257,7 +254,6 @@ be edited, but only when transitioning it to an "inactive" status.
                       & ~pgtrigger.Q(new__status="inactive")
                 )
             ]
-
 
 Versioned models
 ~~~~~~~~~~~~~~~~
@@ -309,6 +305,36 @@ We do this with two triggers:
     executing the operation. ``NULL`` values tell Postgres to ignore
     the operation entirely.
 
+Keeping a search vector updated
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When using `Postgres full-text search <https://docs.djangoproject.com/en/4.0/ref/contrib/postgres/search/>`__,
+keep ``django.contrib.postgres.search.SearchVectorField`` fields updated using `pgtrigger.UpdateSearchVector`.
+Here we keep a search vector updated based on changes to the ``title`` and ``body`` fields of a model:
+
+.. code-block:: python
+
+    class DocumentModel(models.Model):
+        search_vector = SearchVectorField()
+        title = models.CharField(max_length=128)
+        body = models.TextField()
+
+        class Meta:
+            triggers = [
+                pgtrigger.UpdateSearchVector(
+                    name="add_title_and_body_to_vector",
+                    vector_field="search_vector",
+                    document_fields=["title", "body"],
+                )
+            ]
+
+`pgtrigger.UpdateSearchVector` uses Postgres's ``tsvector_update_trigger`` to keep
+the search vector updated. See the `Postgres docs <https://www.postgresql.org/docs/current/textsearch-features.html#TEXTSEARCH-UPDATE-TRIGGERS>`__ for more info.
+
+.. note::
+
+    `pgtrigger.UpdateSearchVector` triggers are incompatible with `pgtrigger.ignore`
+    and will raise a `RuntimeError` if used.
 
 Statement-level triggers and transition tables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

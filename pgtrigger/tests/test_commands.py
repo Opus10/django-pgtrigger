@@ -14,7 +14,7 @@ def test_full_ls(capsys):
 
     captured = capsys.readouterr()
     lines = sorted(captured.out.split('\n'))
-    assert lines == [
+    expected_lines = [
         '',
         'tests.CustomSoftDelete:soft_delete'
         '\tdefault'
@@ -54,6 +54,7 @@ def test_full_ls(capsys):
         '\t\x1b[92mINSTALLED\x1b[0m'
         '\t\x1b[92mENABLED\x1b[0m',
     ]
+    assert set(expected_lines).issubset(set(lines))
 
 
 @pytest.mark.django_db

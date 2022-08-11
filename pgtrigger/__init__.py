@@ -36,6 +36,7 @@ from pgtrigger.core import (
     uninstall,
     Update,
     UpdateOf,
+    UpdateSearchVector,
     When,
 )
 from pgtrigger.version import __version__
@@ -82,6 +83,7 @@ __all__ = [
     'uninstall',
     'Update',
     'UpdateOf',
+    'UpdateSearchVector',
     'When',
     '__version__',
 ]

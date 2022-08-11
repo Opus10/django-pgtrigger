@@ -161,6 +161,7 @@ Triggers
 .. autoclass:: pgtrigger.Protect
 .. autoclass:: pgtrigger.SoftDelete
 .. autoclass:: pgtrigger.FSM
+.. autoclass:: pgtrigger.UpdateSearchVector
 
 Runtime execution
 -----------------

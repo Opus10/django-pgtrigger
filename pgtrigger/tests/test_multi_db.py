@@ -87,8 +87,7 @@ def test_full_ls():
     with capture_stdout() as captured:
         call_command('pgtrigger', 'ls')
         lines = sorted(captured.getvalue().split('\n'))
-        assert lines == [
-            '',
+        expected_lines = [
             'tests.CustomSoftDelete:soft_delete'
             '\tdefault'
             '\t\x1b[92mINSTALLED\x1b[0m'
@@ -127,6 +126,7 @@ def test_full_ls():
             '\t\x1b[92mINSTALLED\x1b[0m'
             '\t\x1b[92mENABLED\x1b[0m',
         ]
+        assert set(expected_lines).issubset(set(lines))
 
 
 @pytest.mark.usefixtures("routed_db")
@@ -138,7 +138,7 @@ def test_single_db_enable():
     with capture_stdout() as captured:
         call_command('pgtrigger', 'ls')
         lines = sorted(captured.getvalue().split('\n'))
-        assert lines == [
+        expected_lines = [
             '',
             'tests.CustomSoftDelete:soft_delete'
             '\tdefault'
@@ -178,6 +178,7 @@ def test_single_db_enable():
             '\t\x1b[92mINSTALLED\x1b[0m'
             '\t\x1b[92mENABLED\x1b[0m',
         ]
+        assert set(expected_lines).issubset(set(lines))
 
 
 @pytest.mark.usefixtures("routed_db")
@@ -188,7 +189,7 @@ def test_single_db_disable():
     with capture_stdout() as captured:
         call_command('pgtrigger', 'ls')
         lines = sorted(captured.getvalue().split('\n'))
-        assert lines == [
+        expected_lines = [
             '',
             'tests.CustomSoftDelete:soft_delete'
             '\tdefault'
@@ -228,6 +229,7 @@ def test_single_db_disable():
             '\t\x1b[92mINSTALLED\x1b[0m'
             '\t\x1b[91mDISABLED\x1b[0m',
         ]
+        assert set(expected_lines).issubset(set(lines))
 
 
 @pytest.mark.usefixtures("routed_db")
@@ -237,7 +239,7 @@ def test_single_db_ls():
     with capture_stdout() as captured:
         call_command('pgtrigger', 'ls', '--database', 'other')
         lines = sorted(captured.getvalue().split('\n'))
-        assert lines == [
+        expected_lines = [
             '',
             'tests.ToLogModel:after_update_row_test'
             '\tother'
@@ -252,6 +254,7 @@ def test_single_db_ls():
             '\t\x1b[92mINSTALLED\x1b[0m'
             '\t\x1b[92mENABLED\x1b[0m',
         ]
+        assert set(expected_lines).issubset(set(lines))
 
 
 @pytest.mark.usefixtures("routed_db")
@@ -263,7 +266,7 @@ def test_single_db_uninstall():
     with capture_stdout() as captured:
         call_command('pgtrigger', 'ls')
         lines = sorted(captured.getvalue().split('\n'))
-        assert lines == [
+        expected_lines = [
             '',
             'tests.CustomSoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
             'tests.CustomTableName:protect_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
@@ -285,6 +288,7 @@ def test_single_db_uninstall():
             '\t\x1b[92mINSTALLED\x1b[0m'
             '\t\x1b[92mENABLED\x1b[0m',
         ]
+        assert set(expected_lines).issubset(set(lines))
 
 
 @pytest.mark.usefixtures("routed_db")
@@ -297,7 +301,7 @@ def test_single_db_install():
     with capture_stdout() as captured:
         call_command('pgtrigger', 'ls')
         lines = sorted(captured.getvalue().split('\n'))
-        assert lines == [
+        expected_lines = [
             '',
             'tests.CustomSoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
             'tests.CustomTableName:protect_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
@@ -319,6 +323,7 @@ def test_single_db_install():
             '\t\x1b[92mINSTALLED\x1b[0m'
             '\t\x1b[92mENABLED\x1b[0m',
         ]
+        assert set(expected_lines).issubset(set(lines))
 
 
 def test_invalid_args():

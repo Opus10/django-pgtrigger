@@ -13,6 +13,50 @@ from pgtrigger.tests import models
 
 
 @pytest.mark.django_db
+def test_search_model():
+    """Verifies search model fields are kept up to date"""
+    obj = models.SearchModel.objects.create(
+        title="This is a message", body="Hello World. What a great body."
+    )
+    models.SearchModel.objects.create(title="Hi guys", body="Random Word. This is a good idea.")
+    models.SearchModel.objects.create(
+        title="Hello", body="Other words. Many great ideas come from stuff."
+    )
+    models.SearchModel.objects.create(title="The title", body="A short message.")
+
+    assert models.SearchModel.objects.filter(body_vector="hello").count() == 1
+    assert models.SearchModel.objects.filter(body_vector="words").count() == 2
+    assert models.SearchModel.objects.filter(body_vector="world").count() == 1
+    assert models.SearchModel.objects.filter(title_body_vector="message").count() == 2
+    assert models.SearchModel.objects.filter(title_body_vector="idea").count() == 2
+    assert models.SearchModel.objects.filter(title_body_vector="hello").count() == 2
+
+    obj.body = "Nothing more"
+    obj.save()
+    assert not models.SearchModel.objects.filter(body_vector="hello").exists()
+    assert models.SearchModel.objects.filter(title_body_vector="hello").count() == 1
+
+
+def test_update_search_vector_args():
+    """Verifies arg checking for UpdateSearchVector"""
+    with pytest.raises(ValueError, match='provide "vector_field"'):
+        pgtrigger.UpdateSearchVector()
+
+    with pytest.raises(ValueError, match='provide "document_fields"'):
+        pgtrigger.UpdateSearchVector(vector_field="vector_field")
+
+
+def test_update_search_vector_ignore():
+    """Verifies UpdateSearchVector cannot be ignored"""
+    trigger = pgtrigger.UpdateSearchVector(
+        name="hi", vector_field="vector_field", document_fields=["hi"]
+    )
+    with pytest.raises(RuntimeError, match="Cannot ignore UpdateSearchVector"):
+        with trigger.ignore(models.SearchModel):
+            pass
+
+
+@pytest.mark.django_db
 def test_through_model():
     """
     Tests the "ThroughTrigger" model to verify that triggers execute on M2M through models
@@ -774,13 +818,6 @@ def test_multiple_ignores():
     with pytest.raises(InternalError, match='Cannot delete rows'):
         deletion_protected_model.delete()
 
-    # Ignore all triggers
-    with pgtrigger.ignore():
-        m = models.TestTrigger.objects.create(field='misc_insert')
-        models.TestTrigger.objects.all().delete()
-
-    assert not models.TestTrigger.objects.exists()
-
 
 @pytest.mark.django_db
 def test_protect():
@@ -843,16 +880,16 @@ def test_trigger_conditions():
         with pytest.raises(InternalError, match='no no no!'):
             test_model.save()
 
-    # Make a model readonly when the int_field is 0
-    read_only = ddf.G(models.TestModel, int_field=0)
-    non_read_only = ddf.G(models.TestModel, int_field=1)
+    # Make a model readonly when the int_field is -1
+    read_only = ddf.G(models.TestModel, int_field=-1)
+    non_read_only = ddf.G(models.TestModel, int_field=-2)
 
     trigger = pgtrigger.Trigger(
         name='test_condition3',
         when=pgtrigger.Before,
         operation=pgtrigger.Update | pgtrigger.Delete,
         func="RAISE EXCEPTION 'no no no!';",
-        condition=pgtrigger.Q(old__int_field=0),
+        condition=pgtrigger.Q(old__int_field=-1),
     )
     with trigger.install(models.TestModel):
         with pytest.raises(InternalError, match='no no no!'):
