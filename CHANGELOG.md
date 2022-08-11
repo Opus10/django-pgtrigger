@@ -1,5 +1,38 @@
 # Changelog
-## 3.3.0 (2022-08-09)
+## 3.4.0 (2022-08-10)
+### Bug
+  - Fixed issues using ``pgtrigger.ignore`` with multiple databases [Wes Kendall, 557f0e1]
+
+    ``pgtrigger.ignore`` now uses the connection of the database router
+    when ignoring triggers.
+### Feature
+  - Add ``pgtrigger.UpdateSearchVector`` to keep search vectors updated [Wes Kendall, 671e8be]
+
+    When using Django's full-text search, one can keep a
+    ``SearchVectorField`` updated with the relevant document fields
+    by using ``pgtrigger.UpdateSearchVector``.
+
+    An example was added to the trigger cookbook.
+  - Added ``pgtrigger.constraints`` for runtime configuration of deferrable triggers [Wes Kendall, 4b77b7b]
+
+    ``pgtrigger.constraints`` mimics Postgres's ``SET CONSTRAINTS`` statement, allowing one
+    to dynamically modify when a deferrable trigger runs.
+
+    Documentation was also added for deferrable triggers with an example in the cookbook.
+  - Added deferrable triggers [Wes Kendall, fe4f16e]
+
+    Triggers now have an optional ``timing`` argument. If set, triggers
+    will be created as "CONSTRAINT" triggers that can be deferred.
+
+    When ``timing`` is set to ``pgtrigger.Immediate``, the trigger will
+    run at the end of a statement. ``pgtrigger.Deferred`` will cause
+    the trigger to run at the end of the transaction.
+
+    Note that deferrable triggers must have both
+    ``pgtrigger.After`` and ``pgtrigger.Row`` values set for the
+    ``when`` and ``level`` attributes.
+
+## 3.3.0 (2022-08-10)
 ### Bug
   - Fixes ignoring triggers with nested transactions [Wes Kendall, d32113d]
 
