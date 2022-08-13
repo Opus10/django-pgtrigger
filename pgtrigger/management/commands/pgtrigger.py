@@ -1,3 +1,4 @@
+import contextlib
 import logging
 
 from django.core.management.base import BaseCommand
@@ -7,7 +8,7 @@ import pgtrigger.core
 import pgtrigger.migrations
 
 
-def _setup_logging():
+def _setup_logging():  # pragma: no cover
     pgtrigger.core.LOGGER.addHandler(logging.StreamHandler())
     pgtrigger.core.LOGGER.setLevel(logging.INFO)
 
@@ -55,17 +56,41 @@ class SubCommands(BaseCommand):  # pragma: no cover
             return command_class().execute(*args, **options)
 
 
-class LsCommand(BaseCommand):
+class BaseSchemaCommand(BaseCommand):
+    """Sets the search path based on any "schema" option that's found"""
+
+    def handle(self, *args, **options):
+        databases = options.get("database", [])
+        schemas = options.get("schema", [])
+
+        if schemas:
+            context = pgtrigger.core.schema(*schemas, database=databases)
+        else:
+            context = contextlib.nullcontext()
+
+        with context:
+            return self.handle_with_schema(*args, **options)
+
+
+class LsCommand(BaseSchemaCommand):
     help = 'List triggers and their installation state.'
 
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
         parser.add_argument(
+            '-d',
             '--database',
+            action='append',
             help='Only list triggers for this database',
         )
+        parser.add_argument(
+            '-s',
+            '--schema',
+            action='append',
+            help='Set the search path to this schema',
+        )
 
-    def handle(self, *args, **options):
+    def handle_with_schema(self, *args, **options):
         uris = options['uris']
 
         def _get_colored_status(status, enabled):
@@ -92,83 +117,123 @@ class LsCommand(BaseCommand):
             print(f'{uri}\t{database}\t{_get_colored_status(*status)}')
 
         if not uris:
-            for trigger in pgtrigger.core.get_prune_list(database=options['database']):
+            for trigger in pgtrigger.core.prunable(database=options['database']):
                 print(
                     f'{trigger[0]}:{trigger[1]}\t{trigger[3]}\t'
                     f'{_get_colored_status("PRUNE", trigger[2])}'
                 )
 
 
-class InstallCommand(BaseCommand):
+class InstallCommand(BaseSchemaCommand):
     help = 'Install triggers.'
 
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
         parser.add_argument(
+            '-d',
             '--database',
+            action='append',
             help='Only install triggers for this database',
         )
+        parser.add_argument(
+            '-s',
+            '--schema',
+            action='append',
+            help='Set the search path to this schema',
+        )
 
-    def handle(self, *args, **options):
+    def handle_with_schema(self, *args, **options):
         _setup_logging()
         pgtrigger.core.install(*options['uris'], database=options['database'])
 
 
-class UninstallCommand(BaseCommand):
+class UninstallCommand(BaseSchemaCommand):
     help = 'Uninstall triggers.'
 
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
         parser.add_argument(
+            '-d',
             '--database',
+            action='append',
             help='Only install triggers for this database',
         )
+        parser.add_argument(
+            '-s',
+            '--schema',
+            action='append',
+            help='Set the search path to this schema',
+        )
 
-    def handle(self, *args, **options):
+    def handle_with_schema(self, *args, **options):
         _setup_logging()
         pgtrigger.core.uninstall(*options['uris'], database=options['database'])
 
 
-class EnableCommand(BaseCommand):
+class EnableCommand(BaseSchemaCommand):
     help = 'Enable triggers.'
 
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
         parser.add_argument(
+            '-d',
             '--database',
+            action='append',
             help='Only enable triggers for this database',
         )
+        parser.add_argument(
+            '-s',
+            '--schema',
+            action='append',
+            help='Set the search path to this schema',
+        )
 
-    def handle(self, *args, **options):
+    def handle_with_schema(self, *args, **options):
         _setup_logging()
         pgtrigger.core.enable(*options['uris'], database=options['database'])
 
 
-class DisableCommand(BaseCommand):
+class DisableCommand(BaseSchemaCommand):
     help = 'Disable triggers.'
 
     def add_arguments(self, parser):
         parser.add_argument('uris', nargs='*', type=str)
         parser.add_argument(
+            '-d',
             '--database',
+            action='append',
             help='Only enable triggers for this database',
         )
+        parser.add_argument(
+            '-s',
+            '--schema',
+            action='append',
+            help='Set the search path to this schema',
+        )
 
-    def handle(self, *args, **options):
+    def handle_with_schema(self, *args, **options):
         _setup_logging()
         pgtrigger.core.disable(*options['uris'], database=options['database'])
 
 
-class PruneCommand(BaseCommand):
+class PruneCommand(BaseSchemaCommand):
     help = 'Prune installed triggers that are no longer in the codebase.'
 
     def add_arguments(self, parser):
         parser.add_argument(
+            '-d',
             '--database',
+            action='append',
             help='Only prune triggers for this database',
         )
+        parser.add_argument(
+            '-s',
+            '--schema',
+            action='append',
+            help='Set the search path to this schema',
+        )
 
-    def handle(self, *args, **options):
+    def handle_with_schema(self, *args, **options):
         _setup_logging()
         pgtrigger.core.prune(database=options['database'])
 

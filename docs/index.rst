@@ -78,9 +78,11 @@ Triggers are installed like other database objects. Run
 Next steps
 ~~~~~~~~~~
 
-We recommend everyone start with the :ref:`basics` first.
-Afterwards, read the :ref:`cookbook` for examples of row-level, statement-level, built-in, and raw
-triggers. There is :ref:`further_reading` for additional reading and videos.
+We recommend everyone first read:
+
+* The :ref:`basics` for an overview
+* The :ref:`cookbook` for trigger examples
+* :ref:`further_reading` for additional reading and videos.
 
 Other advanced topics are available:
 

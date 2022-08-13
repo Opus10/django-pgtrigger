@@ -6,6 +6,21 @@ from django.utils import timezone
 import pgtrigger
 
 
+class OrderSchema(models.Model):
+    """A model that only appears in the "schema1" schema"""
+
+    int_field = models.IntegerField()
+
+
+class ReceiptSchema(models.Model):
+    """A model that only appears in the "schema2" schema"""
+
+    char_field = models.CharField(max_length=128)
+
+    class Meta:
+        db_table = "table.with.dots"
+
+
 class SearchModel(models.Model):
     body_vector = SearchVectorField()
     title_body_vector = SearchVectorField()

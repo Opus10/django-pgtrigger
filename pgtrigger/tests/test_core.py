@@ -2,7 +2,7 @@ import datetime as dt
 
 import ddf
 from django.contrib.auth.models import User
-from django.db import IntegrityError, transaction
+from django.db import connection, IntegrityError, transaction
 from django.db.utils import InternalError
 from django.db.utils import NotSupportedError
 import pytest
@@ -10,6 +10,53 @@ import pytest
 import pgtrigger.core
 import pgtrigger.registry
 from pgtrigger.tests import models
+
+
+@pytest.mark.django_db(transaction=True)
+def test_schema():
+    """Verifies behavior of pgtrigger.schema"""
+
+    def _search_path():
+        with connection.cursor() as cursor:
+            cursor.execute("SHOW search_path;")
+            return cursor.fetchall()[0][0]
+
+    assert _search_path() == '"$user", public'
+
+    with pgtrigger.schema("hello"):
+        assert _search_path() == 'hello'
+
+        with pgtrigger.schema("hello", "$user"):
+            assert _search_path() == 'hello, "$user"'
+
+        assert _search_path() == 'hello'
+
+    with connection.cursor() as cursor:
+        cursor.execute("SET search_path=custom;")
+
+    with transaction.atomic():
+        assert _search_path() == 'custom'
+
+        with pgtrigger.schema("hello", database="default"):
+            assert _search_path() == 'hello'
+
+        assert _search_path() == 'custom'
+
+    with pgtrigger.schema.session(database="default"):
+        assert _search_path() == 'custom'
+
+    assert _search_path() == 'custom'
+
+
+@pytest.fixture(autouse=True)
+def auto_ignore_schema_databases(ignore_schema_databases):
+    """Ensure we don't ever use schema-based databases in these tests"""
+    pass
+
+
+def test_get_invalid_args():
+    with pytest.raises(ValueError):
+        pgtrigger.get('uri', database='other')
 
 
 @pytest.mark.django_db
@@ -468,6 +515,22 @@ def test_max_name_length(mocker):
         trigger.get_pgid(models.TestTrigger)
 
 
+def test_invalid_name_characters(mocker):
+    """
+    Verifies that trigger names must contain only alphanumeric
+    characters, hyphens, or underscores
+    """
+    pgtrigger.Protect(
+        name='hello_world-111',
+        operation=pgtrigger.Update,
+    )
+    with pytest.raises(ValueError, match="alphanumeric"):
+        pgtrigger.Protect(
+            name='hello.world',
+            operation=pgtrigger.Update,
+        )
+
+
 @pytest.mark.django_db(transaction=True)
 def test_complex_conditions():
     """Tests complex OLD and NEW trigger conditions"""
@@ -787,6 +850,11 @@ def test_nested_ignore():
     deletion_protected_model = ddf.G(models.TestTrigger)
     with pytest.raises(InternalError, match='Cannot delete rows'):
         deletion_protected_model.delete()
+
+    with pgtrigger.ignore.session(database="default"):
+        deletion_protected_model = ddf.G(models.TestTrigger)
+        with pytest.raises(InternalError, match='Cannot delete rows'):
+            deletion_protected_model.delete()
 
 
 @pytest.mark.django_db(transaction=True)

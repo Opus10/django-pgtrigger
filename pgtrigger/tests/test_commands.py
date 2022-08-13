@@ -1,9 +1,16 @@
+# flake8: noqa
 from unittest import mock
 
 from django.core.management import call_command
 import pytest
 
 import pgtrigger.registry
+
+
+@pytest.fixture(autouse=True)
+def auto_ignore_schema_databases(ignore_schema_databases):
+    """Ensure we don't ever use schema-based databases in these tests"""
+    pass
 
 
 @pytest.mark.django_db(databases=['default', 'other'])
@@ -16,43 +23,16 @@ def test_full_ls(capsys):
     lines = sorted(captured.out.split('\n'))
     expected_lines = [
         '',
-        'tests.CustomSoftDelete:soft_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.CustomTableName:protect_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.FSM:fsm' '\tdefault' '\t\x1b[92mINSTALLED\x1b[0m' '\t\x1b[92mENABLED\x1b[0m',
-        'tests.SoftDelete:soft_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestDefaultThrough:protect_it'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTrigger:protect_misc_insert'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:after_update_row_test'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:after_update_statement_test'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:update_of_statement_test'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
+        'tests.CustomSoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.CustomTableName:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.FSM:fsm\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.TestDefaultThrough:protect_it\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.TestTrigger:protect_misc_insert\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.ToLogModel:after_update_row_test\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.ToLogModel:after_update_statement_test\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.ToLogModel:update_of_statement_test\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
     ]
     assert set(expected_lines).issubset(set(lines))
 
@@ -72,14 +52,8 @@ def test_subset_ls(capsys):
     lines = sorted(captured.out.split('\n'))
     assert lines == [
         '',
-        'tests.SoftDelete:soft_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
+        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
     ]
 
 
@@ -102,7 +76,7 @@ def test_main_commands(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m',
+        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
     ]
 
     call_command('pgtrigger', 'install')
@@ -117,14 +91,8 @@ def test_main_commands(capsys):
     lines = sorted(captured.out.split('\n'))
     assert lines == [
         '',
-        'tests.SoftDelete:soft_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
+        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
     ]
 
     call_command('pgtrigger', 'disable')
@@ -139,14 +107,8 @@ def test_main_commands(capsys):
     lines = sorted(captured.out.split('\n'))
     assert lines == [
         '',
-        'tests.SoftDelete:soft_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[91mDISABLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[91mDISABLED\x1b[0m',
+        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
+        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
     ]
 
     call_command('pgtrigger', 'enable')
@@ -161,14 +123,8 @@ def test_main_commands(capsys):
     lines = sorted(captured.out.split('\n'))
     assert lines == [
         '',
-        'tests.SoftDelete:soft_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
+        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
     ]
 
 
@@ -182,10 +138,7 @@ def test_prune(capsys):
         captured = capsys.readouterr()
         lines = sorted(captured.out.split('\n'))
         assert (
-            'tests_softdelete:pgtrigger_soft_delete_f41be'
-            '\tdefault'
-            '\t\x1b[96mPRUNE\x1b[0m'
-            '\t\x1b[92mENABLED\x1b[0m'
+            'tests_softdelete:pgtrigger_soft_delete_f41be\tdefault\t\x1b[96mPRUNE\x1b[0m\t\x1b[92mENABLED\x1b[0m'
         ) in lines
 
         call_command('pgtrigger', 'prune')
@@ -193,17 +146,14 @@ def test_prune(capsys):
     call_command('pgtrigger', 'ls')
     captured = capsys.readouterr()
     lines = sorted(captured.out.split('\n'))
-    assert ('tests.SoftDelete:soft_delete' '\tdefault' '\t\x1b[91mUNINSTALLED\x1b[0m') in lines
+    assert ('tests.SoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m') in lines
 
     call_command('pgtrigger', 'install')
     call_command('pgtrigger', 'ls')
     captured = capsys.readouterr()
     lines = sorted(captured.out.split('\n'))
     assert (
-        'tests.SoftDelete:soft_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m'
+        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m'
     ) in lines
 
 
@@ -251,10 +201,7 @@ def test_main_commands_w_args(capsys):
     assert lines == [
         '',
         'tests.SoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
+        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
     ]
 
     call_command('pgtrigger', 'install', 'tests.SoftDelete:soft_delete')
@@ -269,14 +216,8 @@ def test_main_commands_w_args(capsys):
     lines = sorted(captured.out.split('\n'))
     assert lines == [
         '',
-        'tests.SoftDelete:soft_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
+        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
     ]
 
     call_command('pgtrigger', 'disable', 'tests.SoftDelete:soft_delete')
@@ -291,14 +232,8 @@ def test_main_commands_w_args(capsys):
     lines = sorted(captured.out.split('\n'))
     assert lines == [
         '',
-        'tests.SoftDelete:soft_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[91mDISABLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
+        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
+        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
     ]
 
     call_command('pgtrigger', 'enable', 'tests.SoftDelete:soft_delete')
@@ -313,12 +248,6 @@ def test_main_commands_w_args(capsys):
     lines = sorted(captured.out.split('\n'))
     assert lines == [
         '',
-        'tests.SoftDelete:soft_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete'
-        '\tdefault'
-        '\t\x1b[92mINSTALLED\x1b[0m'
-        '\t\x1b[92mENABLED\x1b[0m',
+        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
+        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
     ]

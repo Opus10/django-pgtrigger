@@ -81,9 +81,16 @@ dependencies:
 	$(DOCKER_EXEC_WRAPPER) poetry install
 
 
+.PHONY: db-setup
+db-setup:
+	-$(DOCKER_EXEC_WRAPPER) psql postgres://postgres:postgres@db:5432/postgres -c "CREATE DATABASE postgres_other WITH TEMPLATE postgres"
+	$(DOCKER_EXEC_WRAPPER) psql postgres://postgres:postgres@db:5432/postgres -c "CREATE SCHEMA IF NOT EXISTS \"order\""
+	$(DOCKER_EXEC_WRAPPER) psql postgres://postgres:postgres@db:5432/postgres -c "CREATE SCHEMA IF NOT EXISTS receipt;"
+
+
 # Sets up development environment
 .PHONY: setup
-setup: teardown docker-start lock dependencies
+setup: teardown docker-start lock dependencies db-setup
 	$(DOCKER_EXEC_WRAPPER) git tidy --template -o .gitcommit.tpl
 	$(DOCKER_EXEC_WRAPPER) git config --local commit.template .gitcommit.tpl
 

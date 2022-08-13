@@ -20,3 +20,10 @@ def install_on_migrate():
     True if triggers should be installed after migrations
     """
     return getattr(settings, 'PGTRIGGER_INSTALL_ON_MIGRATE', False)
+
+
+def schema():
+    """
+    The default schema where special objects are installed
+    """
+    return getattr(settings, 'PGTRIGGER_SCHEMA', 'public')

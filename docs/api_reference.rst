@@ -167,6 +167,7 @@ Runtime execution
 -----------------
 .. autofunction:: pgtrigger.ignore
 .. autofunction:: pgtrigger.constraints
+.. autofunction:: pgtrigger.schema
 
 Registry
 --------
