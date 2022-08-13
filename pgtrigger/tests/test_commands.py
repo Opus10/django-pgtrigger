@@ -4,7 +4,7 @@ from unittest import mock
 from django.core.management import call_command
 import pytest
 
-import pgtrigger.registry
+from pgtrigger import registry
 
 
 @pytest.fixture(autouse=True)
@@ -133,7 +133,7 @@ def test_prune(capsys):
     """Test pruning a trigger"""
     # Make it appear as though the trigger has been renamed and is no
     # longer installed
-    with mock.patch.dict(pgtrigger.registry._registry, {}, clear=True):
+    with mock.patch.dict(registry._registry, {}, clear=True):
         call_command('pgtrigger', 'ls')
         captured = capsys.readouterr()
         lines = sorted(captured.out.split('\n'))
@@ -163,7 +163,7 @@ def test_outdated(capsys, mocker):
     # Make it appear like the trigger is out of date by changing
     # its hash
     mocker.patch.object(
-        pgtrigger.registry._registry['tests.SoftDelete:soft_delete'][1],
+        registry._registry['tests.SoftDelete:soft_delete'][1],
         'get_hash',
         return_value='hash',
     )

@@ -10,7 +10,7 @@ from django.db.utils import InternalError
 import pytest
 
 import pgtrigger
-import pgtrigger.tests.models as test_models
+from pgtrigger.tests import models
 
 
 class SchemaRouter:
@@ -19,9 +19,9 @@ class SchemaRouter:
     """
 
     def db_for_read(self, model, **hints):
-        if model == test_models.OrderSchema:
+        if model == models.OrderSchema:
             return 'order'
-        elif model == test_models.ReceiptSchema:
+        elif model == models.ReceiptSchema:
             return 'receipt'
         return None
 
@@ -40,10 +40,10 @@ def schema_triggers():
     protect_updates = pgtrigger.Protect(name="protect_updates", operation=pgtrigger.Update)
 
     with contextlib.ExitStack() as contexts:
-        contexts.enter_context(protect_deletes.register(test_models.OrderSchema))
-        contexts.enter_context(protect_deletes.install(test_models.OrderSchema))
-        contexts.enter_context(protect_updates.register(test_models.ReceiptSchema))
-        contexts.enter_context(protect_updates.install(test_models.ReceiptSchema))
+        contexts.enter_context(protect_deletes.register(models.OrderSchema))
+        contexts.enter_context(protect_deletes.install(models.OrderSchema))
+        contexts.enter_context(protect_updates.register(models.ReceiptSchema))
+        contexts.enter_context(protect_updates.install(models.ReceiptSchema))
 
         yield
 
@@ -106,7 +106,7 @@ def test_commands(capsys):
     # Installed a trigger to be pruned. Note that this will leak into other tests if
     # we fail before pruning it
     protect_inserts = pgtrigger.Protect(name="protect_inserts", operation=pgtrigger.Insert)
-    protect_inserts.install(test_models.OrderSchema)
+    protect_inserts.install(models.OrderSchema)
 
     call_command('pgtrigger', 'ls', '-d', 'receipt', '-d', 'order')
     captured = capsys.readouterr()

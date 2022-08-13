@@ -1,7 +1,7 @@
 from django.db import connection
 import pytest
 
-import pgtrigger.core
+import pgtrigger
 
 
 @pytest.fixture(scope='session')
@@ -21,7 +21,7 @@ def django_db_setup(django_db_setup, django_db_blocker):
 
         # Some tests at the end leak into the next test run when re-using the DB.
         # Ensure triggers are installed when the test suite starts
-        pgtrigger.core.install()
+        pgtrigger.install()
 
 
 @pytest.fixture(autouse=True)

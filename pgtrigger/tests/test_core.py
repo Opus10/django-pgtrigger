@@ -7,8 +7,9 @@ from django.db.utils import InternalError
 from django.db.utils import NotSupportedError
 import pytest
 
-import pgtrigger.core
-import pgtrigger.registry
+import pgtrigger
+from pgtrigger import core
+from pgtrigger import registry
 from pgtrigger.tests import models
 
 
@@ -501,7 +502,7 @@ def test_max_name_length(mocker):
     # both int_field and nullable need to change in order for the update to
     # happen
     trigger = pgtrigger.Protect(
-        name='t' * pgtrigger.core.MAX_NAME_LENGTH,
+        name='t' * core.MAX_NAME_LENGTH,
         operation=pgtrigger.Update,
     )
     assert trigger.get_pgid(models.TestTrigger)
@@ -509,7 +510,7 @@ def test_max_name_length(mocker):
     mocker.patch.object(pgtrigger.Protect, 'validate_name')
     with pytest.raises(ValueError):
         trigger = pgtrigger.Protect(
-            name='a' * (pgtrigger.core.MAX_NAME_LENGTH + 1),
+            name='a' * (core.MAX_NAME_LENGTH + 1),
             operation=pgtrigger.Update,
         )
         trigger.get_pgid(models.TestTrigger)
@@ -651,7 +652,7 @@ def test_registry():
     """
     Tests dynamically registering and unregistering triggers
     """
-    init_registry_size = len(pgtrigger.registry.get())
+    init_registry_size = len(registry._registry)
     # The trigger registry should already be populated with our test triggers
     assert init_registry_size >= 6
 
@@ -666,18 +667,18 @@ def test_registry():
     # Register/unregister in context managers. The state should be the same
     # at the end as the beginning
     with trigger.register(models.TestModel):
-        assert len(pgtrigger.registry.get()) == init_registry_size + 1
-        assert f'tests.TestModel:{trigger.name}' in pgtrigger.registry.get()
+        assert len(registry._registry) == init_registry_size + 1
+        assert f'tests.TestModel:{trigger.name}' in registry._registry
 
         with trigger.unregister(models.TestModel):
-            assert len(pgtrigger.registry.get()) == init_registry_size
-            assert f'tests.TestModel:{trigger.name}' not in pgtrigger.registry.get()
+            assert len(registry._registry) == init_registry_size
+            assert f'tests.TestModel:{trigger.name}' not in registry._registry
 
         # Try obtaining trigger by alias
         assert pgtrigger.get('tests.TestModel:my_aliased_trigger')
 
-    assert len(pgtrigger.registry.get()) == init_registry_size
-    assert f'tests.TestModel:{trigger.name}' not in pgtrigger.registry.get()
+    assert len(registry._registry) == init_registry_size
+    assert f'tests.TestModel:{trigger.name}' not in registry._registry
     with pytest.raises(ValueError, match='not found'):
         pgtrigger.get(f'tests.TestModel:{trigger.name}')
 

@@ -180,4 +180,5 @@ Installation
 .. autofunction:: pgtrigger.uninstall
 .. autofunction:: pgtrigger.enable
 .. autofunction:: pgtrigger.disable
+.. autofunction:: pgtrigger.prunable
 .. autofunction:: pgtrigger.prune

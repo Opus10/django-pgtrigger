@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.db import connections
+from django.db import connections, DEFAULT_DB_ALIAS, router
 
 
 def postgres_databases(database=None):
@@ -17,3 +17,26 @@ def quote(label):
         return label
     else:
         return f'"{label}"'
+
+
+def database(model):
+    """
+    Obtains the database used for a trigger / model pair. The database
+    for the connection is selected based on the write DB in the database
+    router config.
+    """
+    return router.db_for_write(model) or DEFAULT_DB_ALIAS
+
+
+def connection(model):
+    """
+    Obtains the connection used for a trigger / model pair. The database
+    for the connection is selected based on the write DB in the database
+    router config.
+    """
+    return connections[database(model)]
+
+
+def render_uninstall(table, trigger_pgid):
+    """Renders uninstallation SQL"""
+    return f'DROP TRIGGER IF EXISTS {trigger_pgid} ON {quote(table)};'

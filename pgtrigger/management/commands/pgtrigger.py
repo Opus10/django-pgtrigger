@@ -3,14 +3,14 @@ import logging
 
 from django.core.management.base import BaseCommand
 
-import pgtrigger
-import pgtrigger.core
-import pgtrigger.migrations
+from pgtrigger import api
+from pgtrigger import core
+from pgtrigger import utils
 
 
 def _setup_logging():  # pragma: no cover
-    pgtrigger.core.LOGGER.addHandler(logging.StreamHandler())
-    pgtrigger.core.LOGGER.setLevel(logging.INFO)
+    api.LOGGER.addHandler(logging.StreamHandler())
+    api.LOGGER.setLevel(logging.INFO)
 
 
 class SubCommands(BaseCommand):  # pragma: no cover
@@ -64,7 +64,7 @@ class BaseSchemaCommand(BaseCommand):
         schemas = options.get("schema", [])
 
         if schemas:
-            context = pgtrigger.core.schema(*schemas, database=databases)
+            context = api.schema(*schemas, database=databases)
         else:
             context = contextlib.nullcontext()
 
@@ -99,25 +99,25 @@ class LsCommand(BaseSchemaCommand):
             else:
                 enabled_display = '\t\033[91mDISABLED\033[0m'
 
-            if status == pgtrigger.core.UNINSTALLED:
+            if status == core.UNINSTALLED:
                 return '\033[91mUNINSTALLED\033[0m'
-            elif status == pgtrigger.core.INSTALLED:
+            elif status == core.INSTALLED:
                 return f'\033[92mINSTALLED\033[0m{enabled_display}'
-            elif status == pgtrigger.core.OUTDATED:
+            elif status == core.OUTDATED:
                 return f'\033[93mOUTDATED\033[0m{enabled_display}'
-            elif status == pgtrigger.core.PRUNE:
+            elif status == core.PRUNE:
                 return f'\033[96mPRUNE\033[0m{enabled_display}'
             else:
                 raise AssertionError
 
-        for model, trigger in pgtrigger.core.get(*uris, database=options['database']):
+        for model, trigger in api.get(*uris, database=options['database']):
             uri = trigger.get_uri(model)
-            database = pgtrigger.core._get_database(model)
+            database = utils.database(model)
             status = trigger.get_installation_status(model)
             print(f'{uri}\t{database}\t{_get_colored_status(*status)}')
 
         if not uris:
-            for trigger in pgtrigger.core.prunable(database=options['database']):
+            for trigger in api.prunable(database=options['database']):
                 print(
                     f'{trigger[0]}:{trigger[1]}\t{trigger[3]}\t'
                     f'{_get_colored_status("PRUNE", trigger[2])}'
@@ -144,7 +144,7 @@ class InstallCommand(BaseSchemaCommand):
 
     def handle_with_schema(self, *args, **options):
         _setup_logging()
-        pgtrigger.core.install(*options['uris'], database=options['database'])
+        api.install(*options['uris'], database=options['database'])
 
 
 class UninstallCommand(BaseSchemaCommand):
@@ -167,7 +167,7 @@ class UninstallCommand(BaseSchemaCommand):
 
     def handle_with_schema(self, *args, **options):
         _setup_logging()
-        pgtrigger.core.uninstall(*options['uris'], database=options['database'])
+        api.uninstall(*options['uris'], database=options['database'])
 
 
 class EnableCommand(BaseSchemaCommand):
@@ -190,7 +190,7 @@ class EnableCommand(BaseSchemaCommand):
 
     def handle_with_schema(self, *args, **options):
         _setup_logging()
-        pgtrigger.core.enable(*options['uris'], database=options['database'])
+        api.enable(*options['uris'], database=options['database'])
 
 
 class DisableCommand(BaseSchemaCommand):
@@ -213,7 +213,7 @@ class DisableCommand(BaseSchemaCommand):
 
     def handle_with_schema(self, *args, **options):
         _setup_logging()
-        pgtrigger.core.disable(*options['uris'], database=options['database'])
+        api.disable(*options['uris'], database=options['database'])
 
 
 class PruneCommand(BaseSchemaCommand):
@@ -235,7 +235,7 @@ class PruneCommand(BaseSchemaCommand):
 
     def handle_with_schema(self, *args, **options):
         _setup_logging()
-        pgtrigger.core.prune(database=options['database'])
+        api.prune(database=options['database'])
 
 
 class Command(SubCommands):

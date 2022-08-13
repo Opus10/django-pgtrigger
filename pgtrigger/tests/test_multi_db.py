@@ -11,7 +11,7 @@ from django.db.utils import InternalError
 import pytest
 
 import pgtrigger
-import pgtrigger.tests.models as test_models
+from pgtrigger.tests import models
 
 
 class ToLogRouter:
@@ -22,7 +22,7 @@ class ToLogRouter:
     route_app_labels = {'auth', 'contenttypes'}
 
     def db_for_write(self, model, **hints):
-        if model == test_models.ToLogModel:
+        if model == models.ToLogModel:
             return 'other'
 
         return None
@@ -46,13 +46,13 @@ def test_multi_db_ignore():
     trigger = pgtrigger.Protect(operation=pgtrigger.Delete, name="protect_deletes")
 
     with contextlib.ExitStack() as contexts:
-        contexts.enter_context(trigger.register(test_models.ToLogModel))
+        contexts.enter_context(trigger.register(models.ToLogModel))
         contexts.enter_context(trigger.register(User))
-        contexts.enter_context(trigger.install(test_models.ToLogModel))
+        contexts.enter_context(trigger.install(models.ToLogModel))
         contexts.enter_context(trigger.install(User))
 
         with pytest.raises(InternalError, match="Cannot delete"):
-            log = ddf.G(test_models.ToLogModel)
+            log = ddf.G(models.ToLogModel)
             log.delete()
 
         with pytest.raises(InternalError, match="Cannot delete"):
@@ -61,7 +61,7 @@ def test_multi_db_ignore():
 
         with transaction.atomic():
             with pgtrigger.ignore("tests.ToLogModel:protect_deletes", "auth.User:protect_deletes"):
-                log = test_models.ToLogModel.objects.create()
+                log = models.ToLogModel.objects.create()
                 log.delete()
                 user = ddf.G(User)
                 user.delete()
@@ -71,7 +71,7 @@ def test_multi_db_ignore():
                 user.delete()
 
             with pytest.raises(InternalError, match="Cannot delete"):
-                log = test_models.ToLogModel.objects.create()
+                log = models.ToLogModel.objects.create()
                 log.delete()
 
 

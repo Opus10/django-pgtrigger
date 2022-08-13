@@ -11,7 +11,7 @@ from django.db.utils import InternalError, ProgrammingError
 import pytest
 
 import pgtrigger
-import pgtrigger.core
+from pgtrigger import core
 import pgtrigger.tests.models as test_models
 
 
@@ -50,9 +50,9 @@ def reset_migrations(tmp_path):
 
 
 def assert_all_triggers_installed():
-    for model, trigger in pgtrigger.core.get(database="default"):
+    for model, trigger in pgtrigger.get(database="default"):
         status = trigger.get_installation_status(model)
-        assert status[0] == pgtrigger.core.INSTALLED
+        assert status[0] == core.INSTALLED
 
 
 @pytest.mark.django_db(transaction=True)

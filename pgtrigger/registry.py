@@ -1,6 +1,9 @@
 import collections
 
 
+_unset = object()
+
+
 class TriggerNameAlreadyUsed(ValueError):
     """Thrown when a trigger name is already used for a database table."""
 
@@ -57,5 +60,17 @@ class _Registry(collections.UserDict):
 _registry = _Registry()
 
 
-def get():
-    return _registry
+def get(*args):
+    return _registry.get(*args)
+
+
+def set(key, val):
+    _registry[key] = val
+
+
+def delete(key):
+    del _registry[key]
+
+
+def values():
+    return _registry.values()
