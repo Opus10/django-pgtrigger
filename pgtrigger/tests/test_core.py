@@ -2,106 +2,14 @@ import datetime as dt
 
 import ddf
 from django.contrib.auth.models import User
-from django.db import connection, IntegrityError, transaction
+from django.db import transaction
 from django.db.utils import InternalError
 from django.db.utils import NotSupportedError
 import pytest
 
 import pgtrigger
 from pgtrigger import core
-from pgtrigger import registry
 from pgtrigger.tests import models
-
-
-@pytest.mark.django_db(transaction=True)
-def test_schema():
-    """Verifies behavior of pgtrigger.schema"""
-
-    def _search_path():
-        with connection.cursor() as cursor:
-            cursor.execute("SHOW search_path;")
-            return cursor.fetchall()[0][0]
-
-    assert _search_path() == '"$user", public'
-
-    with pgtrigger.schema("hello"):
-        assert _search_path() == 'hello'
-
-        with pgtrigger.schema("hello", "$user"):
-            assert _search_path() == 'hello, "$user"'
-
-        assert _search_path() == 'hello'
-
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path=custom;")
-
-    with transaction.atomic():
-        assert _search_path() == 'custom'
-
-        with pgtrigger.schema("hello", database="default"):
-            assert _search_path() == 'hello'
-
-        assert _search_path() == 'custom'
-
-    with pgtrigger.schema.session(database="default"):
-        assert _search_path() == 'custom'
-
-    assert _search_path() == 'custom'
-
-
-@pytest.fixture(autouse=True)
-def auto_ignore_schema_databases(ignore_schema_databases):
-    """Ensure we don't ever use schema-based databases in these tests"""
-    pass
-
-
-def test_get_invalid_args():
-    with pytest.raises(ValueError):
-        pgtrigger.get('uri', database='other')
-
-
-@pytest.mark.django_db
-def test_search_model():
-    """Verifies search model fields are kept up to date"""
-    obj = models.SearchModel.objects.create(
-        title="This is a message", body="Hello World. What a great body."
-    )
-    models.SearchModel.objects.create(title="Hi guys", body="Random Word. This is a good idea.")
-    models.SearchModel.objects.create(
-        title="Hello", body="Other words. Many great ideas come from stuff."
-    )
-    models.SearchModel.objects.create(title="The title", body="A short message.")
-
-    assert models.SearchModel.objects.filter(body_vector="hello").count() == 1
-    assert models.SearchModel.objects.filter(body_vector="words").count() == 2
-    assert models.SearchModel.objects.filter(body_vector="world").count() == 1
-    assert models.SearchModel.objects.filter(title_body_vector="message").count() == 2
-    assert models.SearchModel.objects.filter(title_body_vector="idea").count() == 2
-    assert models.SearchModel.objects.filter(title_body_vector="hello").count() == 2
-
-    obj.body = "Nothing more"
-    obj.save()
-    assert not models.SearchModel.objects.filter(body_vector="hello").exists()
-    assert models.SearchModel.objects.filter(title_body_vector="hello").count() == 1
-
-
-def test_update_search_vector_args():
-    """Verifies arg checking for UpdateSearchVector"""
-    with pytest.raises(ValueError, match='provide "vector_field"'):
-        pgtrigger.UpdateSearchVector()
-
-    with pytest.raises(ValueError, match='provide "document_fields"'):
-        pgtrigger.UpdateSearchVector(vector_field="vector_field")
-
-
-def test_update_search_vector_ignore():
-    """Verifies UpdateSearchVector cannot be ignored"""
-    trigger = pgtrigger.UpdateSearchVector(
-        name="hi", vector_field="vector_field", document_fields=["hi"]
-    )
-    with pytest.raises(RuntimeError, match="Cannot ignore UpdateSearchVector"):
-        with trigger.ignore(models.SearchModel):
-            pass
 
 
 @pytest.mark.django_db
@@ -151,31 +59,6 @@ def test_statement_row_level_logging():
     assert models.LogEntry.objects.filter(level='ROW').count() == 5
 
 
-@pytest.mark.django_db
-def test_soft_delete():
-    """
-    Verifies the SoftDelete test model has the "is_active" flag set to false
-    """
-    soft_delete = ddf.G(models.SoftDelete, is_active=True)
-    ddf.G(models.FkToSoftDelete, ref=soft_delete)
-    soft_delete.delete()
-
-    assert not models.SoftDelete.objects.get().is_active
-    assert not models.FkToSoftDelete.objects.exists()
-
-
-@pytest.mark.django_db
-def test_customer_soft_delete():
-    """
-    Verifies the CustomSoftDelete test model has the "custom_active" flag set
-    to false
-    """
-    soft_delete = ddf.G(models.CustomSoftDelete, custom_active=True)
-    soft_delete.delete()
-
-    assert not models.CustomSoftDelete.objects.get().custom_active
-
-
 @pytest.mark.django_db(transaction=True)
 def test_deferred_trigger():
     """
@@ -215,71 +98,6 @@ def test_deferred_trigger():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_constraints():
-    """
-    Tests running ``pgtrigger.constraints`` on deferrable triggers
-    """
-    # Not every trigger is deferrable, so this should raise an error
-    with transaction.atomic():
-        with pytest.raises(ValueError, match="is not deferrable"):
-            pgtrigger.constraints(pgtrigger.Immediate)
-
-    # Make the LogEntry model a soft delete model where
-    # "level" is set to "inactive"
-    trigger = pgtrigger.Protect(
-        name='protect_delete',
-        when=pgtrigger.After,
-        operation=pgtrigger.Delete,
-        timing=pgtrigger.Deferred,
-    )
-    with trigger.register(models.TestModel), trigger.install(models.TestModel):
-
-        # Verify we have to be in a transaction
-        with pytest.raises(RuntimeError, match="not in a transaction"):
-            pgtrigger.constraints(pgtrigger.Immediate, "tests.TestModel:protect_delete")
-
-        obj = ddf.G(models.TestModel)
-        with transaction.atomic():
-            # This "with" is only here to validate that ignoring the trigger will
-            # NOT happen. After this "with" is done, the transaction still hasn't finished
-            # and the trigger hasn't executed yet, so it won't be ignored.
-            with pgtrigger.ignore("tests.TestModel:protect_delete"):
-                obj.delete()
-                # Deletion works within the transaction so far since trigger is deferred
-                assert not models.TestModel.objects.exists()
-
-            # When we set constraints to Immediate, it should fail inside
-            # of the transaction
-            with pytest.raises(InternalError, match="Cannot delete"):
-                # The first statement does nothing because the trigger is already deferred
-                pgtrigger.constraints(pgtrigger.Deferred, "tests.TestModel:protect_delete")
-                pgtrigger.constraints(pgtrigger.Immediate, "tests.TestModel:protect_delete")
-
-
-@pytest.mark.django_db
-def test_soft_delete_different_values():
-    """
-    Tests SoftDelete with different types of fields and values
-    """
-    # Make the LogEntry model a soft delete model where
-    # "level" is set to "inactive"
-    trigger = pgtrigger.SoftDelete(name='soft_delete', field='level', value='inactive')
-    with trigger.install(models.LogEntry):
-        le = ddf.G(models.LogEntry, level='active')
-        le.delete()
-        assert models.LogEntry.objects.get().level == 'inactive'
-    models.LogEntry.objects.all().delete()
-
-    # Make the LogEntry model a soft delete model where
-    # "old_field" is set to None
-    trigger = pgtrigger.SoftDelete(name='soft_delete', field='old_field', value=None)
-    with trigger.install(models.LogEntry):
-        le = ddf.G(models.LogEntry, old_field='something')
-        le.delete()
-        assert models.LogEntry.objects.get().old_field is None
-
-
-@pytest.mark.django_db(transaction=True)
 def test_updating_trigger_condition():
     """
     Tests re-installing a trigger when the condition changes
@@ -298,50 +116,6 @@ def test_updating_trigger_condition():
         trigger.condition = pgtrigger.Q(old__level="bad")
         with trigger.install(models.LogEntry):
             le.delete()
-
-
-@pytest.mark.django_db(transaction=True)
-def test_nested_transactions():
-    """Verifies a trigger can be ignored during nested transactions"""
-    ddf.G(models.CustomTableName, int_field=1)
-    trigger = pgtrigger.Protect(
-        name='protect_insert',
-        when=pgtrigger.Before,
-        operation=pgtrigger.Insert,
-    )
-    with trigger.register(models.CustomTableName):
-        with trigger.install(models.CustomTableName):
-            with transaction.atomic():
-                with pgtrigger.ignore("tests.CustomTableName:protect_insert"):
-                    try:
-                        with transaction.atomic():  # pragma: no branch
-                            models.CustomTableName.objects.create(int_field=1)
-                    except IntegrityError:
-                        models.CustomTableName.objects.create(int_field=2)
-
-
-@pytest.mark.django_db(transaction=True)
-def test_fsm():
-    """
-    Verifies the FSM test model cannot make invalid transitions
-    """
-    fsm = ddf.G(models.FSM, transition='unpublished')
-    fsm.transition = 'inactive'
-    with pytest.raises(InternalError, match='Invalid transition'):
-        fsm.save()
-
-    fsm.transition = 'published'
-    fsm.save()
-
-    # Be sure we ignore FSM when there is no transition
-    fsm.save()
-
-    with pytest.raises(InternalError, match='Invalid transition'):
-        fsm.transition = 'unpublished'
-        fsm.save()
-
-    fsm.transition = 'inactive'
-    fsm.save()
 
 
 def test_declaration_rendering():
@@ -648,93 +422,6 @@ def test_arg_checks():
         pgtrigger.Trigger(when=pgtrigger.Before, operation=pgtrigger.Update, name='1' * 48).pgid
 
 
-def test_registry():
-    """
-    Tests dynamically registering and unregistering triggers
-    """
-    init_registry_size = len(registry._registry)
-    # The trigger registry should already be populated with our test triggers
-    assert init_registry_size >= 6
-
-    # Add a trigger to the registry
-    trigger = pgtrigger.Trigger(
-        when=pgtrigger.Before,
-        name='my_aliased_trigger',
-        operation=pgtrigger.Insert | pgtrigger.Update,
-        func="RAISE EXCEPTION 'no no no!';",
-    )
-
-    # Register/unregister in context managers. The state should be the same
-    # at the end as the beginning
-    with trigger.register(models.TestModel):
-        assert len(registry._registry) == init_registry_size + 1
-        assert f'tests.TestModel:{trigger.name}' in registry._registry
-
-        with trigger.unregister(models.TestModel):
-            assert len(registry._registry) == init_registry_size
-            assert f'tests.TestModel:{trigger.name}' not in registry._registry
-
-        # Try obtaining trigger by alias
-        assert pgtrigger.get('tests.TestModel:my_aliased_trigger')
-
-    assert len(registry._registry) == init_registry_size
-    assert f'tests.TestModel:{trigger.name}' not in registry._registry
-    with pytest.raises(ValueError, match='not found'):
-        pgtrigger.get(f'tests.TestModel:{trigger.name}')
-
-    with pytest.raises(ValueError, match='must be in the format'):
-        pgtrigger.get('tests.TestMode')
-
-
-def test_duplicate_trigger_names(mocker):
-    """Ensure that duplicate trigger names are properly detected"""
-
-    # Add a trigger to the registry
-    trigger1 = pgtrigger.Trigger(
-        name='mytrigger', when=pgtrigger.Before, operation=pgtrigger.Insert
-    )
-    trigger2 = pgtrigger.Protect(
-        name='mytrigger', when=pgtrigger.Before, operation=pgtrigger.Insert
-    )
-    trigger3 = pgtrigger.Trigger(
-        name='MyTrigger', when=pgtrigger.Before, operation=pgtrigger.Insert
-    )
-
-    assert trigger1.get_pgid(models.TestModel) == 'pgtrigger_mytrigger_b34c5'
-    assert trigger3.get_pgid(models.TestModel) == 'pgtrigger_mytrigger_4a08f'
-
-    # Check that a conflict cannot happen in the registry.
-    # NOTE - use context managers to ensure we don't keep around
-    # these registered triggers in other tests
-    with trigger1.register(models.TestModel):
-        with pytest.raises(ValueError, match='already used'):
-            with trigger2.register(models.TestModel):
-                pass
-
-    mocker.patch.object(pgtrigger.Trigger, 'get_pgid', return_value='duplicate')
-
-    # Check that a conflict cannot happen in the generated postgres ID.
-    # NOTE - use context managers to ensure we don't keep around
-    # these registered triggers in other tests
-    with pytest.raises(ValueError, match='that\'s already in use'):
-        with trigger1.register(models.TestModel):
-            pass
-
-
-def test_duplicate_trigger_names_proxy_model(mocker):
-    """Test that duplicate trigger names are detected when using proxy models"""
-
-    # TestTriggerProxy registers "protect_delete" for TestTrigger.
-    # If we try to register this trigger directly on TestTrigger, it should result
-    # in a duplicate error
-    trigger = pgtrigger.Trigger(
-        name='protect_delete', when=pgtrigger.Before, operation=pgtrigger.Insert
-    )
-    with pytest.raises(ValueError, match='already used'):
-        with trigger.register(models.TestTrigger):
-            pass
-
-
 def test_operations():
     """Tests Operation objects and ORing them together"""
     assert str(pgtrigger.Update) == 'UPDATE'
@@ -800,119 +487,6 @@ def test_custom_trigger_definitions():
     with trigger.install(models.TestTrigger):
         with pytest.raises(InternalError, match='bad statement!'):
             test_model.save()
-
-
-@pytest.mark.django_db
-def test_ignore_no_transaction_leaks():
-    """Verify ignore does not leak during a transaction"""
-    deletion_protected_model = ddf.G(models.TestTrigger)
-    with pgtrigger.ignore('tests.TestTriggerProxy:protect_delete'):
-        deletion_protected_model.delete()
-        assert not models.TestTrigger.objects.exists()
-
-    deletion_protected_model = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match='Cannot delete rows'):
-        deletion_protected_model.delete()
-
-
-@pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("model_class", [models.TestTriggerProxy, models.CustomTableName])
-def test_basic_ignore(model_class):
-    """Verify basic dynamic ignore functionality"""
-    deletion_protected_model = ddf.G(model_class)
-    with pytest.raises(InternalError, match='Cannot delete rows'):
-        deletion_protected_model.delete()
-
-    with pgtrigger.ignore(f'tests.{model_class.__name__}:protect_delete'):
-        deletion_protected_model.delete()
-
-    assert not models.TestTrigger.objects.exists()
-
-    deletion_protected_model = ddf.G(model_class)
-    with pytest.raises(InternalError, match='Cannot delete rows'):
-        deletion_protected_model.delete()
-
-
-@pytest.mark.django_db(transaction=True)
-def test_nested_ignore():
-    """Test nesting pgtrigger.ignore()"""
-    deletion_protected_model1 = ddf.G(models.TestTrigger)
-    deletion_protected_model2 = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match='Cannot delete rows'):
-        deletion_protected_model1.delete()
-
-    with pgtrigger.ignore('tests.TestTriggerProxy:protect_delete'):
-        with pgtrigger.ignore('tests.TestTriggerProxy:protect_delete'):
-            deletion_protected_model1.delete()
-        deletion_protected_model2.delete()
-
-    assert not models.TestTrigger.objects.exists()
-
-    deletion_protected_model = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match='Cannot delete rows'):
-        deletion_protected_model.delete()
-
-    with pgtrigger.ignore.session(database="default"):
-        deletion_protected_model = ddf.G(models.TestTrigger)
-        with pytest.raises(InternalError, match='Cannot delete rows'):
-            deletion_protected_model.delete()
-
-
-@pytest.mark.django_db(transaction=True)
-def test_multiple_ignores():
-    """Tests multiple pgtrigger.ignore()"""
-    deletion_protected_model1 = ddf.G(models.TestTrigger)
-    ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match='Cannot delete rows'):
-        deletion_protected_model1.delete()
-
-    ddf.G(models.TestTrigger, field='hi!')
-    with pytest.raises(InternalError, match='no no no!'):
-        models.TestTrigger.objects.create(field='misc_insert')
-
-    with pgtrigger.ignore('tests.TestTriggerProxy:protect_delete'):
-        deletion_protected_model1.delete()
-        with pytest.raises(InternalError, match='no no no!'):
-            models.TestTrigger.objects.create(field='misc_insert')
-
-        with pgtrigger.ignore('tests.TestTrigger:protect_misc_insert'):
-            m = models.TestTrigger.objects.create(field='misc_insert')
-            m.delete()
-
-        models.TestTrigger.objects.all().delete()
-
-    assert not models.TestTrigger.objects.exists()
-
-    deletion_protected_model = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match='Cannot delete rows'):
-        deletion_protected_model.delete()
-
-
-@pytest.mark.django_db
-def test_protect():
-    """Verify deletion protect trigger works on test model"""
-    deletion_protected_model = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match='Cannot delete rows'):
-        deletion_protected_model.delete()
-
-
-@pytest.mark.django_db
-def test_custom_db_table_protect_trigger():
-    """Verify custom DB table names have successful triggers"""
-    deletion_protected_model = ddf.G(models.CustomTableName)
-    with pytest.raises(InternalError, match='Cannot delete rows'):
-        deletion_protected_model.delete()
-
-
-@pytest.mark.django_db
-def test_custom_db_table_ignore():
-    """Verify we can ignore triggers on custom table names"""
-    deletion_protected_model = ddf.G(models.CustomTableName)
-
-    # Ensure we can ignore the deletion trigger
-    with pgtrigger.ignore('tests.CustomTableName:protect_delete'):
-        deletion_protected_model.delete()
-        assert not models.CustomTableName.objects.exists()
 
 
 @pytest.mark.django_db(transaction=True)

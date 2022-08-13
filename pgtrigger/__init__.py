@@ -1,18 +1,5 @@
 import django
 
-from pgtrigger.api import (
-    constraints,
-    disable,
-    enable,
-    get,
-    ignore,
-    install,
-    prunable,
-    prune,
-    register,
-    schema,
-    uninstall,
-)
 from pgtrigger.contrib import (
     FSM,
     Protect,
@@ -45,6 +32,23 @@ from pgtrigger.core import (
     UpdateOf,
     When,
 )
+from pgtrigger.installation import (
+    disable,
+    enable,
+    install,
+    prunable,
+    prune,
+    uninstall,
+)
+from pgtrigger.registry import (
+    register,
+    registered,
+)
+from pgtrigger.runtime import (
+    constraints,
+    ignore,
+    schema,
+)
 from pgtrigger.version import __version__
 
 if django.VERSION < (3, 2):
@@ -64,7 +68,6 @@ __all__ = [
     'enable',
     'F',
     'FSM',
-    'get',
     'ignore',
     'Immediate',
     'Insert',
@@ -81,6 +84,7 @@ __all__ = [
     'Q',
     'Referencing',
     'register',
+    'registered',
     'Row',
     'schema',
     'SoftDelete',

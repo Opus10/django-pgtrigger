@@ -42,7 +42,6 @@ Here we protect Django ``User`` group relationships from being deleted:
     We recommend creating a custom through model when possible. See
     the `Django docs on making custom "through" models <https://docs.djangoproject.com/en/4.0/topics/db/models/#extra-fields-on-many-to-many-relationships>`__.
 
-
 Programmatically registering triggers
 -------------------------------------
 
@@ -103,11 +102,5 @@ Showing installation status
 ---------------------------
 
 Use ``python manage.py pgtrigger ls`` to see the installation status of individual triggers
-or all triggers at once.
-
-Triggers can be in one of three installation states: ``INSTALLED``, ``UNINSTALLED``, or ``PRUNED``.
-When in a ``PRUNED`` state, the trigger is installed but no longer exists in the application.
-
-Triggers are also either ``ENABLED`` or ``DISABLED``. Triggers are enabled by default unless a user
-explicitly disables it after installation. Once disabled, triggers must be enabled
-again to run.
+or all triggers at once. View the :ref:`commands` section for descriptions of the different
+installation states.

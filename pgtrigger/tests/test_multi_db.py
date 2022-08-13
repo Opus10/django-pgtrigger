@@ -1,5 +1,4 @@
 """Tests multi-database support"""
-# flake8: noqa
 
 import contextlib
 
@@ -11,6 +10,7 @@ from django.db.utils import InternalError
 import pytest
 
 import pgtrigger
+from pgtrigger import core
 from pgtrigger.tests import models
 
 
@@ -28,16 +28,9 @@ class ToLogRouter:
         return None
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def routed_db(settings):
     settings.DATABASE_ROUTERS = ['pgtrigger.tests.test_multi_db.ToLogRouter']
-    call_command('pgtrigger', 'install')
-
-
-@pytest.fixture(autouse=True)
-def auto_ignore_schema_databases_and_route(ignore_schema_databases, routed_db):
-    """Setup DBs and routing"""
-    pass
 
 
 @pytest.mark.django_db(databases=["default", "sqlite", "other"], transaction=True)
@@ -45,11 +38,11 @@ def test_multi_db_ignore():
     """Tests ignoring triggers across multiple databases"""
     trigger = pgtrigger.Protect(operation=pgtrigger.Delete, name="protect_deletes")
 
-    with contextlib.ExitStack() as contexts:
-        contexts.enter_context(trigger.register(models.ToLogModel))
-        contexts.enter_context(trigger.register(User))
-        contexts.enter_context(trigger.install(models.ToLogModel))
-        contexts.enter_context(trigger.install(User))
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(trigger.register(models.ToLogModel))
+        stack.enter_context(trigger.register(User))
+        stack.enter_context(trigger.install(models.ToLogModel, database="other"))
+        stack.enter_context(trigger.install(User))
 
         with pytest.raises(InternalError, match="Cannot delete"):
             log = ddf.G(models.ToLogModel)
@@ -79,125 +72,55 @@ def test_multi_db_ignore():
 def test_full_ls(capsys):
     call_command('pgtrigger', 'ls')
     captured = capsys.readouterr()
-    lines = sorted(captured.out.split('\n'))
-    expected_lines = [
-        'tests.CustomSoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.CustomTableName:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.FSM:fsm\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestDefaultThrough:protect_it\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTrigger:protect_misc_insert\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:after_update_row_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:after_update_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:update_of_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-    ]
-    assert set(expected_lines).issubset(set(lines))
+    lines = [line for line in captured.out.split('\n') if line]
+    for line in lines:
+        assert "\x1b[92mINSTALLED\x1b[0m" in line
+
+    call_command('pgtrigger', 'ls', '-d', 'other')
+    captured = capsys.readouterr()
+    lines = [line for line in captured.out.split('\n') if line]
+    for line in lines:
+        assert "\x1b[92mINSTALLED\x1b[0m" in line
+
+    call_command('pgtrigger', 'ls', '-d', 'sqlite')
+    captured = capsys.readouterr()
+    lines = [line for line in captured.out.split('\n') if line]
+    for line in lines:
+        assert "\x1b[94mUNALLOWED\x1b[0m" in line
 
 
-@pytest.mark.django_db(databases=["default", "sqlite", "other"])
-def test_single_db_enable(capsys):
-    call_command('pgtrigger', 'disable')
+@pytest.mark.django_db(databases=["other"])
+def test_disable_enable(capsys):
+    call_command('pgtrigger', 'disable', '-d', 'other')
+    for model, trigger in pgtrigger.registered():
+        assert not trigger.get_installation_status(model, database='other')[1]
+
     call_command('pgtrigger', 'enable', '--database', 'other')
-
-    call_command('pgtrigger', 'ls')
-    captured = capsys.readouterr()
-    lines = sorted(captured.out.split('\n'))
-    expected_lines = [
-        '',
-        'tests.CustomSoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
-        'tests.CustomTableName:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
-        'tests.FSM:fsm\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
-        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
-        'tests.TestDefaultThrough:protect_it\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
-        'tests.TestTrigger:protect_misc_insert\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
-        'tests.ToLogModel:after_update_row_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:after_update_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:update_of_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-    ]
-    assert set(expected_lines).issubset(set(lines))
+    for model, trigger in pgtrigger.registered():
+        assert trigger.get_installation_status(model, database='other')[1]
 
 
-@pytest.mark.django_db(databases=["default", "sqlite", "other"])
-def test_single_db_disable(capsys):
-    call_command('pgtrigger', 'disable', '--database', 'other')
-    call_command('pgtrigger', 'ls')
-    captured = capsys.readouterr()
-    lines = sorted(captured.out.split('\n'))
-    expected_lines = [
-        '',
-        'tests.CustomSoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.CustomTableName:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.FSM:fsm\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.SoftDelete:soft_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestDefaultThrough:protect_it\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTrigger:protect_misc_insert\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:after_update_row_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
-        'tests.ToLogModel:after_update_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
-        'tests.ToLogModel:update_of_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[91mDISABLED\x1b[0m',
-    ]
-    assert set(expected_lines).issubset(set(lines))
+@pytest.mark.django_db(databases=["sqlite"])
+def test_ignore_non_postgres_dbs():
+    call_command('pgtrigger', 'uninstall', '-d', 'sqlite')
+    call_command('pgtrigger', 'install', '-d', 'sqlite')
+    call_command('pgtrigger', 'install', '-d', 'sqlite')
+    call_command('pgtrigger', 'prune', '-d', 'sqlite')
 
 
-@pytest.mark.django_db(databases=["default", "sqlite", "other"])
-def test_single_db_ls(capsys):
-    """Only list a single database"""
-    call_command('pgtrigger', 'ls', '--database', 'other')
-    captured = capsys.readouterr()
-    lines = sorted(captured.out.split('\n'))
-    expected_lines = [
-        '',
-        'tests.ToLogModel:after_update_row_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:after_update_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:update_of_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-    ]
-    assert set(expected_lines).issubset(set(lines))
+@pytest.mark.django_db(databases=["other", "default", "sqlite"])
+def test_uninstall_install():
+    for model, trigger in pgtrigger.registered():
+        assert trigger.get_installation_status(model, database='other')[0] == core.INSTALLED
 
+    call_command('pgtrigger', 'uninstall', '-d', 'other')
+    call_command('pgtrigger', 'uninstall', '-d', 'default')
+    for model, trigger in pgtrigger.registered():
+        assert trigger.get_installation_status(model, database='other')[0] == core.UNINSTALLED
 
-@pytest.mark.django_db(databases=["default", "sqlite", "other"])
-def test_single_db_uninstall(capsys):
-    """Uninstall a single database and verify results"""
-    call_command('pgtrigger', 'uninstall', '--database', 'default')
-    call_command('pgtrigger', 'ls')
-    captured = capsys.readouterr()
-    lines = sorted(captured.out.split('\n'))
-    expected_lines = [
-        '',
-        'tests.CustomSoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.CustomTableName:protect_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.FSM:fsm\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.SoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestDefaultThrough:protect_it\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestTrigger:protect_misc_insert\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.ToLogModel:after_update_row_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:after_update_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:update_of_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-    ]
-    assert set(expected_lines).issubset(set(lines))
-
-
-@pytest.mark.django_db(databases=["default", "sqlite", "other"])
-def test_single_db_install(capsys):
-    """Install a single database and verify results"""
-    call_command('pgtrigger', 'uninstall')
     call_command('pgtrigger', 'install', '--database', 'other')
-    call_command('pgtrigger', 'ls')
-    captured = capsys.readouterr()
-    lines = sorted(captured.out.split('\n'))
-    expected_lines = [
-        '',
-        'tests.CustomSoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.CustomTableName:protect_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.FSM:fsm\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.SoftDelete:soft_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestDefaultThrough:protect_it\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestTrigger:protect_misc_insert\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.TestTriggerProxy:protect_delete\tdefault\t\x1b[91mUNINSTALLED\x1b[0m',
-        'tests.ToLogModel:after_update_row_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:after_update_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-        'tests.ToLogModel:update_of_statement_test\tother\t\x1b[92mINSTALLED\x1b[0m\t\x1b[92mENABLED\x1b[0m',
-    ]
-    assert set(expected_lines).issubset(set(lines))
+    for model, trigger in pgtrigger.registered():
+        assert trigger.get_installation_status(model, database='other')[0] == core.INSTALLED
+
+    for model, trigger in pgtrigger.registered():
+        assert trigger.get_installation_status(model, database='default')[0] == core.UNINSTALLED

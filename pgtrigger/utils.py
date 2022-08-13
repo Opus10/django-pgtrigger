@@ -1,14 +1,37 @@
 from django.conf import settings
-from django.db import connections, DEFAULT_DB_ALIAS, router
+from django.db import connections, DEFAULT_DB_ALIAS
 
 
-def postgres_databases(database=None):
-    """Return postgres databases from the provided database or list of databases.
-
-    If no database is provided, return all postgres databases
+def connection(database=None):
     """
-    databases = [database] if isinstance(database, str) else database or settings.DATABASES
-    return [database for database in databases if connections[database].vendor == 'postgresql']
+    Obtains the connection used for a trigger / model pair. The database
+    for the connection is selected based on the write DB in the database
+    router config.
+    """
+    return connections[database or DEFAULT_DB_ALIAS]
+
+
+def is_postgres(database):
+    return connection(database).vendor == 'postgresql'
+
+
+def postgres_databases(databases=None):
+    """Return postgres databases from the provided list of databases.
+
+    If no databases are provided, return all postgres databases
+    """
+    databases = databases or list(settings.DATABASES)
+    assert isinstance(databases, list)
+    return [database for database in databases if is_postgres(database)]
+
+
+def exec_sql(sql, database=None, fetchall=False):
+    if is_postgres(database):  # pragma: no branch
+        with connection(database).cursor() as cursor:
+            cursor.execute(sql)
+
+            if fetchall:
+                return cursor.fetchall()
 
 
 def quote(label):
@@ -17,24 +40,6 @@ def quote(label):
         return label
     else:
         return f'"{label}"'
-
-
-def database(model):
-    """
-    Obtains the database used for a trigger / model pair. The database
-    for the connection is selected based on the write DB in the database
-    router config.
-    """
-    return router.db_for_write(model) or DEFAULT_DB_ALIAS
-
-
-def connection(model):
-    """
-    Obtains the connection used for a trigger / model pair. The database
-    for the connection is selected based on the write DB in the database
-    router config.
-    """
-    return connections[database(model)]
 
 
 def render_uninstall(table, trigger_pgid):

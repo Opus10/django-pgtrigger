@@ -1,11 +1,10 @@
+from django.core.management import call_command
 from django.db import connection
 import pytest
 
-import pgtrigger
-
 
 @pytest.fixture(scope='session')
-def django_db_setup(django_db_setup, django_db_blocker):
+def django_db_setup(django_db_setup, django_db_blocker, request):
     with django_db_blocker.unblock():
         # Create schemas required for testing
         with connection.cursor() as cursor:
@@ -19,19 +18,10 @@ def django_db_setup(django_db_setup, django_db_blocker):
             except Exception:
                 pass
 
-        # Some tests at the end leak into the next test run when re-using the DB.
-        # Ensure triggers are installed when the test suite starts
-        pgtrigger.install()
+        call_command('migrate', database='order', verbosity=request.config.option.verbose)
+        call_command('migrate', database='receipt', verbosity=request.config.option.verbose)
 
 
 @pytest.fixture(autouse=True)
 def disable_logging(mocker):
     mocker.patch("pgtrigger.management.commands.pgtrigger._setup_logging", autospec=True)
-
-
-@pytest.fixture
-def ignore_schema_databases(settings):
-    """Configure settings to ignore databases that use schemas"""
-    settings.DATABASES = {
-        key: val for key, val in settings.DATABASES.items() if key not in ("order", "receipt")
-    }

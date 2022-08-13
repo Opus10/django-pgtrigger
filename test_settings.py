@@ -3,7 +3,7 @@ from settings import *
 # Turn on pgtrigger migrations in the test suite
 PGTRIGGER_MIGRATIONS = True
 
-# Turn this off by default so that we can test migrations.
-# The test suite automatically sets up fixtures at the
-# beginning
-PGTRIGGER_INSTALL_ON_MIGRATE = False
+# We turn this on in tests to ensure that triggers are installed
+# when the test database is set up. We dynamically turn it off
+# when testing migrations.
+PGTRIGGER_INSTALL_ON_MIGRATE = True

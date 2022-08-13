@@ -8,7 +8,8 @@ import threading
 from django.db import connections
 import psycopg2.extensions
 
-import pgtrigger.utils
+from pgtrigger import registry
+from pgtrigger import utils
 
 
 # All triggers currently being ignored
@@ -69,6 +70,92 @@ def _inject_pgtrigger_ignore(execute, sql, params, many, context):
     return execute(sql, params, many, context)
 
 
+@contextlib.contextmanager
+def _set_ignore_session_state(database=None):
+    """Starts a session where triggers can be ignored"""
+    connection = utils.connection(database)
+    if _inject_pgtrigger_ignore not in connection.execute_wrappers:
+        with connection.execute_wrapper(_inject_pgtrigger_ignore):
+            try:
+                yield
+            finally:
+                if connection.in_atomic_block:
+                    # We've finished ignoring triggers and are in a transaction,
+                    # so flush the local variable.
+                    with connection.cursor() as cursor:
+                        cursor.execute('RESET pgtrigger.ignore;')
+    else:
+        yield
+
+
+@contextlib.contextmanager
+def _ignore_session(databases=None):
+    """Starts a session where triggers can be ignored"""
+    with contextlib.ExitStack() as stack:
+        for database in utils.postgres_databases(databases):
+            stack.enter_context(_set_ignore_session_state(database=database))
+
+        yield
+
+
+@contextlib.contextmanager
+def _set_ignore_state(model, trigger):
+    """
+    Manage state to ignore a single URI
+    """
+    if not hasattr(_ignore, 'value'):
+        _ignore.value = set()
+
+    pg_uri = f'{model._meta.db_table}:{trigger.get_pgid(model)}'
+    if pg_uri not in _ignore.value:
+        try:
+            _ignore.value.add(pg_uri)
+            yield
+        finally:
+            _ignore.value.remove(pg_uri)
+    else:  # The trigger is already being ignored
+        yield
+
+
+@contextlib.contextmanager
+def ignore(*uris, databases=None):
+    """
+    Dynamically ignore registered triggers matching URIs from executing in
+    an individual thread.
+    If no URIs are provided, ignore all pgtriggers from executing in an
+    individual thread.
+
+    Args:
+        *uris (str): Trigger URIs to ignore. If none are provided, all
+            triggers will be ignored.
+        databases (List[str], default=None): The databases to use.
+            If none, all postgres databases will be used.
+
+    Examples:
+
+        Ingore triggers in a context manager::
+
+            with pgtrigger.ignore("my_app.Model:trigger_name"):
+                # Do stuff while ignoring trigger
+
+        Ignore multiple triggers as a decorator::
+
+            @pgtrigger.ignore("my_app.Model:trigger_name", "my_app.Model:other_trigger")
+            def my_func():
+                # Do stuff while ignoring trigger
+    """
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(_ignore_session(databases=databases))
+
+        for model, trigger in registry.registered(*uris):
+            stack.enter_context(_set_ignore_state(model, trigger))
+
+        yield
+
+
+ignore.session = _ignore_session
+
+
 def _inject_schema(execute, sql, params, many, context):
     """
     A connection execution wrapper that sets the schema
@@ -77,7 +164,7 @@ def _inject_schema(execute, sql, params, many, context):
     if _can_inject_variable(context['cursor'], sql) and _schema.value:
         sql = (
             "SET LOCAL search_path="
-            + ",".join(pgtrigger.utils.quote(val) for val in _schema.value)
+            + ",".join(utils.quote(val) for val in _schema.value)
             + ";"
             + sql
         )
@@ -86,58 +173,8 @@ def _inject_schema(execute, sql, params, many, context):
 
 
 @contextlib.contextmanager
-def _ignore_session(connection):
-    """Main implementation of starting an ignore session for a single connection"""
-    if _inject_pgtrigger_ignore not in connection.execute_wrappers:
-        with connection.execute_wrapper(_inject_pgtrigger_ignore):
-            yield
-
-            if connection.in_atomic_block:
-                # We've finished ignoring triggers and are in a transaction,
-                # so flush the local variable.
-                with connection.cursor() as cursor:
-                    cursor.execute('RESET pgtrigger.ignore;')
-    else:
-        yield
-
-
-@contextlib.contextmanager
-def ignore_session(database=None):
-    """Starts a session where triggers can be ignored
-
-    The session is started for the provided database or list of
-    databases. If no databases are provided, it's started for
-    every database.
-    """
-    if not hasattr(_ignore, 'value'):
-        _ignore.value = set()
-
-    with contextlib.ExitStack() as contexts:
-        for database in pgtrigger.utils.postgres_databases(database):
-            contexts.enter_context(_ignore_session(connections[database]))
-
-        yield
-
-
-@contextlib.contextmanager
-def ignore(connection, ignore_uri):
-    """
-    Ignores a single trigger
-    """
-    with ignore_session(connection.alias):
-        if ignore_uri not in _ignore.value:
-            try:
-                _ignore.value.add(ignore_uri)
-                yield
-            finally:
-                _ignore.value.remove(ignore_uri)
-        else:  # The trigger is already being ignored
-            yield
-
-
-@contextlib.contextmanager
-def _schema_session(connection):
-    """Implementation to start a search path session for a single connection"""
+def _set_schema_session_state(database=None):
+    connection = utils.connection(database)
 
     if _inject_schema not in connection.execute_wrappers:
         if connection.in_atomic_block:
@@ -151,45 +188,99 @@ def _schema_session(connection):
                 initial_search_path = cursor.fetchall()[0][0]
 
         with connection.execute_wrapper(_inject_schema):
-            yield
-
-            if connection.in_atomic_block:
-                # We've finished modifying the search path and are in a transaction,
-                # so flush the local variable
-                with connection.cursor() as cursor:
-                    cursor.execute(f'SET search_path={initial_search_path};')
+            try:
+                yield
+            finally:
+                if connection.in_atomic_block:
+                    # We've finished modifying the search path and are in a transaction,
+                    # so flush the local variable
+                    with connection.cursor() as cursor:
+                        cursor.execute(f'SET search_path={initial_search_path};')
     else:
         yield
 
 
 @contextlib.contextmanager
-def schema_session(database=None):
-    """Starts a session where the search path can be modified
-
-    The session is started for the provided database or list of
-    databases. If no databases are provided, it's started for
-    every database.
-    """
-    if not hasattr(_schema, 'value'):
-        # Use a list instead of a set because ordering is important to the search path
-        _schema.value = []
-
-    with contextlib.ExitStack() as contexts:
-        for database in pgtrigger.utils.postgres_databases(database):
-            contexts.enter_context(_schema_session(connections[database]))
+def _schema_session(databases=None):
+    """Starts a session where the search path can be modified"""
+    with contextlib.ExitStack() as stack:
+        for database in utils.postgres_databases(databases):
+            stack.enter_context(_set_schema_session_state(database=database))
 
         yield
 
 
 @contextlib.contextmanager
-def schema(connection, *schemas):
-    database = connection.alias
+def _set_schema_state(*schemas):
+    if not hasattr(_schema, 'value'):
+        # Use a list instead of a set because ordering is important to the search path
+        _schema.value = []
 
-    with schema_session(database):
-        schemas = [s for s in schemas if s not in _schema.value]
-        try:
-            _schema.value.extend(schemas)
-            yield
-        finally:
-            for s in schemas:
-                _schema.value.remove(s)
+    schemas = [s for s in schemas if s not in _schema.value]
+    try:
+        _schema.value.extend(schemas)
+        yield
+    finally:
+        for s in schemas:
+            _schema.value.remove(s)
+
+
+@contextlib.contextmanager
+def schema(*schemas, databases=None):
+    """
+    Sets the search path to the provided schemas.
+
+    If nested, appends the schemas to the search path if not already in it.
+
+    Args:
+        *schemas (str): Schemas that should be appended to the search path.
+            Schemas already in the search path from nested calls will not be
+            appended.
+        databases (List[str], default=None): The databases to set the search path.
+            If none, all postgres databases will be used.
+    """
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(_schema_session(databases=databases))
+        stack.enter_context(_set_schema_state(*schemas))
+
+        yield
+
+
+schema.session = _schema_session
+
+
+def constraints(timing, *uris, databases=None):
+    """
+    Set deferrable constraint timing for the given triggers, which
+    will persist until overridden or until end of transaction.
+    Must be in a transaction to run this.
+
+    Args:
+        timing (``pgtrigger.Timing``): The timing value that overrides
+            the default trigger timing.
+        *uris (str): Trigger URIs over which to set constraint timing.
+            If none are provided, all trigger constraint timing will
+            be set. All triggers must be deferrable.
+        databases (List[str], default=None): The databases on which
+            to set constraints. If none, all postgres databases
+            will be used.
+
+    Raises:
+        RuntimeError: If the database of any triggers is not in a transaction.
+        ValueError: If any triggers are not deferrable.
+    """
+
+    for model, trigger in registry.registered(*uris):
+        if not trigger.timing:
+            raise ValueError(
+                f"Trigger {trigger.name} on model {model._meta.label_lower} is not deferrable."
+            )
+
+    for database in utils.postgres_databases(databases):
+        if not connections[database].in_atomic_block:
+            raise RuntimeError(f'Database "{database}" is not in a transaction.')
+
+        names = ', '.join(trigger.get_pgid(model) for model, trigger in registry.registered(*uris))
+
+        with connections[database].cursor() as cursor:
+            cursor.execute(f'SET CONSTRAINTS {names} {timing}')

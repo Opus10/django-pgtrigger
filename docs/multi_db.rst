@@ -11,16 +11,31 @@ custom router, triggers will be installed based on ``allow_migrate``.
 See the `the Django docs on multiple databases <https://docs.djangoproject.com/en/4.1/topics/db/multi-db/>`__
 for more info.
 
-If you use installation commands (see :ref:`commands`), the behavior is
-slightly different.  ``django-pgtrigger``
-uses the database returned by the router's ``db_for_write`` method to determine
-the installation database. This is legacy behavior that will be updated in
-a later version to match Django's migration behavior.
+.. warning::
 
-.. tip::
+   If you migrate triggers and afterwards change the behavior of the router's
+   ``allow_migrate``, you risk having orphaned triggers installed on tables.
 
-  All management commands take repeatable ``--database`` (``-d``) arguments to
-  target specific databases.
+The management commands and core installation functions work the same way,
+targetting an individual database like Django's ``migrate`` command.
+Each command can be supplied with a ``-d`` or ``--database`` option.
+
+For example, ``python manage.py pgtrigger install --database other`` will
+install all of the triggers on the ``other`` database.
+
+If ``allow_migrate`` ignores a particular model for a database, the
+installation status will show as ``UNALLOWED`` when using
+``python manage.py pgtrigger ls``.
+
+.. note::
+
+   If you've configured ``settings.INSTALL_ON_MIGRATE``, triggers will
+   be installed for the same database as the ``migrate`` command.
+
+Dynamic runtime functions `pgtrigger.ignore`, `pgtrigger.schema`, and
+`pgtrigger.constraints` operate on all postgres databases at once
+unless the ``databases`` argument is provided.
+
 
 Multiple Schemas
 ----------------
@@ -33,9 +48,9 @@ work with ``django-pgtrigger``:
 2. Use an app like `django-tenants <https://github.com/django-tenants/django-tenants>`__
    to dynamically set the ``search_path`` for a single database.
 
- When using the first approach, use the multi-database support detailed in
- the previous section. For the second approach, ``django-pgtrigger``
- comes with the ability to dynamically set the ``search_path``:
+When using the first approach, use the multi-database support detailed in
+the previous section. For the second approach, ``django-pgtrigger``
+comes with the following functionality to dynamically set the ``search_path``:
 
 1. Pass ``--schema`` (``-s``) arguments for management
    commands. For example, this sets ``search_path`` to ``myschema,public``
@@ -47,11 +62,20 @@ work with ``django-pgtrigger``:
    For example, this sets the ``search_path`` to ``myschema,public``::
 
     with pgtrigger.schema("myschema", "public"):
-        # seach_path is set. Any more nested invocations of
-        # pgtrigger.schema will append to the path
+        # seach_path is set to "myschema,public". Any nested invocations of
+        # pgtrigger.schema will append to the path if not currently
+        # present
 
 .. note::
 
   If you find yourself wrapping the ``django-pgtrigger`` API with `pgtrigger.schema`,
   open an issue and let us know about your use case. We may consider making it a
   first-class citizen in the API if it's common.
+
+The final thing to keep in mind with multi-schema support is that `pgtrigger.ignore`
+uses a special Postgres function for ignoring triggers that's installed under
+the public schema. The function is always referenced with a fully-qualified name.
+
+If you don't use the public schema, configure the schema with
+``settings.PGTRIGGER_SCHEMA``. Setting this to ``None`` uses a relative path when
+installing and calling the function.
