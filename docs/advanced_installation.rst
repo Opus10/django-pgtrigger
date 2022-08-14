@@ -42,6 +42,31 @@ Here we protect Django ``User`` group relationships from being deleted:
     We recommend creating a custom through model when possible. See
     the `Django docs on making custom "through" models <https://docs.djangoproject.com/en/4.0/topics/db/models/#extra-fields-on-many-to-many-relationships>`__.
 
+Declaring triggers in base models
+---------------------------------
+
+Triggers can be declared in an abstract model and inherited. Here is a base model for
+soft-delete models:
+
+.. code-block:: python
+
+    class BaseSoftDelete(models.Model):
+        is_active = models.BooleanField(default=True)
+
+        class Meta:
+            abstract = True
+            triggers = [pgtrigger.SoftDelete(name="soft_delete", field="is_active")]
+
+Keep in mind that ``Meta`` class inheritance follows standard Django convention. If
+the child model defines a ``Meta`` class, you will need to inherit the parent's
+``Meta`` class like so:
+
+.. code-block:: python
+
+    class ChildModel(BaseSoftDelete):
+        class Meta(BaseSoftDelete.Meta):
+            ordering = ["is_active"]
+
 Programmatically registering triggers
 -------------------------------------
 

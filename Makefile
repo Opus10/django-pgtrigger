@@ -19,6 +19,7 @@ OS = $(shell uname -s)
 PACKAGE_NAME=django-pgtrigger
 MODULE_NAME=pgtrigger
 SHELL=bash
+DATABASE_URL?=postgres://postgres:postgres@db:5432/postgres
 
 ifeq (${OS}, Linux)
 	DOCKER_CMD?=sudo docker
@@ -83,14 +84,14 @@ dependencies:
 
 .PHONY: db-setup
 db-setup:
-	-$(DOCKER_EXEC_WRAPPER) psql postgres://postgres:postgres@db:5432/postgres -c "CREATE DATABASE postgres_other WITH TEMPLATE postgres"
-	$(DOCKER_EXEC_WRAPPER) psql postgres://postgres:postgres@db:5432/postgres -c "CREATE SCHEMA IF NOT EXISTS \"order\""
-	$(DOCKER_EXEC_WRAPPER) psql postgres://postgres:postgres@db:5432/postgres -c "CREATE SCHEMA IF NOT EXISTS receipt;"
+	-$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE DATABASE postgres_other WITH TEMPLATE postgres"
+	$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE SCHEMA IF NOT EXISTS \"order\""
+	$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE SCHEMA IF NOT EXISTS receipt;"
 
 
 # Sets up development environment
 .PHONY: setup
-setup: teardown docker-start lock dependencies db-setup
+setup: teardown docker-start lock dependencies
 	$(DOCKER_EXEC_WRAPPER) git tidy --template -o .gitcommit.tpl
 	$(DOCKER_EXEC_WRAPPER) git config --local commit.template .gitcommit.tpl
 
