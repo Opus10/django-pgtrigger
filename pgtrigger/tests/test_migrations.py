@@ -11,8 +11,13 @@ from django.db.utils import InternalError, ProgrammingError
 import pytest
 
 import pgtrigger
-import pgtrigger.core
+from pgtrigger import core
 import pgtrigger.tests.models as test_models
+
+
+@pytest.fixture(autouse=True)
+def disble_install_on_migrate(settings):
+    settings.PGTRIGGER_INSTALL_ON_MIGRATE = False
 
 
 def migration_dir():
@@ -34,31 +39,37 @@ def reset_triggers():
 
 
 @pytest.fixture
-def reset_migrations(tmp_path):
+def reset_migrations(tmp_path, request):
     """Ensures the migration dir is reset after the test"""
     num_orig_migrations = num_migration_files()
     shutil.copytree(migration_dir(), tmp_path / "migrations")
 
-    yield
+    try:
+        yield
+    finally:
+        # Migrate back to the initial migration of the test to allevitate
+        # some of the issues when re-using a test DB
+        call_command(
+            "migrate",
+            "tests",
+            str(num_orig_migrations).rjust(4, "0"),
+            verbosity=request.config.option.verbose,
+        )
 
-    # Migrate back to the initial migration of the test to allevitate
-    # some of the issues when re-using a test DB
-    call_command("migrate", "tests", str(num_orig_migrations).rjust(4, "0"))
-
-    shutil.rmtree(migration_dir())
-    shutil.copytree(tmp_path / "migrations", migration_dir())
+        shutil.rmtree(migration_dir())
+        shutil.copytree(tmp_path / "migrations", migration_dir())
 
 
 def assert_all_triggers_installed():
-    for model, trigger in pgtrigger.core.get(database="default"):
+    for model, trigger in pgtrigger.registered():
         status = trigger.get_installation_status(model)
-        assert status[0] == pgtrigger.core.INSTALLED
+        assert status[0] == core.INSTALLED
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.usefixtures("reset_triggers", "reset_migrations")
 @pytest.mark.order(-1)  # This is a possibly leaky test if it fails midway. Always run last
-def test_makemigrations_existing_models(settings):
+def test_makemigrations_existing_models(settings, request):
     """
     Create migrations for existing models and test various scenarios
     where triggers are dynamically added and removed
@@ -69,10 +80,10 @@ def test_makemigrations_existing_models(settings):
 
     num_orig_migrations = num_migration_files()
 
-    call_command("makemigrations")
+    call_command("makemigrations", verbosity=request.config.option.verbose)
     assert num_migration_files() == num_orig_migrations + 1
 
-    call_command("migrate")
+    call_command("migrate", verbosity=request.config.option.verbose)
     assert_all_triggers_installed()
 
     # Add a new trigger to the registry that should be migrated
@@ -84,17 +95,17 @@ def test_makemigrations_existing_models(settings):
     )
 
     with trigger.register(test_models.TestModel):
-        call_command("makemigrations")
+        call_command("makemigrations", verbosity=request.config.option.verbose)
         assert num_migration_files() == num_orig_migrations + 2
 
         # As a sanity check, ensure makemigrations doesnt make dups
-        call_command("makemigrations")
+        call_command("makemigrations", verbosity=request.config.option.verbose)
         assert num_migration_files() == num_orig_migrations + 2
 
         # Before migrating, I should be able to make a ``TestModel``
         ddf.G("tests.TestModel")
 
-        call_command("migrate")
+        call_command("migrate", verbosity=request.config.option.verbose)
         assert_all_triggers_installed()
 
         # After migrating, test models should be protected
@@ -104,10 +115,10 @@ def test_makemigrations_existing_models(settings):
         # Update the trigger to allow inserts, but not updates.
         # We should have a new migration
         trigger.operation = pgtrigger.Update
-        call_command("makemigrations")
+        call_command("makemigrations", verbosity=request.config.option.verbose)
         assert num_migration_files() == num_orig_migrations + 3
 
-        call_command("migrate")
+        call_command("migrate", verbosity=request.config.option.verbose)
         assert_all_triggers_installed()
 
         # We should be able to make test models but not update them
@@ -117,10 +128,10 @@ def test_makemigrations_existing_models(settings):
 
     # The trigger is now removed from the registry. It should create
     # a new migration
-    call_command("makemigrations")
+    call_command("makemigrations", verbosity=request.config.option.verbose)
     assert num_migration_files() == num_orig_migrations + 4
 
-    call_command("migrate")
+    call_command("migrate", verbosity=request.config.option.verbose)
     assert_all_triggers_installed()
 
     # We should be able to create and update the test model now that
@@ -144,10 +155,10 @@ def test_makemigrations_existing_models(settings):
         condition=pgtrigger.Q(new__char_field="%"),
     )
     with trigger.register(test_models.TestModel):
-        call_command("makemigrations")
+        call_command("makemigrations", verbosity=request.config.option.verbose)
         assert num_migration_files() == num_orig_migrations + 5
 
-        call_command("migrate")
+        call_command("migrate", verbosity=request.config.option.verbose)
         assert_all_triggers_installed()
 
         tm = ddf.G("tests.TestModel", char_field="hello")

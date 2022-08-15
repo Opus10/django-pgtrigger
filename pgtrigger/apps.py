@@ -18,7 +18,7 @@ if pgtrigger.features.model_meta():  # pragma: no branch
 
 
 # Patch the autodetector and model state detection if migrations are turned on
-if pgtrigger.features.migrations():
+if pgtrigger.features.migrations():  # pragma: no branch
     if 'triggers' not in state.DEFAULT_NAMES:  # pragma: no branch
         state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ('triggers',)
 
@@ -26,8 +26,9 @@ if pgtrigger.features.migrations():
     migrate.MigrationAutodetector = pgtrigger.migrations.MigrationAutodetector
 
 
-def install_on_migrate(using, **kwargs):  # pragma: no cover
-    pgtrigger.install(database=using)
+def install_on_migrate(using, **kwargs):
+    if pgtrigger.features.install_on_migrate():
+        pgtrigger.install(database=using)
 
 
 class PGTriggerConfig(django.apps.AppConfig):
@@ -53,5 +54,4 @@ class PGTriggerConfig(django.apps.AppConfig):
                     trigger.register(model)
 
         # Configure triggers to automatically be installed after migrations
-        if pgtrigger.features.install_on_migrate():  # pragma: no cover
-            post_migrate.connect(install_on_migrate, sender=self)
+        post_migrate.connect(install_on_migrate, sender=self)

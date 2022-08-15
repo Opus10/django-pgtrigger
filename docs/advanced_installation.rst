@@ -42,6 +42,30 @@ Here we protect Django ``User`` group relationships from being deleted:
     We recommend creating a custom through model when possible. See
     the `Django docs on making custom "through" models <https://docs.djangoproject.com/en/4.0/topics/db/models/#extra-fields-on-many-to-many-relationships>`__.
 
+Declaring triggers in base models
+---------------------------------
+
+Triggers can be declared in an abstract model and inherited. Here is a base model for
+soft-delete models:
+
+.. code-block:: python
+
+    class BaseSoftDelete(models.Model):
+        is_active = models.BooleanField(default=True)
+
+        class Meta:
+            abstract = True
+            triggers = [pgtrigger.SoftDelete(name="soft_delete", field="is_active")]
+
+Keep in mind that ``Meta`` class inheritance follows standard Django convention. If
+the child model defines a ``Meta`` class, you will need to inherit the parent's
+``Meta`` class like so:
+
+.. code-block:: python
+
+    class ChildModel(BaseSoftDelete):
+        class Meta(BaseSoftDelete.Meta):
+            ordering = ["is_active"]
 
 Programmatically registering triggers
 -------------------------------------
@@ -103,11 +127,5 @@ Showing installation status
 ---------------------------
 
 Use ``python manage.py pgtrigger ls`` to see the installation status of individual triggers
-or all triggers at once.
-
-Triggers can be in one of three installation states: ``INSTALLED``, ``UNINSTALLED``, or ``PRUNED``.
-When in a ``PRUNED`` state, the trigger is installed but no longer exists in the application.
-
-Triggers are also either ``ENABLED`` or ``DISABLED``. Triggers are enabled by default unless a user
-explicitly disables it after installation. Once disabled, triggers must be enabled
-again to run.
+or all triggers at once. View the :ref:`commands` section for descriptions of the different
+installation states.

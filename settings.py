@@ -13,14 +13,17 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
 ]
 # Database url comes from the DATABASE_URL env var
-# We have some multi-database tests, so set up two databases
+# We have some multi-database and multi-schema tests
 DATABASES = {
     'default': dj_database_url.config(),
     'sqlite': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': 'test_sqlite'},
 }
 DATABASES['other'] = copy.deepcopy(DATABASES['default'])
-if 'NAME' in DATABASES['other']:
-    DATABASES['other']['NAME'] += '_other'
+DATABASES['other']['NAME'] += '_other'
+DATABASES['order'] = copy.deepcopy(DATABASES['default'])
+DATABASES['order']['OPTIONS'] = {'options': '-c search_path=order'}
+DATABASES['receipt'] = copy.deepcopy(DATABASES['default'])
+DATABASES['receipt']['OPTIONS'] = {'options': '-c search_path=receipt'}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 

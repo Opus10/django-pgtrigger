@@ -19,6 +19,7 @@ OS = $(shell uname -s)
 PACKAGE_NAME=django-pgtrigger
 MODULE_NAME=pgtrigger
 SHELL=bash
+DATABASE_URL?=postgres://postgres:postgres@db:5432/postgres
 
 ifeq (${OS}, Linux)
 	DOCKER_CMD?=sudo docker
@@ -79,6 +80,13 @@ lock:
 .PHONY: dependencies
 dependencies:
 	$(DOCKER_EXEC_WRAPPER) poetry install
+
+
+.PHONY: db-setup
+db-setup:
+	-$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE DATABASE postgres_other WITH TEMPLATE postgres"
+	$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE SCHEMA IF NOT EXISTS \"order\""
+	$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE SCHEMA IF NOT EXISTS receipt;"
 
 
 # Sets up development environment

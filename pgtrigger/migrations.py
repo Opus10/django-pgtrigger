@@ -1,4 +1,5 @@
 from django.apps import apps
+from django.db import transaction
 from django.db.migrations import autodetector
 from django.db.migrations.operations.fields import AddField
 from django.db.migrations.operations.models import CreateModel, IndexOperation
@@ -10,7 +11,8 @@ def _add_trigger(schema_editor, model, trigger):
 
     # Trigger.render_install returns interpolated SQL which makes
     # params=None a necessity to avoid escaping attempts on execution.
-    schema_editor.execute(sql, params=None)
+    with transaction.atomic(using=schema_editor.connection.alias):
+        schema_editor.execute(sql, params=None)
 
 
 def _remove_trigger(schema_editor, model, trigger):

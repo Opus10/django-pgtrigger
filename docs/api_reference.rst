@@ -9,18 +9,11 @@ Commands
 ``django-pgtrigger`` comes with the ``python manage.py pgtrigger`` command,
 which has several subcommands that are described below.
 
-.. warning::
-
-    Commands are primarily intended for advanced usage, such as manually
-    installing triggers or making migrations for third-party apps.
-    Running commands such as ``disable`` or ``uninstall``
-    will globally turn off triggers for your entire application.
-
 ls
 --
 
 Use ``python manage.py pgtrigger ls`` to list all triggers
-managed by ``django-pgtrigger``. The trigger URI, database, and installation status
+managed by ``django-pgtrigger``. The installation status and trigger URI
 will be shown.
 
 The following are valid installation status markers:
@@ -30,17 +23,18 @@ The following are valid installation status markers:
   to the current version.
 - ``UNINSTALLED``: The trigger is not installed.
 - ``PRUNE``: A trigger is no longer in the codebase and still installed.
+- ``UNALLOWED``: Trigger installation is not allowed for this database.
+  Only applicable in a multi-database environment.
 
 Note that every installed trigger, including ones that will be pruned,
 will show whether they are enabled or disabled. Disabled triggers are
 installed but do not run.
 
-.. note::
+.. tip::
 
   You can provide trigger URIs as arguments to ``python manage.py pgtrigger ls``
-  to only list specific triggers. The URI is the first column returned
-  by ``python manage.py pgtrigger ls``. You can also only list triggers on
-  a single database with the ``--database`` option.
+  to only list specific triggers. The URI is the last column returned
+  by ``python manage.py pgtrigger ls``.
 
 install
 -------
@@ -57,6 +51,11 @@ uninstall
 Uninstall has the same behavior as ``python manage.py pgtrigger install`` except triggers
 will be uninstalled.
 
+.. danger::
+
+    Running ``uninstall`` will globally uninstall triggers.
+    If you need to temporarily ignore a trigger, see the :ref:`ignoring_triggers` section.
+
 enable
 ------
 
@@ -68,6 +67,11 @@ disable
 
 Disable has the same behavior as ``python manage.py pgtrigger enable`` except triggers
 will be disabled.
+
+.. danger::
+
+    Running ``disable`` will globally disable the execution of triggers.
+    If you need to temporarily ignore a trigger, see the :ref:`ignoring_triggers` section.
 
 prune
 -----
@@ -165,13 +169,14 @@ Triggers
 
 Runtime execution
 -----------------
-.. autofunction:: pgtrigger.ignore
 .. autofunction:: pgtrigger.constraints
+.. autofunction:: pgtrigger.ignore
+.. autofunction:: pgtrigger.schema
 
 Registry
 --------
-.. autofunction:: pgtrigger.get
 .. autofunction:: pgtrigger.register
+.. autofunction:: pgtrigger.registered
 
 Installation
 ------------
@@ -179,4 +184,5 @@ Installation
 .. autofunction:: pgtrigger.uninstall
 .. autofunction:: pgtrigger.enable
 .. autofunction:: pgtrigger.disable
+.. autofunction:: pgtrigger.prunable
 .. autofunction:: pgtrigger.prune
