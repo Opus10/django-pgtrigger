@@ -1,5 +1,60 @@
 # Changelog
-## 3.4.0 (2022-08-10)
+## 4.0.0 (2022-08-14)
+### Api-Break
+  - Multi-database and registry behavior changed [Wes Kendall, 0663807]
+
+    There were four key additions around multi-datbase and multi-schema
+    support:
+
+    1. When using a multi-datbase environment, ``django-pgtrigger``
+       now uses ``allow_migrate`` of the router rather than ``db_for_write``
+       to determine if a trigger should be installed for a model.
+
+    2. Management commands were changed to operate on one database at a time
+       to be consistent with Django management commands. Install, uninstall,
+       prune, disable, enable, and ls all take an optional ``--database``
+       argument.
+
+    3. ``pgtrigger.ignore``, ``pgtrigger.constraints``, and ``pgtrigger.schema``
+       were all updated to take a ``databases`` argument, defaulting to
+       working on every postgres database when used for dynamic runtime behavior.
+
+    4. The Postgres function used by ``pgtrigger.ignore`` is always installed
+       in the public schema by default. It is referenced using its fully-qualified
+       path. The schema can be changed with ``settings.PGTRIGGER_SCHEMA``. Setting
+       it to ``None`` will use the schema in the search path. Because of this
+       change, the SQL for installed triggers changes, which causes triggers to
+       appear as outdated when listing them. This can be fixed by running
+       ``manage.py pgtrigger install`` to re-install triggers.
+
+    Along with this, there were a few other breaking changes to the API:
+
+    1. ``pgtrigger.get`` was renamed to ``pgtrigger.registered``.
+    2. ``manage.py pgtrigger ls`` shows the trigger status followed by the URI in
+       each line of output.
+
+    type: api-break
+### Bug
+  - Reference ``UpdateSearchVector`` trigger columns correctly [Wes Kendall, 7d40894]
+
+    Columns configured in the ``UpdateSearchVector`` trigger were previously
+    referenced in SQL by their model field name and not their column name.
+### Feature
+  - Added multi-schema support [Wes Kendall, 98342f2]
+
+    ``django-pgtrigger`` didn't handle multiple schemas well, causing some issues for
+    legacy installation commands.
+
+    Multiple schema support is a first-class citizen. Depending on the database setup, you
+    can now take advantage of the ``--schema`` options for management commands to
+    dynamically set the schema.
+
+    Docs were added that overview multi-schema support.
+### Trivial
+  - Added docs for using triggers in abstract models [Wes Kendall, cd215ac]
+  - Refactored project structure [Wes Kendall, 4d53eef]
+
+## 3.4.0 (2022-08-11)
 ### Bug
   - Fixed issues using ``pgtrigger.ignore`` with multiple databases [Wes Kendall, 557f0e1]
 
