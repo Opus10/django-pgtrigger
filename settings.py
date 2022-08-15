@@ -19,7 +19,9 @@ DATABASES = {
     'sqlite': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': 'test_sqlite'},
 }
 DATABASES['other'] = copy.deepcopy(DATABASES['default'])
-DATABASES['other']['NAME'] += '_other'
+if 'NAME' in DATABASES['other']:  # This check is needed for doc builds
+    DATABASES['other']['NAME'] += '_other'
+
 DATABASES['order'] = copy.deepcopy(DATABASES['default'])
 DATABASES['order']['OPTIONS'] = {'options': '-c search_path=order'}
 DATABASES['receipt'] = copy.deepcopy(DATABASES['default'])
