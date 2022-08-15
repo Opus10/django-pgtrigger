@@ -164,9 +164,11 @@ class UpdateSearchVector(core.Trigger):
         return ''
 
     def render_trigger(self, model, function=None):
-        document_fields = ', '.join(utils.quote(field) for field in self.document_fields)
+        document_cols = [model._meta.get_field(field).column for field in self.document_fields]
+        rendered_document_cols = ', '.join(utils.quote(col) for col in document_cols)
+        vector_col = model._meta.get_field(self.vector_field).column
         function = (
-            f'tsvector_update_trigger({utils.quote(self.vector_field)},'
-            f' {utils.quote(self.config_name)}, {document_fields})'
+            f'tsvector_update_trigger({utils.quote(vector_col)},'
+            f' {utils.quote(self.config_name)}, {rendered_document_cols})'
         )
         return super().render_trigger(model, function=function)
