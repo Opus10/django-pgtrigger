@@ -1,5 +1,9 @@
 # Changelog
-## 4.0.0 (2022-08-14)
+## 4.0.1 (2022-08-14)
+### Trivial
+  - Fixed minor issue in settings preventing docs from being built [Wes Kendall, 5ad18f8]
+
+## 4.0.0 (2022-08-15)
 ### Api-Break
   - Multi-database and registry behavior changed [Wes Kendall, 0663807]
 
