@@ -1,5 +1,15 @@
 # Changelog
-## 4.0.1 (2022-08-14)
+## 4.1.0 (2022-08-17)
+### Bug
+  - Allow altering columns from trigger conditions [Wes Kendall, 1178457]
+
+    Previously if one changed the column type of a field used in a trigger condition,
+    installation would fail because Postgres doesn't allow this.
+
+    The schema editor was patched to allow for this behavior, dropping and recreating
+    triggers when column types are altered.
+
+## 4.0.1 (2022-08-15)
 ### Trivial
   - Fixed minor issue in settings preventing docs from being built [Wes Kendall, 5ad18f8]
 
