@@ -50,9 +50,18 @@ where ``args`` is a list of positional arguments and ``kwargs`` is a dictionary 
 Patches are causing my application to fail. How can I disable them?
 -------------------------------------------------------------------
 
-``django-pgtrigger`` patches the minimum amount of Django functionality necessary to integrate with the migration system. If this causes errors in your application, set ``settings.PGTRIGGER_MIGRATIONS`` to ``False`` to turn off integration with the migration system. You will need to manually install triggers or set ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` to always install triggers after migrations.
+``django-pgtrigger`` patches the minimum amount of Django functionality necessary to integrate with the migration system and install triggers. If this causes errors in your application, try turning off the relevant settings:
 
-If patching-related errors still happen, set ``settings.PGTRIGGER_MODEL_META`` to ``False`` to disable specifying triggers in model ``Meta``. You must explicitly register every trigger with `pgtrigger.register`, and triggers on third-party models may not be discovered.
+* Set ``settings.PGTRIGGER_SCHEMA_EDITOR`` to ``False`` to prevent it from overriding the schema editor. Turning this off
+  is mostly harmless, but you will have errors installing triggers if column types of trigger conditions are altered.
+
+* Set ``settings.PGTRIGGER_MIGRATIONS`` to ``False`` to completely turn off integration with the migration system. You will
+  need to manually install triggers or set ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` to always install triggers
+  after migrations. Note that this approach has limitations and bugs such as reversing migrations.
+
+* Set ``settings.PGTRIGGER_MODEL_META`` to ``False`` to disable specifying triggers in model ``Meta``. You must explicitly
+  register every trigger with `pgtrigger.register`, and triggers on third-party models may not be discovered. Integration 
+  with the migration system will also be turned off as a result.
 
 How do I migrate to version 3.0?
 --------------------------------
@@ -71,7 +80,7 @@ Almost all users can simply run ``python manage.py makemigrations`` after upgrad
 1. If you already ran ``python manage.py makemigrations``, delete any new migrations made for these third-party apps.
 2. Declare proxy models for the third-party or many-to-many "through" models, register triggers in the ``Meta.triggers``, and call ``python manage.py makemigrations``. See code examples in the :ref:`advanced_installation` section.
 
-If you'd like to keep the legacy installation behavior, set ``PGTRIGGER_MIGRATIONS`` to ``False`` to turn off trigger migrations and set ``PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` so that triggers are always installed at the end of ``python manage.py migrate``.
+If you'd like to keep the legacy installation behavior, set ``settings.PGTRIGGER_MIGRATIONS`` to ``False`` to turn off trigger migrations and set ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` so that triggers are always installed at the end of ``python manage.py migrate``.
 
 Dropping of ``django-pgconnection`` dependency
 **********************************************
@@ -83,6 +92,22 @@ New ``Meta.triggers`` syntax
 ****************************
 
 Version 2.5 introduced the ability to register triggers on your model's ``Meta.triggers`` list. User can still use `pgtrigger.register` to register triggers programmatically, but it has been deprecated.
+
+How do I migrate to version 4.0?
+--------------------------------
+
+Version 4 changes the behavior of multi-database and multi-schema usage. If you don't use multiple database and multiple
+schemas, the only breaking API change that might affect you is ``pgtrigger.get`` being renamed to
+`pgtrigger.registered`.
+
+For multi-database setups, triggers are now installed on one database
+at a time using the ``--database`` argument of management commands. Triggers are only ignored on a databases
+based on the ``allow_migrate`` method of any installed routers. This mimics Django's behavior of installing tables.
+
+If you use ``settings.PGTRIGGER_INSTALL_ON_MIGRATE``, triggers will only be installed for the database that was passed to
+``python manage.py migrate``.
+
+Version 4 adds support for multi-schema setups. See the :ref:`multi_db` section for more information.
 
 How can I contact the author?
 -----------------------------

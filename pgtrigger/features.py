@@ -8,6 +8,17 @@ def model_meta():
     return getattr(settings, 'PGTRIGGER_MODEL_META', True)
 
 
+def schema_editor():
+    """
+    True if we are using the patched Postgres schema editor.
+
+    Note that setting this to False means that we cannot easily
+    alter columns of models that are associated with trigger
+    conditions
+    """
+    return getattr(settings, 'PGTRIGGER_SCHEMA_EDITOR', True)
+
+
 def migrations():
     """
     True if migrations are enabled
