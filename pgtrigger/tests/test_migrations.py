@@ -182,28 +182,48 @@ def test_makemigrations_create_remove_models(settings):
     assert settings.PGTRIGGER_MIGRATIONS
 
     num_orig_migrations = num_migration_files()
+    num_expected_migrations = num_orig_migrations
 
+    ###
+    # Make the initial trigger migrations
+    ###
     call_command("makemigrations")
-    assert num_migration_files() == num_orig_migrations + 1
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
 
     call_command("migrate")
     assert_all_triggers_installed()
 
-    # Create a new model and add it to the test models
-    class DynamicTestModel(models.Model):
-        field = models.IntegerField()
+    ###
+    # Create a new model, migrate it, and verify triggers
+    ###
+    class BaseDynamicTestModel(models.Model):
+        field = models.CharField(max_length=120)
         user = models.ForeignKey(auth_models.User, on_delete=models.CASCADE)
 
         class Meta:
+            abstract = True
             triggers = [
-                pgtrigger.Protect(name="protect_deletes", operation=pgtrigger.Delete),
-                pgtrigger.Protect(name="protect_updates", operation=pgtrigger.Update),
+                pgtrigger.Protect(
+                    name="protect_deletes",
+                    operation=pgtrigger.Delete,
+                    condition=~pgtrigger.Q(old__field="nothing"),
+                ),
+                pgtrigger.Protect(
+                    name="protect_updates",
+                    operation=pgtrigger.Update,
+                    condition=~pgtrigger.Q(old__field="nothing"),
+                ),
             ]
+
+    class DynamicTestModel(BaseDynamicTestModel):
+        pass
 
     test_models.DynamicTestModel = DynamicTestModel
 
     call_command("makemigrations")
-    assert num_migration_files() == num_orig_migrations + 2
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -211,37 +231,69 @@ def test_makemigrations_create_remove_models(settings):
     protected_model = ddf.G(test_models.DynamicTestModel)
 
     with pytest.raises(InternalError, match="Cannot update"):
-        protected_model.field += 1
+        protected_model.field = "hello_world"
         protected_model.save()
 
     with pytest.raises(InternalError, match="Cannot delete"):
         protected_model.delete()
 
-    # Keep only deletion protection and migrate
+    ###
+    # Alter the column type when a condition depends on it. This should
+    # correctly drop the trigger, update the column type, and add
+    # the trigger
+    ###
+    class DynamicTestModel(BaseDynamicTestModel):
+        field = models.TextField()
+
+    test_models.DynamicTestModel = DynamicTestModel
+
+    call_command("makemigrations")
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
+    call_command("migrate")
+    assert_all_triggers_installed()
+
+    # Sanity check that we cannot delete or update a DynamicTestModel
+    protected_model = ddf.G(test_models.DynamicTestModel)
+
+    with pytest.raises(InternalError, match="Cannot update"):
+        protected_model.field = "hello_world"
+        protected_model.save()
+
+    with pytest.raises(InternalError, match="Cannot delete"):
+        protected_model.delete()
+
+    ###
+    # Keep only deletion protection, migrate, and verify it's removed
+    ###
     DynamicTestModel._meta.triggers = [
         pgtrigger.Protect(name="protect_deletes", operation=pgtrigger.Delete)
     ]
     DynamicTestModel._meta.original_attrs["triggers"] = DynamicTestModel._meta.triggers
 
     call_command("makemigrations")
-    assert num_migration_files() == num_orig_migrations + 3
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
     call_command("migrate")
     assert_all_triggers_installed()
 
     # Updates work, but deletes dont
-    protected_model.field += 1
+    protected_model.field = "hello_there"
     protected_model.save()
 
     with pytest.raises(InternalError, match="Cannot delete"):
         protected_model.delete()
 
+    ###
     # Remove the model and verify it migrates
+    ###
     del test_models.DynamicTestModel
     del apps.app_configs["tests"].models["dynamictestmodel"]
     apps.clear_cache()
 
     call_command("makemigrations")
-    assert num_migration_files() == num_orig_migrations + 4
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -260,7 +312,8 @@ def test_makemigrations_create_remove_models(settings):
     test_models.DynamicProxyModel = DynamicProxyModel
 
     call_command("makemigrations")
-    assert num_migration_files() == num_orig_migrations + 5
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -274,14 +327,17 @@ def test_makemigrations_create_remove_models(settings):
     with pytest.raises(InternalError, match="Cannot delete"):
         protected_model.delete()
 
-    # Keep only deletion protection and migrate
+    ###
+    # Keep only deletion protection for proxy models and migrate
+    ###
     DynamicProxyModel._meta.triggers = [
         pgtrigger.Protect(name="protect_deletes", operation=pgtrigger.Delete)
     ]
     DynamicProxyModel._meta.original_attrs["triggers"] = DynamicProxyModel._meta.triggers
 
     call_command("makemigrations")
-    assert num_migration_files() == num_orig_migrations + 6
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -292,13 +348,16 @@ def test_makemigrations_create_remove_models(settings):
     with pytest.raises(InternalError, match="Cannot delete"):
         protected_model.delete()
 
-    # Remove the model and verify it migrates
+    ###
+    # Remove the proxy model and verify it migrates
+    ###
     del test_models.DynamicProxyModel
     del apps.app_configs["tests"].models["dynamicproxymodel"]
     apps.clear_cache()
 
     call_command("makemigrations")
-    assert num_migration_files() == num_orig_migrations + 7
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -322,7 +381,8 @@ def test_makemigrations_create_remove_models(settings):
     protected_model.groups.add(ddf.G(auth_models.Group))
 
     call_command("makemigrations")
-    assert num_migration_files() == num_orig_migrations + 8
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -332,14 +392,17 @@ def test_makemigrations_create_remove_models(settings):
     with pytest.raises(InternalError, match="Cannot delete"):
         protected_model.groups.clear()
 
-    # Keep only deletion protection and migrate
+    ###
+    # Keep only deletion protection for a dynamic through model and migrate
+    ###
     DynamicThroughModel._meta.triggers = [
         pgtrigger.Protect(name="protect_deletes", operation=pgtrigger.Delete)
     ]
     DynamicThroughModel._meta.original_attrs["triggers"] = DynamicThroughModel._meta.triggers
 
     call_command("makemigrations")
-    assert num_migration_files() == num_orig_migrations + 9
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -355,7 +418,8 @@ def test_makemigrations_create_remove_models(settings):
     apps.clear_cache()
 
     call_command("makemigrations")
-    assert num_migration_files() == num_orig_migrations + 10
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -363,6 +427,6 @@ def test_makemigrations_create_remove_models(settings):
     protected_model.groups.clear()
 
     # Django has a known issue with using a default through model as a base in
-    # migrations. We revert the migrations we just made so that the test doesn't
-    # pass when it cleans up all migrations
-    call_command("migrate", "tests", str(num_orig_migrations + 7).rjust(4, "0"))
+    # migrations. We revert the migrations we just made up until the through model
+    # so that the test doesn't pass when it cleans up all migrations
+    call_command("migrate", "tests", str(num_orig_migrations + 8).rjust(4, "0"))

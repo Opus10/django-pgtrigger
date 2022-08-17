@@ -1,8 +1,14 @@
+import contextlib
+import re
+
 from django.apps import apps
 from django.db import transaction
+import django.db.backends.postgresql.schema as postgresql_schema
 from django.db.migrations import autodetector
 from django.db.migrations.operations.fields import AddField
 from django.db.migrations.operations.models import CreateModel, IndexOperation
+
+from pgtrigger import utils
 
 
 def _add_trigger(schema_editor, model, trigger):
@@ -261,3 +267,122 @@ class MigrationAutodetector(autodetector.MigrationAutodetector):
                 )
 
         super().generate_deleted_proxies()
+
+
+class DatabaseSchemaEditor(postgresql_schema.DatabaseSchemaEditor):
+    """
+    A patched schema editor that can handle altering column types of triggers.
+
+    Postgres does not allow altering column types of columns used in trigger
+    conditions. Here we fix this with the following approach:
+
+    1. Detect that a column type is being changed and set a flag so that we
+       can alter behavior of the schema editor.
+    2. In execute(), check for the special error message that's raised
+       when trying to alter a column of a trigger. Temporarily drop triggers
+       during the alter statement and reinstall them. Ensure this is all
+       wrapped in a transaction
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.temporarily_dropped_triggers = set()
+        self.is_altering_field_type = False
+
+    @contextlib.contextmanager
+    def alter_field_type(self):
+        """
+        Temporarily sets state so that execute() knows we are trying to alter a column type
+        """
+        self.is_altering_field_type = True
+        try:
+            yield
+        finally:
+            self.is_altering_field_type = False
+
+    def _alter_field(
+        self,
+        model,
+        old_field,
+        new_field,
+        old_type,
+        new_type,
+        old_db_params,
+        new_db_params,
+        strict=False,
+    ):
+        """
+        Detects that a field type is being altered and sets the appropriate state
+        """
+        context = self.alter_field_type() if old_type != new_type else contextlib.nullcontext()
+
+        with context:
+            return super()._alter_field(
+                model,
+                old_field,
+                new_field,
+                old_type,
+                new_type,
+                old_db_params,
+                new_db_params,
+                strict=strict,
+            )
+
+    @contextlib.contextmanager
+    def temporarily_drop_trigger(self, trigger, table):
+        """
+        Given a table and trigger, temporarily drop the trigger and recreate it
+        after the context manager yields.
+        """
+        self.temporarily_dropped_triggers.add((trigger, table))
+
+        try:
+            with self.atomic, self.connection.cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    SELECT pg_get_triggerdef(oid) FROM pg_trigger
+                        WHERE tgname = '{trigger}' AND tgrelid = '{table}'::regclass;
+                """
+                )
+                trigger_create_sql = cursor.fetchall()[0][0]
+                cursor.execute(f"DROP TRIGGER {trigger} on {utils.quote(table)};")
+
+                yield
+
+                cursor.execute(trigger_create_sql)
+        finally:
+            self.temporarily_dropped_triggers.remove((trigger, table))
+
+    def execute(self, *args, **kwargs):
+        """
+        If we are altering a field type, catch the special error psycopg raises
+        when a column on a trigger is altered. Temporarily drop and recreate
+        triggers to ensure the alter operation is successful.
+        """
+        if self.is_altering_field_type:
+            try:
+                with self.atomic:
+                    return super().execute(*args, **kwargs)
+            except Exception as exc:
+                match = re.search(
+                    r'cannot alter type of a column used in a trigger definition\n'
+                    r'DETAIL:\s+trigger (?P<trigger>\w+).+on table "?(?P<table>\w+)"?',
+                    str(exc),
+                )
+                if match:
+                    trigger = match.groupdict()["trigger"]
+                    table = match.groupdict()["table"]
+
+                    # In practice we should never receive the same error message for
+                    # the same trigger/table, but check anyways to avoid infinite
+                    # recursion
+                    if (
+                        trigger.startswith("pgtrigger_")
+                        and (table, trigger) not in self.temporarily_dropped_triggers
+                    ):
+                        with self.temporarily_drop_trigger(trigger, table):
+                            return self.execute(*args, **kwargs)
+
+                raise  # pragma: no cover
+        else:
+            return super().execute(*args, **kwargs)
