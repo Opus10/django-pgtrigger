@@ -1,9 +1,11 @@
 import django.apps
+from django.conf import settings
 from django.core.management.commands import makemigrations, migrate
 import django.db.backends.postgresql.schema as postgresql_schema
 from django.db.migrations import state
 from django.db.models import options
 from django.db.models.signals import post_migrate
+from django.db.utils import load_backend
 
 from pgtrigger import core
 from pgtrigger import features
@@ -24,12 +26,39 @@ if features.migrations():  # pragma: no branch
     if 'triggers' not in state.DEFAULT_NAMES:  # pragma: no branch
         state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ('triggers',)
 
-    makemigrations.MigrationAutodetector = migrations.MigrationAutodetector
-    migrate.MigrationAutodetector = migrations.MigrationAutodetector
+    if not issubclass(  # pragma: no branch
+        makemigrations.MigrationAutodetector, migrations.MigrationAutodetectorMixin
+    ):
+        makemigrations.MigrationAutodetector = type(
+            "MigrationAutodetector",
+            (migrations.MigrationAutodetectorMixin, makemigrations.MigrationAutodetector),
+            {},
+        )
+
+    if not issubclass(  # pragma: no branch
+        migrate.MigrationAutodetector, migrations.MigrationAutodetectorMixin
+    ):
+        migrate.MigrationAutodetector = type(
+            "MigrationAutodetector",
+            (migrations.MigrationAutodetectorMixin, migrate.MigrationAutodetector),
+            {},
+        )
 
 
 if features.schema_editor():  # pragma: no branch
-    postgresql_schema.DatabaseSchemaEditor = migrations.DatabaseSchemaEditor
+    for config in settings.DATABASES.values():
+        backend = load_backend(config["ENGINE"])
+
+        if issubclass(
+            backend.DatabaseWrapper.SchemaEditorClass, postgresql_schema.DatabaseSchemaEditor
+        ) and not issubclass(
+            backend.DatabaseWrapper.SchemaEditorClass, migrations.DatabaseSchemaEditorMixin
+        ):
+            backend.DatabaseWrapper.SchemaEditorClass = type(
+                "DatabaseSchemaEditor",
+                (migrations.DatabaseSchemaEditorMixin, backend.DatabaseWrapper.SchemaEditorClass),
+                {},
+            )
 
 
 def install_on_migrate(using, **kwargs):

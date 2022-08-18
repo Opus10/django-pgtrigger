@@ -3,8 +3,6 @@ import re
 
 from django.apps import apps
 from django.db import transaction
-import django.db.backends.postgresql.schema as postgresql_schema
-from django.db.migrations import autodetector
 from django.db.migrations.operations.fields import AddField
 from django.db.migrations.operations.models import CreateModel, IndexOperation
 
@@ -148,8 +146,8 @@ def _inject_m2m_dependency_in_proxy(proxy_op):
                     proxy_op._auto_deps.append((app_label, model_name, field.name, True))
 
 
-class MigrationAutodetector(autodetector.MigrationAutodetector):
-    """An autodetector that detects triggers"""
+class MigrationAutodetectorMixin:
+    """An mixin that can be subclassed with MigrationAutodetector and detects triggers"""
 
     def _detect_changes(self, *args, **kwargs):
         self.altered_triggers = {}
@@ -269,9 +267,10 @@ class MigrationAutodetector(autodetector.MigrationAutodetector):
         super().generate_deleted_proxies()
 
 
-class DatabaseSchemaEditor(postgresql_schema.DatabaseSchemaEditor):
+class DatabaseSchemaEditorMixin:
     """
-    A patched schema editor that can handle altering column types of triggers.
+    A schema editor mixin that can subclass a DatabaseSchemaEditor and
+    handle altering column types of triggers.
 
     Postgres does not allow altering column types of columns used in trigger
     conditions. Here we fix this with the following approach:
