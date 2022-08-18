@@ -1,4 +1,11 @@
 # Changelog
+## 4.2.0 (2022-08-17)
+### Bug
+  - Ensure interoperability with other Postgres backends [Wes Kendall, 1c4f480]
+
+    ``django-pgtrigger`` trigger migrations are interoperable with Postgis and
+    other Postgres-flavored database backends.
+
 ## 4.1.0 (2022-08-17)
 ### Bug
   - Allow altering columns from trigger conditions [Wes Kendall, 1178457]
