@@ -1,5 +1,18 @@
 # Changelog
-## 4.2.1 (2022-08-17)
+## 4.3.0 (2022-08-18)
+### Feature
+  - Support for partitioned tables [Wes Kendall, 863b8cb]
+
+    Installation commands and all core trigger functionality works with partitioned tables.
+
+    Users will need to run
+    ``python manage.py pgtrigger install`` to upgrade existing trigger installations,
+    otherwise they will appear as outdated when running ``python manage.py pgtrigger ls``.
+
+    Although outdated triggers will still run successfully for non-partitioned tables, this
+    backwards compatibility will be removed in version 5.
+
+## 4.2.1 (2022-08-18)
 ### Trivial
   - Do schema editor patching in ``App.ready()`` instead of module load [Wes Kendall, cce99ce]
 
