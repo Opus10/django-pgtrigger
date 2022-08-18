@@ -39,6 +39,13 @@ How do I disable triggers in my application?
 
 Use `pgtrigger.ignore` if you need to temporarily ignore triggers in your application (see :ref:`ignoring_triggers`). Only use the core installation commands if you want to disable or uninstall triggers globally (see the :ref:`commands` section).
 
+Why are my triggers still outdated after being migrated?
+--------------------------------------------------------
+
+If ``python manage.py pgtrigger ls`` shows outdated triggers and ``makemigrations`` isn't showing changes, you are likely affected by a legacy issue that is a result of upgrading to version 3 or 4.
+
+Although there are backwards compatibilities for outdated triggers that don't create migrations, it's best to run ``python manage.py pgtrigger install`` to ensure triggers are up to date.
+
 My trigger can't be serialized for migrations. What do I do?
 ------------------------------------------------------------
 
@@ -107,7 +114,7 @@ based on the ``allow_migrate`` method of any installed routers. This mimics Djan
 If you use ``settings.PGTRIGGER_INSTALL_ON_MIGRATE``, triggers will only be installed for the database that was passed to
 ``python manage.py migrate``.
 
-Version 4 adds support for multi-schema setups. See the :ref:`multi_db` section for more information.
+Version 4 adds support for multi-schema setups. See the :ref:`advanced_db` section for more information.
 
 How can I contact the author?
 -----------------------------

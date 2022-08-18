@@ -57,6 +57,7 @@ importlib_metadata = { version = ">=4", python = "~3.7" }
 black = "22.6.0"
 dj-database-url = "0.5.0"
 django-dynamic-fixture = "3.1.1"
+django-postgres-extra = "2.0.4"
 flake8 = "3.9.2"
 flake8-bugbear = "22.1.11"
 flake8-comprehensions = "3.8.0"

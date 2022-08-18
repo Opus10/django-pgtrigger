@@ -80,15 +80,15 @@ Next steps
 
 We recommend everyone first read:
 
-* The :ref:`basics` for an overview
-* The :ref:`cookbook` for trigger examples
+* :ref:`basics` for an overview.
+* :ref:`cookbook` for trigger examples.
 * :ref:`further_reading` for additional reading and videos.
 
-Other advanced topics are available:
+Other topics are available:
 
-* :ref:`ignoring_triggers`
-* :ref:`advanced_installation`
-* :ref:`multi_db`
-* :ref:`deferrable`
+* :ref:`ignoring_triggers` for dynamically ignoring triggers.
+* :ref:`deferrable` for deferring trigger execution.
+* :ref:`advanced_installation` for installing triggers on third-party models, many-to-many models, programmatic installation, and more.
+* :ref:`advanced_db` for notes on how triggers work in multi-database, mutli-schema, or partitioned database setups.
 
 View the :ref:`faq` for everything else.

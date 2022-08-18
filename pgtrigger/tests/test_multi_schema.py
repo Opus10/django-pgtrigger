@@ -36,7 +36,10 @@ class SchemaRouter:
 
 @pytest.fixture(autouse=True)
 def routed_db(settings):
-    settings.DATABASE_ROUTERS = ['pgtrigger.tests.test_multi_schema.SchemaRouter']
+    settings.DATABASE_ROUTERS = [
+        'pgtrigger.tests.test_multi_schema.SchemaRouter',
+        'pgtrigger.tests.models.Router',
+    ]
 
 
 @pytest.fixture(autouse=True)

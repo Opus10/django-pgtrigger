@@ -106,13 +106,22 @@ def _set_ignore_state(model, trigger):
     if not hasattr(_ignore, 'value'):
         _ignore.value = set()
 
-    pg_uri = f'{model._meta.db_table}:{trigger.get_pgid(model)}'
-    if pg_uri not in _ignore.value:
+    pgid = trigger.get_pgid(model)
+    if pgid not in _ignore.value:
+
+        # In order to preserve backwards compatibiliy with older installations
+        # of the _pgtrigger_ignore func, we must set a full URI (old version)
+        # and trigger ID (new version).
+        # This will be removed in version 5
+        uri = f'{model._meta.db_table}:{pgid}'
+
         try:
-            _ignore.value.add(pg_uri)
+            _ignore.value.add(uri)
+            _ignore.value.add(pgid)
             yield
         finally:
-            _ignore.value.remove(pg_uri)
+            _ignore.value.remove(uri)
+            _ignore.value.remove(pgid)
     else:  # The trigger is already being ignored
         yield
 

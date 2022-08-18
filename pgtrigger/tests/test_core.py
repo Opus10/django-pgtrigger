@@ -12,6 +12,32 @@ from pgtrigger import core
 from pgtrigger.tests import models
 
 
+@pytest.mark.django_db(transaction=True)
+def test_partition():
+    p1 = ddf.G(models.PartitionModel, timestamp=dt.datetime(2019, 1, 3))
+    p2 = ddf.G(models.PartitionModel, timestamp=dt.datetime(2019, 2, 4))
+    p3 = ddf.G(models.PartitionModel, timestamp=dt.datetime(2019, 3, 5))
+    default = ddf.G(models.PartitionModel, timestamp=dt.datetime(2019, 4, 5))
+
+    with pytest.raises(InternalError, match="Cannot delete"):
+        p1.delete()
+
+    with pytest.raises(InternalError, match="Cannot delete"):
+        p2.delete()
+
+    with pytest.raises(InternalError, match="Cannot delete"):
+        p3.delete()
+
+    with pytest.raises(InternalError, match="Cannot delete"):
+        default.delete()
+
+    with pgtrigger.ignore("tests.PartitionModel:protect_delete"):
+        p1.delete()
+        p2.delete()
+        p3.delete()
+        default.delete()
+
+
 @pytest.mark.django_db
 def test_through_model():
     """

@@ -38,3 +38,10 @@ def schema():
     The default schema where special objects are installed
     """
     return getattr(settings, 'PGTRIGGER_SCHEMA', 'public')
+
+
+def prune_on_install():
+    """
+    True if triggers should be pruned on a full install or uninstall
+    """
+    return getattr(settings, 'PGTRIGGER_PRUNE_ON_INSTALL', True)

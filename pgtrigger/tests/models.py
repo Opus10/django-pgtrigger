@@ -2,8 +2,30 @@ from django.contrib.auth.models import User
 from django.contrib.postgres.search import SearchVectorField
 from django.db import models
 from django.utils import timezone
+from psqlextra.models import PostgresPartitionedModel
+from psqlextra.types import PostgresPartitioningMethod
 
 import pgtrigger
+
+
+class Router:
+    route_app_labels = ['tests']
+
+    def allow_migrate(self, db, app_label, model_name=None, **hints):
+        if model_name == 'partitionmodel' and db in ('sqlite', 'other'):
+            return False
+
+
+class PartitionModel(PostgresPartitionedModel):
+    class PartitioningMeta:
+        method = PostgresPartitioningMethod.RANGE
+        key = ["timestamp"]
+
+    name = models.TextField()
+    timestamp = models.DateTimeField()
+
+    class Meta:
+        triggers = [pgtrigger.Protect(name="protect_delete", operation=pgtrigger.Delete)]
 
 
 class OrderSchema(models.Model):
