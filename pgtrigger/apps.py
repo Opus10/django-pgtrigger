@@ -21,44 +21,70 @@ if features.model_meta():  # pragma: no branch
         options.DEFAULT_NAMES = tuple(options.DEFAULT_NAMES) + ('triggers',)
 
 
-# Patch the autodetector and model state detection if migrations are turned on
-if features.migrations():  # pragma: no branch
-    if 'triggers' not in state.DEFAULT_NAMES:  # pragma: no branch
-        state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ('triggers',)
+def patch_migrations():
+    """
+    Patch the autodetector and model state detection if migrations are turned on
+    """
+    if features.migrations():  # pragma: no branch
+        if 'triggers' not in state.DEFAULT_NAMES:  # pragma: no branch
+            state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ('triggers',)
 
-    if not issubclass(  # pragma: no branch
-        makemigrations.MigrationAutodetector, migrations.MigrationAutodetectorMixin
-    ):
-        makemigrations.MigrationAutodetector = type(
-            "MigrationAutodetector",
-            (migrations.MigrationAutodetectorMixin, makemigrations.MigrationAutodetector),
-            {},
-        )
-
-    if not issubclass(  # pragma: no branch
-        migrate.MigrationAutodetector, migrations.MigrationAutodetectorMixin
-    ):
-        migrate.MigrationAutodetector = type(
-            "MigrationAutodetector",
-            (migrations.MigrationAutodetectorMixin, migrate.MigrationAutodetector),
-            {},
-        )
-
-
-if features.schema_editor():  # pragma: no branch
-    for config in settings.DATABASES.values():
-        backend = load_backend(config["ENGINE"])
-
-        if issubclass(
-            backend.DatabaseWrapper.SchemaEditorClass, postgresql_schema.DatabaseSchemaEditor
-        ) and not issubclass(
-            backend.DatabaseWrapper.SchemaEditorClass, migrations.DatabaseSchemaEditorMixin
+        if not issubclass(  # pragma: no branch
+            makemigrations.MigrationAutodetector, migrations.MigrationAutodetectorMixin
         ):
-            backend.DatabaseWrapper.SchemaEditorClass = type(
-                "DatabaseSchemaEditor",
-                (migrations.DatabaseSchemaEditorMixin, backend.DatabaseWrapper.SchemaEditorClass),
+            makemigrations.MigrationAutodetector = type(
+                "MigrationAutodetector",
+                (migrations.MigrationAutodetectorMixin, makemigrations.MigrationAutodetector),
                 {},
             )
+
+        if not issubclass(  # pragma: no branch
+            migrate.MigrationAutodetector, migrations.MigrationAutodetectorMixin
+        ):
+            migrate.MigrationAutodetector = type(
+                "MigrationAutodetector",
+                (migrations.MigrationAutodetectorMixin, migrate.MigrationAutodetector),
+                {},
+            )
+
+
+def patch_schema_editor():
+    """
+    Patch the schema editor to allow for column types to be altered on
+    trigger conditions
+    """
+    if features.schema_editor():  # pragma: no branch
+        for config in settings.DATABASES.values():
+            backend = load_backend(config["ENGINE"])
+
+            if issubclass(
+                backend.DatabaseWrapper.SchemaEditorClass,
+                postgresql_schema.DatabaseSchemaEditor,
+            ) and not issubclass(
+                backend.DatabaseWrapper.SchemaEditorClass, migrations.DatabaseSchemaEditorMixin
+            ):
+                backend.DatabaseWrapper.SchemaEditorClass = type(
+                    "DatabaseSchemaEditor",
+                    (
+                        migrations.DatabaseSchemaEditorMixin,
+                        backend.DatabaseWrapper.SchemaEditorClass,
+                    ),
+                    {},
+                )
+
+
+def register_triggers_from_meta():
+    """
+    Populate the trigger registry from model ``Meta.triggers``
+    """
+    if features.model_meta():  # pragma: no branch
+        for model in django.apps.apps.get_models():
+            triggers = getattr(model._meta, "triggers", [])
+            for trigger in triggers:
+                if not isinstance(trigger, core.Trigger):  # pragma: no cover
+                    raise TypeError(f"Triggers in {model} Meta must be pgtrigger.Trigger classes")
+
+                trigger.register(model)
 
 
 def install_on_migrate(using, **kwargs):
@@ -71,22 +97,11 @@ class PGTriggerConfig(django.apps.AppConfig):
 
     def ready(self):
         """
-        Register all triggers in model Meta and
-        install them in a post_migrate hook if any are
-        configured.
+        Do all necessary patching, trigger setup, and signal handler configuration
         """
-
-        # Populate the trigger registry from any ``Meta.triggers``
-        if features.model_meta():  # pragma: no branch
-            for model in django.apps.apps.get_models():
-                triggers = getattr(model._meta, "triggers", [])
-                for trigger in triggers:
-                    if not isinstance(trigger, core.Trigger):  # pragma: no cover
-                        raise TypeError(
-                            f"Triggers in {model} Meta must be pgtrigger.Trigger classes"
-                        )
-
-                    trigger.register(model)
+        patch_migrations()
+        patch_schema_editor()
+        register_triggers_from_meta()
 
         # Configure triggers to automatically be installed after migrations
         post_migrate.connect(install_on_migrate, sender=self)
