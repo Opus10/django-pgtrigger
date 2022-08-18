@@ -1,5 +1,9 @@
 # Changelog
-## 4.2.0 (2022-08-17)
+## 4.2.1 (2022-08-17)
+### Trivial
+  - Do schema editor patching in ``App.ready()`` instead of module load [Wes Kendall, cce99ce]
+
+## 4.2.0 (2022-08-18)
 ### Bug
   - Ensure interoperability with other Postgres backends [Wes Kendall, 1c4f480]
 
