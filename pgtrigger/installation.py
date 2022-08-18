@@ -5,6 +5,7 @@ import logging
 
 from django.db import connections, DEFAULT_DB_ALIAS
 
+from pgtrigger import features
 from pgtrigger import registry
 from pgtrigger import utils
 
@@ -31,7 +32,7 @@ def install(*uris, database=None):
         )
         trigger.install(model, database=database)
 
-    if not uris:  # pragma: no branch
+    if not uris and features.prune_on_install():  # pragma: no branch
         prune(database=database)
 
 
@@ -59,6 +60,7 @@ def prunable(database=None):
             SELECT tgrelid::regclass, tgname, tgenabled
                 FROM pg_trigger
                 WHERE tgname LIKE 'pgtrigger_%' AND
+                      tgparentid = 0 AND
                       array_length(parse_ident(tgrelid::regclass::varchar), 1) = 1
             '''
         )
@@ -130,7 +132,7 @@ def uninstall(*uris, database=None):
         )
         trigger.uninstall(model, database=database)
 
-    if not uris:
+    if not uris and features.prune_on_install():
         prune(database=database)
 
 

@@ -9,9 +9,9 @@ Table of Contents
    basics
    cookbook
    ignoring_triggers
-   advanced_installation
-   multi_db
    deferrable
+   advanced_installation
+   advanced_db
    faq
    further_reading
    api_reference

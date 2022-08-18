@@ -7,6 +7,21 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "ansimarkup"
+version = "1.5.0"
+description = "Produce colored terminal text with an xml-like markup"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+colorama = "*"
+
+[package.extras]
+tests = ["pytest-cov (>=2.3.1)", "pytest (>=3.0.3)", "tox (>=2.6.0)"]
+devel = ["pep8-naming", "flake8", "readme-renderer (>=16.0)", "check-manifest (>=0.35)", "bumpversion (>=0.5.2)"]
+
+[[package]]
 name = "arrow"
 version = "1.2.2"
 description = "Better dates & times for Python"
@@ -163,7 +178,7 @@ six = ">=1.10"
 
 [[package]]
 name = "coverage"
-version = "6.4.3"
+version = "6.4.4"
 description = "Code coverage measurement for Python"
 category = "dev"
 optional = false
@@ -220,6 +235,24 @@ python-versions = "*"
 six = "*"
 
 [[package]]
+name = "django-postgres-extra"
+version = "2.0.4"
+description = "Bringing all of PostgreSQL's awesomeness to Django."
+category = "dev"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+ansimarkup = ">=1.4.0,<=2.0.0"
+Django = ">=2.0"
+python-dateutil = ">=2.8.0,<=3.0.0"
+
+[package.extras]
+analysis = ["black (==21.10b0)", "flake8 (==4.0.1)", "autoflake (==1.4)", "autopep8 (==1.6.0)", "isort (==5.10.0)", "docformatter (==1.4)"]
+docs = ["Sphinx (==2.2.0)", "sphinx-rtd-theme (==0.4.3)", "docutils (<0.18)"]
+test = ["psycopg2 (>=2.8.4,<3.0.0)", "dj-database-url (==0.5.0)", "pytest (==6.2.5)", "pytest-benchmark (==3.4.1)", "pytest-django (==4.4.0)", "pytest-cov (==3.0.0)", "tox (==3.24.4)", "freezegun (==1.1.0)", "coveralls (==3.3.0)", "snapshottest (==0.6.0)"]
+
+[[package]]
 name = "docutils"
 version = "0.17.1"
 description = "Docutils -- Python Documentation Utilities"
@@ -229,15 +262,15 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "filelock"
-version = "3.7.1"
+version = "3.8.0"
 description = "A platform independent file lock."
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 
 [package.extras]
-docs = ["furo (>=2021.8.17b43)", "sphinx (>=4.1)", "sphinx-autodoc-typehints (>=1.12)"]
-testing = ["covdefaults (>=1.2.0)", "coverage (>=4)", "pytest (>=4)", "pytest-cov", "pytest-timeout (>=1.4.2)"]
+docs = ["furo (>=2022.6.21)", "sphinx (>=5.1.1)", "sphinx-autodoc-typehints (>=1.19.1)"]
+testing = ["covdefaults (>=2.2)", "coverage (>=6.4.2)", "pytest (>=7.1.2)", "pytest-cov (>=3)", "pytest-timeout (>=2.1)"]
 
 [[package]]
 name = "flake8"
@@ -483,7 +516,7 @@ code_style = ["pre-commit (==2.6)"]
 
 [[package]]
 name = "mdurl"
-version = "0.1.1"
+version = "0.1.2"
 description = "Markdown URL utilities"
 category = "dev"
 optional = false
@@ -644,11 +677,14 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
 name = "pygments"
-version = "2.12.0"
+version = "2.13.0"
 description = "Pygments is a syntax highlighting package written in Python."
 category = "dev"
 optional = false
 python-versions = ">=3.6"
+
+[package.extras]
+plugins = ["importlib-metadata"]
 
 [[package]]
 name = "pyparsing"
@@ -791,7 +827,7 @@ unidecode = ["Unidecode (>=1.1.1)"]
 
 [[package]]
 name = "pytz"
-version = "2022.1"
+version = "2022.2.1"
 description = "World timezone definitions, modern and historical"
 category = "main"
 optional = false
@@ -1096,13 +1132,14 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pyt
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.0,<4"
-content-hash = "565a6d6fce26b7765a81d4103e1418da6c8aadad6388983444dc3f1863ded388"
+content-hash = "a285829caf56c6921a7abc96a0d5aab963102c8f29f8f5018e3b9113d64f46df"
 
 [metadata.files]
 alabaster = [
     {file = "alabaster-0.7.12-py2.py3-none-any.whl", hash = "sha256:446438bdcca0e05bd45ea2de1668c1d9b032e1a9154c2c259092d77031ddd359"},
     {file = "alabaster-0.7.12.tar.gz", hash = "sha256:a661d72d58e6ea8a57f7a86e37d86716863ee5e92788398526d58b26a4e4dc02"},
 ]
+ansimarkup = []
 arrow = [
     {file = "arrow-1.2.2-py3-none-any.whl", hash = "sha256:d622c46ca681b5b3e3574fcb60a04e5cc81b9625112d5fb2b44220c36c892177"},
     {file = "arrow-1.2.2.tar.gz", hash = "sha256:05caf1fd3d9a11a1135b2b6f09887421153b94558e5ef4d090b567b47173ac2b"},
@@ -1141,6 +1178,7 @@ django = []
 django-dynamic-fixture = [
     {file = "django-dynamic-fixture-3.1.1.tar.gz", hash = "sha256:90d9d68ec373dce97a4a9ba3ec6a39cf10918e9c222fdf231074cfb668d14ea2"},
 ]
+django-postgres-extra = []
 docutils = [
     {file = "docutils-0.17.1-py2.py3-none-any.whl", hash = "sha256:cf316c8370a737a022b72b56874f6602acf974a37a9fba42ec2876387549fc61"},
     {file = "docutils-0.17.1.tar.gz", hash = "sha256:686577d2e4c32380bb50cbb22f575ed742d58168cee37e99117a854bcd88f125"},
@@ -1367,10 +1405,7 @@ python-dateutil = [
 ]
 python-dotenv = []
 python-slugify = []
-pytz = [
-    {file = "pytz-2022.1-py2.py3-none-any.whl", hash = "sha256:e68985985296d9a66a881eb3193b0906246245294a881e7c8afe623866ac6a5c"},
-    {file = "pytz-2022.1.tar.gz", hash = "sha256:1e760e2fe6a8163bc0b3d9a19c4f84342afa0a2affebfaa84b01b978a02ecaa7"},
-]
+pytz = []
 pyyaml = [
     {file = "PyYAML-6.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d4db7c7aef085872ef65a8fd7d6d09a14ae91f691dec3e87ee5ee0539d516f53"},
     {file = "PyYAML-6.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:9df7ed3b3d2e0ecfe09e14741b857df43adb5a3ddadc919a2d94fbdf78fea53c"},

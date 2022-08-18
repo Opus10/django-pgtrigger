@@ -369,7 +369,6 @@ def _render_ignore_func():
     """
     return f'''
         CREATE OR REPLACE FUNCTION {_ignore_func_name()}(
-            table_name NAME,
             trigger_name NAME
         )
         RETURNS BOOLEAN AS $$
@@ -383,7 +382,7 @@ def _render_ignore_func():
                     EXCEPTION WHEN OTHERS THEN
                 END;
                 IF _pgtrigger_ignore IS NOT NULL THEN
-                    SELECT CONCAT(table_name, ':', trigger_name) = ANY(_pgtrigger_ignore)
+                    SELECT trigger_name = ANY(_pgtrigger_ignore)
                     INTO _result;
                     RETURN _result;
                 ELSE
@@ -561,7 +560,7 @@ class Trigger(_Serializable):
         Renders the clause that can dynamically ignore the trigger's execution
         """
         return f'''
-            IF ({_ignore_func_name()}(TG_TABLE_NAME, TG_NAME) IS TRUE) THEN
+            IF ({_ignore_func_name()}(TG_NAME) IS TRUE) THEN
                 IF (TG_OP = 'DELETE') THEN
                     RETURN OLD;
                 ELSE
@@ -672,7 +671,10 @@ class Trigger(_Serializable):
                 AND tgrelid='{utils.quote(model._meta.db_table)}'::regclass;
         '''
         try:
-            results = self.exec_sql(trigger_exists_sql, model, database=database, fetchall=True)
+            with transaction.atomic(using=database):
+                results = self.exec_sql(
+                    trigger_exists_sql, model, database=database, fetchall=True
+                )
         except ProgrammingError:  # pragma: no cover
             # When the table doesn't exist yet, possibly because migrations
             # haven't been executed, a ProgrammingError will happen because

@@ -1,7 +1,10 @@
-.. _multi_db:
+.. _advanced_db:
 
-Multiple Databases and Schemas
-==============================
+Advanced Database Setups
+========================
+
+Here we cover details about more advanced database setups that
+might impact how you use triggers.
 
 Multiple Databases
 ------------------
@@ -37,8 +40,8 @@ Dynamic runtime functions `pgtrigger.ignore`, `pgtrigger.schema`, and
 unless the ``databases`` argument is provided.
 
 
-Multiple Schemas
-----------------
+Schemas
+-------
 
 There are two common ways of using Postgres schemas in Django, both of which
 work with ``django-pgtrigger``:
@@ -79,3 +82,13 @@ the public schema. The function is always referenced with a fully-qualified name
 If you don't use the public schema, configure the schema with
 ``settings.PGTRIGGER_SCHEMA``. Setting this to ``None`` uses a relative path when
 installing and calling the function.
+
+Partitions
+----------
+
+``django-pgtrigger`` supports tables that use `Postgres table partitioning <https://www.postgresql.org/docs/current/ddl-partitioning.html>`__ with no additional configuration.
+
+
+.. note::
+   Triggers cannot be installed or uninstalled on a per-partition basis. I.e. installing a trigger on a partitioned
+   table installs it for all partitions.
