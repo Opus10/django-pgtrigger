@@ -1,4 +1,8 @@
 # Changelog
+## 4.3.1 (2022-08-19)
+### Trivial
+  - Fixed ReadTheDocs builds [Wes Kendall, 2cd0c9e]
+
 ## 4.3.0 (2022-08-18)
 ### Feature
   - Support for partitioned tables [Wes Kendall, 863b8cb]
