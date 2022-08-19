@@ -119,4 +119,8 @@ Version 4 adds support for multi-schema setups. See the :ref:`advanced_db` secti
 How can I contact the author?
 -----------------------------
 
-The primary author, Wes Kendall, loves to talk to users. Message him at `wesleykendall@protonmail.com <mailto:wesleykendall@protonmail.com>`__ for any feedback. He and other `Opus 10 engineers <https://opus10.dev>`__ do contracting work, so keep them in mind for your next Django project.
+The primary author, Wes Kendall, loves to talk to users. Message him at `wesleykendall@protonmail.com <mailto:wesleykendall@protonmail.com>`__ for any feedback. Any questions, feature requests, or bugs should
+be reported as `issues here <https://github.com/Opus10/django-pgtrigger/issues>`__.
+
+Wes and other `Opus 10 engineers <https://opus10.dev>`__ do contracting work, so keep them in mind if your company
+uses Django.

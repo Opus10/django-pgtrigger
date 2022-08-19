@@ -1,7 +1,13 @@
 import copy
+import os
 
 import django
 import dj_database_url
+
+
+# This is needed to support ReadTheDocs builds for our multi-db setup
+if "DATABASE_URL" not in os.environ:
+    os.environ["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"
 
 
 SECRET_KEY = 'django-pgtrigger'
@@ -23,8 +29,7 @@ DATABASES = {
 }
 
 DATABASES['other'] = copy.deepcopy(DATABASES['default'])
-if 'NAME' in DATABASES['other']:  # This check is needed for doc builds
-    DATABASES['other']['NAME'] += '_other'
+DATABASES['other']['NAME'] += '_other'
 
 DATABASES["default"]["ENGINE"] = "psqlextra.backend"
 
