@@ -7,23 +7,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tests', '0007_auto_20220808_1055'),
+        ("tests", "0007_auto_20220808_1055"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='SearchModel',
+            name="SearchModel",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name='ID'
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
                     ),
                 ),
-                ('body_vector', django.contrib.postgres.search.SearchVectorField()),
-                ('title_body_vector', django.contrib.postgres.search.SearchVectorField()),
-                ('title', models.CharField(max_length=128)),
-                ('body', models.TextField()),
+                ("body_vector", django.contrib.postgres.search.SearchVectorField()),
+                ("title_body_vector", django.contrib.postgres.search.SearchVectorField()),
+                ("title", models.CharField(max_length=128)),
+                ("body", models.TextField()),
             ],
         ),
     ]

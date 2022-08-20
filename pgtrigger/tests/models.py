@@ -9,10 +9,10 @@ import pgtrigger
 
 
 class Router:
-    route_app_labels = ['tests']
+    route_app_labels = ["tests"]
 
     def allow_migrate(self, db, app_label, model_name=None, **hints):
-        if model_name == 'partitionmodel' and db in ('sqlite', 'other'):
+        if model_name == "partitionmodel" and db in ("sqlite", "other"):
             return False
 
 
@@ -64,7 +64,7 @@ class SearchModel(models.Model):
 
 
 @pgtrigger.register(
-    pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete),
+    pgtrigger.Protect(name="protect_delete", operation=pgtrigger.Delete),
 )
 class CustomTableName(models.Model):
     int_field = models.IntegerField(null=True, unique=True)
@@ -79,7 +79,7 @@ class TestModel(models.Model):
     float_field = models.FloatField(null=True)
 
     class Meta:
-        unique_together = ('int_field', 'char_field')
+        unique_together = ("int_field", "char_field")
 
 
 class LogEntry(models.Model):
@@ -92,23 +92,23 @@ class LogEntry(models.Model):
 
 @pgtrigger.register(
     pgtrigger.Trigger(
-        name='update_of_statement_test',
+        name="update_of_statement_test",
         level=pgtrigger.Statement,
-        operation=pgtrigger.UpdateOf('field'),
+        operation=pgtrigger.UpdateOf("field"),
         when=pgtrigger.After,
-        func=f'''
+        func=f"""
             INSERT INTO {LogEntry._meta.db_table}(level)
             VALUES ('STATEMENT');
             RETURN NULL;
-        ''',
+        """,
     ),
     pgtrigger.Trigger(
-        name='after_update_statement_test',
+        name="after_update_statement_test",
         level=pgtrigger.Statement,
         operation=pgtrigger.Update,
         when=pgtrigger.After,
-        referencing=pgtrigger.Referencing(old='old_values', new='new_values'),
-        func=f'''
+        referencing=pgtrigger.Referencing(old="old_values", new="new_values"),
+        func=f"""
             INSERT INTO {LogEntry._meta.db_table}(level, old_field, new_field)
             SELECT 'STATEMENT' AS level,
                    old_values.field AS old_field,
@@ -116,15 +116,15 @@ class LogEntry(models.Model):
                  FROM old_values
                  JOIN new_values ON old_values.id = new_values.id;
             RETURN NULL;
-        ''',
+        """,
     ),
     pgtrigger.Trigger(
-        name='after_update_row_test',
+        name="after_update_row_test",
         level=pgtrigger.Row,
         operation=pgtrigger.Update,
         when=pgtrigger.After,
         condition=pgtrigger.Q(old__field__df=pgtrigger.F("new__field")),
-        func=(f'INSERT INTO {LogEntry._meta.db_table}(level) VALUES (\'ROW\'); RETURN NULL;'),
+        func=(f"INSERT INTO {LogEntry._meta.db_table}(level) VALUES ('ROW'); RETURN NULL;"),
     ),
 )
 class ToLogModel(models.Model):
@@ -146,18 +146,18 @@ class TestTrigger(models.Model):
     int_field = models.IntegerField(default=0)
     dt_field = models.DateTimeField(default=timezone.now)
     nullable = models.CharField(null=True, default=None, max_length=16)
-    fk_field = models.ForeignKey('auth.User', null=True, on_delete=models.CASCADE)
+    fk_field = models.ForeignKey("auth.User", null=True, on_delete=models.CASCADE)
     char_pk_fk_field = models.ForeignKey(CharPk, null=True, on_delete=models.CASCADE)
     m2m_field = models.ManyToManyField(User, related_name="+")
 
     class Meta:
         triggers = [
             pgtrigger.Trigger(
-                name='protect_misc_insert',
+                name="protect_misc_insert",
                 when=pgtrigger.Before,
                 operation=pgtrigger.Insert,
                 func="RAISE EXCEPTION 'no no no!';",
-                condition=pgtrigger.Q(new__field='misc_insert'),
+                condition=pgtrigger.Q(new__field="misc_insert"),
             ),
         ]
 
@@ -170,7 +170,7 @@ class TestTriggerProxy(TestTrigger):
     class Meta:
         proxy = True
         triggers = [
-            pgtrigger.Protect(name='protect_delete', operation=pgtrigger.Delete),
+            pgtrigger.Protect(name="protect_delete", operation=pgtrigger.Delete),
         ]
 
 
@@ -178,11 +178,11 @@ class TestDefaultThrough(TestTrigger.m2m_field.through):
     class Meta:
         proxy = True
         triggers = [
-            pgtrigger.Protect(name='protect_it', operation=pgtrigger.Delete),
+            pgtrigger.Protect(name="protect_it", operation=pgtrigger.Delete),
         ]
 
 
-@pgtrigger.register(pgtrigger.SoftDelete(name='soft_delete', field='is_active'))
+@pgtrigger.register(pgtrigger.SoftDelete(name="soft_delete", field="is_active"))
 class SoftDelete(models.Model):
     """
     For testing soft deletion. Deletions on this model will set
@@ -199,7 +199,7 @@ class FkToSoftDelete(models.Model):
     ref = models.ForeignKey(SoftDelete, on_delete=models.CASCADE)
 
 
-@pgtrigger.register(pgtrigger.SoftDelete(name='soft_delete', field='custom_active'))
+@pgtrigger.register(pgtrigger.SoftDelete(name="soft_delete", field="custom_active"))
 class CustomSoftDelete(models.Model):
     """
     For testing soft deletion with a custom active field.
@@ -214,9 +214,9 @@ class CustomSoftDelete(models.Model):
 
 @pgtrigger.register(
     pgtrigger.FSM(
-        name='fsm',
-        field='transition',
-        transitions=[('unpublished', 'published'), ('published', 'inactive')],
+        name="fsm",
+        field="transition",
+        transitions=[("unpublished", "published"), ("published", "inactive")],
     )
 )
 class FSM(models.Model):

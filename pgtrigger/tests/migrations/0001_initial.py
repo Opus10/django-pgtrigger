@@ -14,62 +14,62 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='CharPk',
+            name="CharPk",
             fields=[
                 (
-                    'custom_pk',
+                    "custom_pk",
                     models.CharField(max_length=32, primary_key=True, serialize=False),
                 )
             ],
         ),
         migrations.CreateModel(
-            name='SoftDelete',
+            name="SoftDelete",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
                         auto_created=True,
                         primary_key=True,
                         serialize=False,
-                        verbose_name='ID',
+                        verbose_name="ID",
                     ),
                 ),
-                ('is_active', models.BooleanField(default=True)),
-                ('other_field', models.TextField()),
+                ("is_active", models.BooleanField(default=True)),
+                ("other_field", models.TextField()),
             ],
         ),
         migrations.CreateModel(
-            name='TestTrigger',
+            name="TestTrigger",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
                         auto_created=True,
                         primary_key=True,
                         serialize=False,
-                        verbose_name='ID',
+                        verbose_name="ID",
                     ),
                 ),
-                ('field', models.CharField(max_length=16)),
-                ('int_field', models.IntegerField(default=0)),
+                ("field", models.CharField(max_length=16)),
+                ("int_field", models.IntegerField(default=0)),
                 (
-                    'dt_field',
+                    "dt_field",
                     models.DateTimeField(default=django.utils.timezone.now),
                 ),
                 (
-                    'nullable',
+                    "nullable",
                     models.CharField(default=None, max_length=16, null=True),
                 ),
                 (
-                    'char_pk_fk_field',
+                    "char_pk_fk_field",
                     models.ForeignKey(
                         null=True,
                         on_delete=django.db.models.deletion.CASCADE,
-                        to='tests.CharPk',
+                        to="tests.CharPk",
                     ),
                 ),
                 (
-                    'fk_field',
+                    "fk_field",
                     models.ForeignKey(
                         null=True,
                         on_delete=django.db.models.deletion.CASCADE,
@@ -79,40 +79,40 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.CreateModel(
-            name='TestModel',
+            name="TestModel",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
                         auto_created=True,
                         primary_key=True,
                         serialize=False,
-                        verbose_name='ID',
+                        verbose_name="ID",
                     ),
                 ),
-                ('int_field', models.IntegerField(null=True, unique=True)),
-                ('char_field', models.CharField(max_length=128, null=True)),
-                ('float_field', models.FloatField(null=True)),
+                ("int_field", models.IntegerField(null=True, unique=True)),
+                ("char_field", models.CharField(max_length=128, null=True)),
+                ("float_field", models.FloatField(null=True)),
             ],
-            options={'unique_together': {('int_field', 'char_field')}},
+            options={"unique_together": {("int_field", "char_field")}},
         ),
         migrations.CreateModel(
-            name='FkToSoftDelete',
+            name="FkToSoftDelete",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
                         auto_created=True,
                         primary_key=True,
                         serialize=False,
-                        verbose_name='ID',
+                        verbose_name="ID",
                     ),
                 ),
                 (
-                    'ref',
+                    "ref",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        to='tests.SoftDelete',
+                        to="tests.SoftDelete",
                     ),
                 ),
             ],

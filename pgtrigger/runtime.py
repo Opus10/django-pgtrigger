@@ -23,8 +23,8 @@ def _is_concurrent_statement(sql):
     """
     True if the sql statement is concurrent and cannot be ran in a transaction
     """
-    sql = sql.strip().lower() if sql else ''
-    return sql.startswith('create') and 'concurrently' in sql
+    sql = sql.strip().lower() if sql else ""
+    return sql.startswith("create") and "concurrently" in sql
 
 
 def _is_transaction_errored(cursor):
@@ -64,7 +64,7 @@ def _inject_pgtrigger_ignore(execute, sql, params, many, context):
     variable in the executed SQL. This lets other triggers know when
     they should ignore execution
     """
-    if _can_inject_variable(context['cursor'], sql):
+    if _can_inject_variable(context["cursor"], sql):
         sql = "SET LOCAL pgtrigger.ignore='{" + ",".join(_ignore.value) + "}';" + sql
 
     return execute(sql, params, many, context)
@@ -83,7 +83,7 @@ def _set_ignore_session_state(database=None):
                     # We've finished ignoring triggers and are in a transaction,
                     # so flush the local variable.
                     with connection.cursor() as cursor:
-                        cursor.execute('RESET pgtrigger.ignore;')
+                        cursor.execute("RESET pgtrigger.ignore;")
     else:
         yield
 
@@ -103,7 +103,7 @@ def _set_ignore_state(model, trigger):
     """
     Manage state to ignore a single URI
     """
-    if not hasattr(_ignore, 'value'):
+    if not hasattr(_ignore, "value"):
         _ignore.value = set()
 
     pgid = trigger.get_pgid(model)
@@ -113,7 +113,7 @@ def _set_ignore_state(model, trigger):
         # of the _pgtrigger_ignore func, we must set a full URI (old version)
         # and trigger ID (new version).
         # This will be removed in version 5
-        uri = f'{model._meta.db_table}:{pgid}'
+        uri = f"{model._meta.db_table}:{pgid}"
 
         try:
             _ignore.value.add(uri)
@@ -170,7 +170,7 @@ def _inject_schema(execute, sql, params, many, context):
     A connection execution wrapper that sets the schema
     variable in the executed SQL.
     """
-    if _can_inject_variable(context['cursor'], sql) and _schema.value:
+    if _can_inject_variable(context["cursor"], sql) and _schema.value:
         sql = (
             "SET LOCAL search_path="
             + ",".join(utils.quote(val) for val in _schema.value)
@@ -204,7 +204,7 @@ def _set_schema_session_state(database=None):
                     # We've finished modifying the search path and are in a transaction,
                     # so flush the local variable
                     with connection.cursor() as cursor:
-                        cursor.execute(f'SET search_path={initial_search_path};')
+                        cursor.execute(f"SET search_path={initial_search_path};")
     else:
         yield
 
@@ -221,7 +221,7 @@ def _schema_session(databases=None):
 
 @contextlib.contextmanager
 def _set_schema_state(*schemas):
-    if not hasattr(_schema, 'value'):
+    if not hasattr(_schema, "value"):
         # Use a list instead of a set because ordering is important to the search path
         _schema.value = []
 
@@ -289,7 +289,7 @@ def constraints(timing, *uris, databases=None):
         if not connections[database].in_atomic_block:
             raise RuntimeError(f'Database "{database}" is not in a transaction.')
 
-        names = ', '.join(trigger.get_pgid(model) for model, trigger in registry.registered(*uris))
+        names = ", ".join(trigger.get_pgid(model) for model, trigger in registry.registered(*uris))
 
         with connections[database].cursor() as cursor:
-            cursor.execute(f'SET CONSTRAINTS {names} {timing}')
+            cursor.execute(f"SET CONSTRAINTS {names} {timing}")

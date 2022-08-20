@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tests', '0002_logentry_tologmodel'),
+        ("tests", "0002_logentry_tologmodel"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='logentry',
-            name='new_field',
+            model_name="logentry",
+            name="new_field",
             field=models.CharField(max_length=16, null=True),
         ),
         migrations.AddField(
-            model_name='logentry',
-            name='old_field',
+            model_name="logentry",
+            name="old_field",
             field=models.CharField(max_length=16, null=True),
         ),
     ]

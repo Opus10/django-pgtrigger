@@ -91,7 +91,7 @@ def test_makemigrations_existing_models(settings, request):
     # Add a new trigger to the registry that should be migrated
     trigger = pgtrigger.Trigger(
         when=pgtrigger.Before,
-        name='my_migrated_trigger',
+        name="my_migrated_trigger",
         operation=pgtrigger.Insert | pgtrigger.Update,
         func="RAISE EXCEPTION 'no no no!';",
     )
@@ -111,7 +111,7 @@ def test_makemigrations_existing_models(settings, request):
         assert_all_triggers_installed()
 
         # After migrating, test models should be protected
-        with pytest.raises(InternalError, match='no no no!'):
+        with pytest.raises(InternalError, match="no no no!"):
             test_models.TestModel.objects.create()
 
         # Update the trigger to allow inserts, but not updates.
@@ -125,7 +125,7 @@ def test_makemigrations_existing_models(settings, request):
 
         # We should be able to make test models but not update them
         test_model = ddf.G("tests.TestModel")
-        with pytest.raises(InternalError, match='no no no!'):
+        with pytest.raises(InternalError, match="no no no!"):
             test_model.save()
 
     # The trigger is now removed from the registry. It should create
@@ -145,14 +145,14 @@ def test_makemigrations_existing_models(settings, request):
     # migrate it
     trigger = pgtrigger.Trigger(
         when=pgtrigger.Before,
-        name='nothing_allowed',
+        name="nothing_allowed",
         operation=pgtrigger.Insert | pgtrigger.Update,
         func="RAISE EXCEPTION 'no no no!';",
     )
 
     # Test that special characters migrate correctly
     trigger = pgtrigger.Protect(
-        name='special_characters',
+        name="special_characters",
         operation=pgtrigger.Update,
         condition=pgtrigger.Q(new__char_field="%"),
     )
@@ -165,7 +165,7 @@ def test_makemigrations_existing_models(settings, request):
 
         tm = ddf.G("tests.TestModel", char_field="hello")
 
-        with pytest.raises(InternalError, match='Cannot update rows'):
+        with pytest.raises(InternalError, match="Cannot update rows"):
             tm.char_field = "%"
             tm.save()
 

@@ -1,9 +1,9 @@
 Contributing Guide
 ==================
 
-This project was created using temple.
-For more information about temple, go to the
-`Temple docs <https://github.com/CloverHealth/temple>`_.
+This project was created using footing.
+For more information about footing, go to the
+`footing docs <https://github.com/Opus10/footing>`_.
 
 Setup
 ~~~~~

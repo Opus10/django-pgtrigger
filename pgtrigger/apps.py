@@ -18,7 +18,7 @@ from pgtrigger import migrations
 # are also disabled
 if features.model_meta():  # pragma: no branch
     if "triggers" not in options.DEFAULT_NAMES:  # pragma: no branch
-        options.DEFAULT_NAMES = tuple(options.DEFAULT_NAMES) + ('triggers',)
+        options.DEFAULT_NAMES = tuple(options.DEFAULT_NAMES) + ("triggers",)
 
 
 def patch_migrations():
@@ -26,8 +26,8 @@ def patch_migrations():
     Patch the autodetector and model state detection if migrations are turned on
     """
     if features.migrations():  # pragma: no branch
-        if 'triggers' not in state.DEFAULT_NAMES:  # pragma: no branch
-            state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ('triggers',)
+        if "triggers" not in state.DEFAULT_NAMES:  # pragma: no branch
+            state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ("triggers",)
 
         if not issubclass(  # pragma: no branch
             makemigrations.MigrationAutodetector, migrations.MigrationAutodetectorMixin
@@ -93,7 +93,7 @@ def install_on_migrate(using, **kwargs):
 
 
 class PGTriggerConfig(django.apps.AppConfig):
-    name = 'pgtrigger'
+    name = "pgtrigger"
 
     def ready(self):
         """

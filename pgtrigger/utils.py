@@ -12,7 +12,7 @@ def connection(database=None):
 
 
 def is_postgres(database):
-    return connection(database).vendor == 'postgresql'
+    return connection(database).vendor == "postgresql"
 
 
 def postgres_databases(databases=None):
@@ -44,4 +44,4 @@ def quote(label):
 
 def render_uninstall(table, trigger_pgid):
     """Renders uninstallation SQL"""
-    return f'DROP TRIGGER IF EXISTS {trigger_pgid} ON {quote(table)};'
+    return f"DROP TRIGGER IF EXISTS {trigger_pgid} ON {quote(table)};"

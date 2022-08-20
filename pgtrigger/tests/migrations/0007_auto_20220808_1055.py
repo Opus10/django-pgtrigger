@@ -8,35 +8,35 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('tests', '0006_customtablename'),
+        ("tests", "0006_customtablename"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='TestTriggerProxy',
+            name="TestTriggerProxy",
             fields=[],
             options={
-                'proxy': True,
-                'indexes': [],
-                'constraints': [],
+                "proxy": True,
+                "indexes": [],
+                "constraints": [],
             },
-            bases=('tests.testtrigger',),
+            bases=("tests.testtrigger",),
         ),
         migrations.AddField(
-            model_name='testtrigger',
-            name='m2m_field',
+            model_name="testtrigger",
+            name="m2m_field",
             field=models.ManyToManyField(
-                related_name='_tests_testtrigger_m2m_field_+', to=settings.AUTH_USER_MODEL
+                related_name="_tests_testtrigger_m2m_field_+", to=settings.AUTH_USER_MODEL
             ),
         ),
         migrations.CreateModel(
-            name='TestDefaultThrough',
+            name="TestDefaultThrough",
             fields=[],
             options={
-                'proxy': True,
-                'indexes': [],
-                'constraints': [],
+                "proxy": True,
+                "indexes": [],
+                "constraints": [],
             },
-            bases=('tests.testtrigger_m2m_field',),
+            bases=("tests.testtrigger_m2m_field",),
         ),
     ]

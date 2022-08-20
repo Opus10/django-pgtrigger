@@ -33,7 +33,7 @@ class TriggerOperationMixin:
         """
         The check for determinig if a trigger is migrated
         """
-        return schema_editor.connection.vendor == 'postgresql' and self.allow_migrate_model(
+        return schema_editor.connection.vendor == "postgresql" and self.allow_migrate_model(
             schema_editor.connection.alias, model._meta.concrete_model
         )
 
@@ -364,7 +364,7 @@ class DatabaseSchemaEditorMixin:
                     return super().execute(*args, **kwargs)
             except Exception as exc:
                 match = re.search(
-                    r'cannot alter type of a column used in a trigger definition\n'
+                    r"cannot alter type of a column used in a trigger definition\n"
                     r'DETAIL:\s+trigger (?P<trigger>\w+).+on table "?(?P<table>\w+)"?',
                     str(exc),
                 )

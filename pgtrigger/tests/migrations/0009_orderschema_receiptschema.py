@@ -6,35 +6,35 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tests', '0008_searchmodel'),
+        ("tests", "0008_searchmodel"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='OrderSchema',
+            name="OrderSchema",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name='ID'
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
                     ),
                 ),
-                ('int_field', models.IntegerField()),
+                ("int_field", models.IntegerField()),
             ],
         ),
         migrations.CreateModel(
-            name='ReceiptSchema',
+            name="ReceiptSchema",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name='ID'
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
                     ),
                 ),
-                ('char_field', models.CharField(max_length=128)),
+                ("char_field", models.CharField(max_length=128)),
             ],
             options={
-                'db_table': 'table.with.dots',
+                "db_table": "table.with.dots",
             },
         ),
     ]
