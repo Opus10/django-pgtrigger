@@ -143,7 +143,7 @@ docs: clean-docs  # Ensure docs are clean, otherwise weird render errors can res
 lint:
 	$(DOCKER_EXEC_WRAPPER) black . --check
 	$(DOCKER_EXEC_WRAPPER) flake8 -v ${MODULE_NAME}
-	$(DOCKER_EXEC_WRAPPER) temple update --check
+	$(DOCKER_EXEC_WRAPPER) footing update --check
 	$(DOCKER_EXEC_WRAPPER) bash -c 'cd docs && make html'
 
 

@@ -24,7 +24,7 @@ class _Registry(collections.UserDict):
 
     def __getitem__(self, key):
         assert isinstance(key, str)
-        if len(key.split(':')) == 1:
+        if len(key.split(":")) == 1:
             raise ValueError(
                 'Trigger URI must be in the format of "app_label.model_name:trigger_name"'
             )
@@ -52,7 +52,7 @@ class _Registry(collections.UserDict):
                 raise KeyError(
                     f'Trigger "{trigger.name}" on model "{model._meta.label}"'
                     " has Postgres function name that's already in use."
-                    ' Use a different name for the trigger.'
+                    " Use a different name for the trigger."
                 )
 
         # Add the trigger to Meta.triggers.

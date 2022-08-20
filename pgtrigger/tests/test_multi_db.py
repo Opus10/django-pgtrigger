@@ -19,11 +19,11 @@ class ToLogRouter:
     Route the "ToLog" model to the "other" database
     """
 
-    route_app_labels = {'auth', 'contenttypes'}
+    route_app_labels = {"auth", "contenttypes"}
 
     def db_for_write(self, model, **hints):
         if model == models.ToLogModel:
-            return 'other'
+            return "other"
 
         return None
 
@@ -31,8 +31,8 @@ class ToLogRouter:
 @pytest.fixture(autouse=True)
 def routed_db(settings):
     settings.DATABASE_ROUTERS = [
-        'pgtrigger.tests.test_multi_db.ToLogRouter',
-        'pgtrigger.tests.models.Router',
+        "pgtrigger.tests.test_multi_db.ToLogRouter",
+        "pgtrigger.tests.models.Router",
     ]
 
 
@@ -73,15 +73,15 @@ def test_multi_db_ignore():
 
 @pytest.mark.django_db(databases=["default", "sqlite", "other"])
 def test_full_ls(capsys):
-    call_command('pgtrigger', 'ls')
+    call_command("pgtrigger", "ls")
     captured = capsys.readouterr()
-    lines = [line for line in captured.out.split('\n') if line]
+    lines = [line for line in captured.out.split("\n") if line]
     for line in lines:
         assert "\x1b[92mINSTALLED\x1b[0m" in line
 
-    call_command('pgtrigger', 'ls', '-d', 'other')
+    call_command("pgtrigger", "ls", "-d", "other")
     captured = capsys.readouterr()
-    lines = [line for line in captured.out.split('\n') if line]
+    lines = [line for line in captured.out.split("\n") if line]
     for line in lines:
         # The router ignores partition models for the default DB
         if "tests.PartitionModel:protect_delete" in line:
@@ -89,50 +89,50 @@ def test_full_ls(capsys):
         else:
             assert "\x1b[92mINSTALLED\x1b[0m" in line
 
-    call_command('pgtrigger', 'ls', '-d', 'sqlite')
+    call_command("pgtrigger", "ls", "-d", "sqlite")
     captured = capsys.readouterr()
-    lines = [line for line in captured.out.split('\n') if line]
+    lines = [line for line in captured.out.split("\n") if line]
     for line in lines:
         assert "\x1b[94mUNALLOWED\x1b[0m" in line
 
 
 @pytest.mark.django_db(databases=["other"])
 def test_disable_enable(capsys):
-    call_command('pgtrigger', 'disable', '-d', 'other')
+    call_command("pgtrigger", "disable", "-d", "other")
     for model, trigger in pgtrigger.registered():
         expected_status = None if model == models.PartitionModel else False
-        assert trigger.get_installation_status(model, database='other')[1] is expected_status
+        assert trigger.get_installation_status(model, database="other")[1] is expected_status
 
-    call_command('pgtrigger', 'enable', '--database', 'other')
+    call_command("pgtrigger", "enable", "--database", "other")
     for model, trigger in pgtrigger.registered():
         expected_status = None if model == models.PartitionModel else True
-        assert trigger.get_installation_status(model, database='other')[1] is expected_status
+        assert trigger.get_installation_status(model, database="other")[1] is expected_status
 
 
 @pytest.mark.django_db(databases=["sqlite"])
 def test_ignore_non_postgres_dbs():
-    call_command('pgtrigger', 'uninstall', '-d', 'sqlite')
-    call_command('pgtrigger', 'install', '-d', 'sqlite')
-    call_command('pgtrigger', 'install', '-d', 'sqlite')
-    call_command('pgtrigger', 'prune', '-d', 'sqlite')
+    call_command("pgtrigger", "uninstall", "-d", "sqlite")
+    call_command("pgtrigger", "install", "-d", "sqlite")
+    call_command("pgtrigger", "install", "-d", "sqlite")
+    call_command("pgtrigger", "prune", "-d", "sqlite")
 
 
 @pytest.mark.django_db(databases=["other", "default", "sqlite"])
 def test_uninstall_install():
     for model, trigger in pgtrigger.registered():
         expected_status = core.UNALLOWED if model == models.PartitionModel else core.INSTALLED
-        assert trigger.get_installation_status(model, database='other')[0] == expected_status
+        assert trigger.get_installation_status(model, database="other")[0] == expected_status
 
-    call_command('pgtrigger', 'uninstall', '-d', 'other')
-    call_command('pgtrigger', 'uninstall', '-d', 'default')
+    call_command("pgtrigger", "uninstall", "-d", "other")
+    call_command("pgtrigger", "uninstall", "-d", "default")
     for model, trigger in pgtrigger.registered():
         expected_status = core.UNALLOWED if model == models.PartitionModel else core.UNINSTALLED
-        assert trigger.get_installation_status(model, database='other')[0] == expected_status
+        assert trigger.get_installation_status(model, database="other")[0] == expected_status
 
-    call_command('pgtrigger', 'install', '--database', 'other')
+    call_command("pgtrigger", "install", "--database", "other")
     for model, trigger in pgtrigger.registered():
         expecetd_status = core.UNALLOWED if model == models.PartitionModel else core.INSTALLED
-        assert trigger.get_installation_status(model, database='other')[0] == expecetd_status
+        assert trigger.get_installation_status(model, database="other")[0] == expecetd_status
 
     for model, trigger in pgtrigger.registered():
-        assert trigger.get_installation_status(model, database='default')[0] == core.UNINSTALLED
+        assert trigger.get_installation_status(model, database="default")[0] == core.UNINSTALLED

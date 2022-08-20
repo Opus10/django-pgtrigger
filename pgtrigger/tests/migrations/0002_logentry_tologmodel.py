@@ -6,38 +6,38 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tests', '0001_initial'),
+        ("tests", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='LogEntry',
+            name="LogEntry",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
                         auto_created=True,
                         primary_key=True,
                         serialize=False,
-                        verbose_name='ID',
+                        verbose_name="ID",
                     ),
                 ),
-                ('level', models.CharField(max_length=16)),
+                ("level", models.CharField(max_length=16)),
             ],
         ),
         migrations.CreateModel(
-            name='ToLogModel',
+            name="ToLogModel",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
                         auto_created=True,
                         primary_key=True,
                         serialize=False,
-                        verbose_name='ID',
+                        verbose_name="ID",
                     ),
                 ),
-                ('field', models.CharField(max_length=16)),
+                ("field", models.CharField(max_length=16)),
             ],
         ),
     ]

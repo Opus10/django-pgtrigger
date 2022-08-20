@@ -26,7 +26,7 @@ class SubCommands(BaseCommand):  # pragma: no cover
     subcommands = {}
 
     def add_arguments(self, parser):
-        subparsers = parser.add_subparsers(dest='subcommand', title='subcommands', description='')
+        subparsers = parser.add_subparsers(dest="subcommand", title="subcommands", description="")
         subparsers.required = True
 
         for command_name, command_class in self.subcommands.items():
@@ -34,7 +34,7 @@ class SubCommands(BaseCommand):  # pragma: no cover
 
             subparser = subparsers.add_parser(command_name, help=command_class.help)
             command.add_arguments(subparser)
-            prog_name = subcommand = ''
+            prog_name = subcommand = ""
             if self.argv:
                 prog_name = self.argv[0]
                 subcommand = self.argv[1]
@@ -47,7 +47,7 @@ class SubCommands(BaseCommand):  # pragma: no cover
         return super().run_from_argv(argv)
 
     def handle(self, *args, **options):
-        command_name = options['subcommand']
+        command_name = options["subcommand"]
         self.subcommands.get(command_name)
         command_class = self.subcommands[command_name]
 
@@ -75,33 +75,33 @@ class BaseSchemaCommand(BaseCommand):
 
 
 class LsCommand(BaseSchemaCommand):
-    help = 'List triggers and their installation state.'
+    help = "List triggers and their installation state."
 
     def add_arguments(self, parser):
-        parser.add_argument('uris', nargs='*', type=str)
-        parser.add_argument('-d', '--database', help='The database')
+        parser.add_argument("uris", nargs="*", type=str)
+        parser.add_argument("-d", "--database", help="The database")
         parser.add_argument(
-            '-s',
-            '--schema',
-            action='append',
-            help='Set the search path to this schema',
+            "-s",
+            "--schema",
+            action="append",
+            help="Set the search path to this schema",
         )
 
     def handle_with_schema(self, *args, **options):
-        uris = options['uris']
+        uris = options["uris"]
 
         status_formatted = {
-            core.UNINSTALLED: '\033[91mUNINSTALLED\033[0m',
-            core.INSTALLED: '\033[92mINSTALLED\033[0m',
-            core.OUTDATED: '\033[93mOUTDATED\033[0m',
-            core.PRUNE: '\033[96mPRUNE\033[0m',
-            core.UNALLOWED: '\033[94mUNALLOWED\033[0m',
+            core.UNINSTALLED: "\033[91mUNINSTALLED\033[0m",
+            core.INSTALLED: "\033[92mINSTALLED\033[0m",
+            core.OUTDATED: "\033[93mOUTDATED\033[0m",
+            core.PRUNE: "\033[96mPRUNE\033[0m",
+            core.UNALLOWED: "\033[94mUNALLOWED\033[0m",
         }
 
         enabled_formatted = {
-            True: '\033[92mENABLED\033[0m',
-            False: '\033[91mDISABLED\033[0m',
-            None: '\033[94mN/A\033[0m',
+            True: "\033[92mENABLED\033[0m",
+            False: "\033[91mDISABLED\033[0m",
+            None: "\033[94mN/A\033[0m",
         }
 
         def _format_status(status, enabled, uri):
@@ -114,12 +114,12 @@ class LsCommand(BaseSchemaCommand):
 
         for model, trigger in registry.registered(*uris):
             uri = trigger.get_uri(model)
-            status, enabled = trigger.get_installation_status(model, database=options['database'])
+            status, enabled = trigger.get_installation_status(model, database=options["database"])
             formatted.append(_format_status(status, enabled, uri))
 
         if not uris:
-            for trigger in installation.prunable(database=options['database']):
-                formatted.append(_format_status('PRUNE', trigger[2], f"{trigger[0]}:{trigger[1]}"))
+            for trigger in installation.prunable(database=options["database"]):
+                formatted.append(_format_status("PRUNE", trigger[2], f"{trigger[0]}:{trigger[1]}"))
 
         max_status_len = max(len(val) for val, _, _ in formatted)
         max_enabled_len = max(len(val) for _, val, _ in formatted)
@@ -132,102 +132,102 @@ class LsCommand(BaseSchemaCommand):
 
 
 class InstallCommand(BaseSchemaCommand):
-    help = 'Install triggers.'
+    help = "Install triggers."
 
     def add_arguments(self, parser):
-        parser.add_argument('uris', nargs='*', type=str)
-        parser.add_argument('-d', '--database', help='The database')
+        parser.add_argument("uris", nargs="*", type=str)
+        parser.add_argument("-d", "--database", help="The database")
         parser.add_argument(
-            '-s',
-            '--schema',
-            action='append',
-            help='Set the search path to this schema',
+            "-s",
+            "--schema",
+            action="append",
+            help="Set the search path to this schema",
         )
 
     def handle_with_schema(self, *args, **options):
         _setup_logging()
-        installation.install(*options['uris'], database=options['database'])
+        installation.install(*options["uris"], database=options["database"])
 
 
 class UninstallCommand(BaseSchemaCommand):
-    help = 'Uninstall triggers.'
+    help = "Uninstall triggers."
 
     def add_arguments(self, parser):
-        parser.add_argument('uris', nargs='*', type=str)
-        parser.add_argument('-d', '--database', help='The database')
+        parser.add_argument("uris", nargs="*", type=str)
+        parser.add_argument("-d", "--database", help="The database")
         parser.add_argument(
-            '-s',
-            '--schema',
-            action='append',
-            help='Set the search path to this schema',
+            "-s",
+            "--schema",
+            action="append",
+            help="Set the search path to this schema",
         )
 
     def handle_with_schema(self, *args, **options):
         _setup_logging()
-        installation.uninstall(*options['uris'], database=options['database'])
+        installation.uninstall(*options["uris"], database=options["database"])
 
 
 class EnableCommand(BaseSchemaCommand):
-    help = 'Enable triggers.'
+    help = "Enable triggers."
 
     def add_arguments(self, parser):
-        parser.add_argument('uris', nargs='*', type=str)
-        parser.add_argument('-d', '--database', help='The database')
+        parser.add_argument("uris", nargs="*", type=str)
+        parser.add_argument("-d", "--database", help="The database")
         parser.add_argument(
-            '-s',
-            '--schema',
-            action='append',
-            help='Set the search path to this schema',
+            "-s",
+            "--schema",
+            action="append",
+            help="Set the search path to this schema",
         )
 
     def handle_with_schema(self, *args, **options):
         _setup_logging()
-        installation.enable(*options['uris'], database=options['database'])
+        installation.enable(*options["uris"], database=options["database"])
 
 
 class DisableCommand(BaseSchemaCommand):
-    help = 'Disable triggers.'
+    help = "Disable triggers."
 
     def add_arguments(self, parser):
-        parser.add_argument('uris', nargs='*', type=str)
-        parser.add_argument('-d', '--database', help='The database')
+        parser.add_argument("uris", nargs="*", type=str)
+        parser.add_argument("-d", "--database", help="The database")
         parser.add_argument(
-            '-s',
-            '--schema',
-            action='append',
-            help='Set the search path to this schema',
+            "-s",
+            "--schema",
+            action="append",
+            help="Set the search path to this schema",
         )
 
     def handle_with_schema(self, *args, **options):
         _setup_logging()
-        installation.disable(*options['uris'], database=options['database'])
+        installation.disable(*options["uris"], database=options["database"])
 
 
 class PruneCommand(BaseSchemaCommand):
-    help = 'Prune installed triggers that are no longer in the codebase.'
+    help = "Prune installed triggers that are no longer in the codebase."
 
     def add_arguments(self, parser):
-        parser.add_argument('-d', '--database', help='The database')
+        parser.add_argument("-d", "--database", help="The database")
         parser.add_argument(
-            '-s',
-            '--schema',
-            action='append',
-            help='Set the search path to this schema',
+            "-s",
+            "--schema",
+            action="append",
+            help="Set the search path to this schema",
         )
 
     def handle_with_schema(self, *args, **options):
         _setup_logging()
-        installation.prune(database=options['database'])
+        installation.prune(database=options["database"])
 
 
 class Command(SubCommands):
-    help = 'Core django-pgtrigger subcommands.'
+    help = "Core django-pgtrigger subcommands."
 
     subcommands = {
-        'ls': LsCommand,
-        'install': InstallCommand,
-        'uninstall': UninstallCommand,
-        'enable': EnableCommand,
-        'disable': DisableCommand,
-        'prune': PruneCommand,
+        "ls": LsCommand,
+        "install": InstallCommand,
+        "uninstall": UninstallCommand,
+        "enable": EnableCommand,
+        "disable": DisableCommand,
+        "prune": PruneCommand,
     }

@@ -5,7 +5,6 @@ build-backend = "poetry.core.masonry.api"
 [tool.black]
 line-length = 99
 target-version = ['py37']
-skip-string-normalization = true
 
 [tool.coverage.run]
 branch = true
@@ -27,6 +26,9 @@ omit = ["pgtrigger/tests/migrations/*"]
 name = "django-pgtrigger"
 packages = [
   { include = "pgtrigger" }
+]
+exclude = [
+  "*/tests/"
 ]
 version = "4.3.1"
 description = "Postgres trigger support integrated with Django models."
@@ -78,7 +80,7 @@ pytest-mock = "3.6.1"
 requests = "2.25.1"
 Sphinx = "4.4.0"
 sphinx-rtd-theme = "1.0.0"
-temple = "*"
+footing = "*"
 tox = "3.24.5"
 zipp = "3.4.1"
 pytest-order = "^1.0.1"

@@ -13,11 +13,11 @@ class Protect(core.Trigger):
     when = core.Before
 
     def get_func(self, model):
-        return f'''
+        return f"""
             RAISE EXCEPTION
                 'pgtrigger: Cannot {str(self.operation).lower()} rows from % table',
                 TG_TABLE_NAME;
-        '''
+        """
 
 
 class FSM(core.Trigger):
@@ -49,13 +49,13 @@ class FSM(core.Trigger):
         super().__init__(name=name, condition=condition)
 
     def get_declare(self, model):
-        return [('_is_valid_transition', 'BOOLEAN')]
+        return [("_is_valid_transition", "BOOLEAN")]
 
     def get_func(self, model):
         col = model._meta.get_field(self.field).column
-        transition_uris = '{' + ','.join([f'{old}:{new}' for old, new in self.transitions]) + '}'
+        transition_uris = "{" + ",".join([f"{old}:{new}" for old, new in self.transitions]) + "}"
 
-        return f'''
+        return f"""
             SELECT CONCAT(OLD.{utils.quote(col)}, ':', NEW.{utils.quote(col)}) = ANY('{transition_uris}'::text[])
                 INTO _is_valid_transition;
 
@@ -68,7 +68,7 @@ class FSM(core.Trigger):
             ELSE
                 RETURN NEW;
             END IF;
-        '''  # noqa
+        """  # noqa
 
 
 class SoftDelete(core.Trigger):
@@ -104,18 +104,18 @@ class SoftDelete(core.Trigger):
 
         def _render_value():
             if self.value is None:
-                return 'NULL'
+                return "NULL"
             elif isinstance(self.value, str):
                 return f"'{self.value}'"
             else:
                 return str(self.value)
 
-        return f'''
+        return f"""
             UPDATE {utils.quote(model._meta.db_table)}
             SET {soft_field} = {_render_value()}
             WHERE {utils.quote(pk_col)} = OLD.{utils.quote(pk_col)};
             RETURN NULL;
-        '''
+        """
 
 
 class UpdateSearchVector(core.Trigger):
@@ -139,7 +139,7 @@ class UpdateSearchVector(core.Trigger):
     when = core.Before
     vector_field = None
     document_fields = None
-    config_name = 'pg_catalog.english'
+    config_name = "pg_catalog.english"
 
     def __init__(self, *, name=None, vector_field=None, document_fields=None, config_name=None):
         self.vector_field = vector_field or self.vector_field
@@ -161,14 +161,14 @@ class UpdateSearchVector(core.Trigger):
         raise RuntimeError(f"Cannot ignore {self.__class__.__name__} triggers")
 
     def render_func(self, model):
-        return ''
+        return ""
 
     def render_trigger(self, model, function=None):
         document_cols = [model._meta.get_field(field).column for field in self.document_fields]
-        rendered_document_cols = ', '.join(utils.quote(col) for col in document_cols)
+        rendered_document_cols = ", ".join(utils.quote(col) for col in document_cols)
         vector_col = model._meta.get_field(self.vector_field).column
         function = (
-            f'tsvector_update_trigger({utils.quote(vector_col)},'
-            f' {utils.quote(self.config_name)}, {rendered_document_cols})'
+            f"tsvector_update_trigger({utils.quote(vector_col)},"
+            f" {utils.quote(self.config_name)}, {rendered_document_cols})"
         )
         return super().render_trigger(model, function=function)

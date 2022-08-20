@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tests', '0011_auto_20220817_2211'),
+        ("tests", "0011_auto_20220817_2211"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='partitionmodel',
+            name="partitionmodel",
             options={},
         ),
     ]

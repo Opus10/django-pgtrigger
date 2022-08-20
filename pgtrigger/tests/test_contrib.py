@@ -8,7 +8,7 @@ from pgtrigger.tests import models
 
 def test_registered_invalid_args():
     with pytest.raises(ValueError):
-        pgtrigger.registered('uri')
+        pgtrigger.registered("uri")
 
 
 @pytest.mark.django_db
@@ -87,18 +87,18 @@ def test_soft_delete_different_values():
     """
     # Make the LogEntry model a soft delete model where
     # "level" is set to "inactive"
-    trigger = pgtrigger.SoftDelete(name='soft_delete', field='level', value='inactive')
+    trigger = pgtrigger.SoftDelete(name="soft_delete", field="level", value="inactive")
     with trigger.install(models.LogEntry):
-        le = ddf.G(models.LogEntry, level='active')
+        le = ddf.G(models.LogEntry, level="active")
         le.delete()
-        assert models.LogEntry.objects.get().level == 'inactive'
+        assert models.LogEntry.objects.get().level == "inactive"
     models.LogEntry.objects.all().delete()
 
     # Make the LogEntry model a soft delete model where
     # "old_field" is set to None
-    trigger = pgtrigger.SoftDelete(name='soft_delete', field='old_field', value=None)
+    trigger = pgtrigger.SoftDelete(name="soft_delete", field="old_field", value=None)
     with trigger.install(models.LogEntry):
-        le = ddf.G(models.LogEntry, old_field='something')
+        le = ddf.G(models.LogEntry, old_field="something")
         le.delete()
         assert models.LogEntry.objects.get().old_field is None
 
@@ -108,22 +108,22 @@ def test_fsm():
     """
     Verifies the FSM test model cannot make invalid transitions
     """
-    fsm = ddf.G(models.FSM, transition='unpublished')
-    fsm.transition = 'inactive'
-    with pytest.raises(InternalError, match='Invalid transition'):
+    fsm = ddf.G(models.FSM, transition="unpublished")
+    fsm.transition = "inactive"
+    with pytest.raises(InternalError, match="Invalid transition"):
         fsm.save()
 
-    fsm.transition = 'published'
+    fsm.transition = "published"
     fsm.save()
 
     # Be sure we ignore FSM when there is no transition
     fsm.save()
 
-    with pytest.raises(InternalError, match='Invalid transition'):
-        fsm.transition = 'unpublished'
+    with pytest.raises(InternalError, match="Invalid transition"):
+        fsm.transition = "unpublished"
         fsm.save()
 
-    fsm.transition = 'inactive'
+    fsm.transition = "inactive"
     fsm.save()
 
 
@@ -131,7 +131,7 @@ def test_fsm():
 def test_protect():
     """Verify deletion protect trigger works on test model"""
     deletion_protected_model = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match='Cannot delete rows'):
+    with pytest.raises(InternalError, match="Cannot delete rows"):
         deletion_protected_model.delete()
 
 
@@ -139,5 +139,5 @@ def test_protect():
 def test_custom_db_table_protect_trigger():
     """Verify custom DB table names have successful triggers"""
     deletion_protected_model = ddf.G(models.CustomTableName)
-    with pytest.raises(InternalError, match='Cannot delete rows'):
+    with pytest.raises(InternalError, match="Cannot delete rows"):
         deletion_protected_model.delete()

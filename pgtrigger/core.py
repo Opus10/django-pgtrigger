@@ -27,11 +27,11 @@ from pgtrigger import utils
 MAX_NAME_LENGTH = 47
 
 # Installation states for a triggers
-INSTALLED = 'INSTALLED'
-UNINSTALLED = 'UNINSTALLED'
-OUTDATED = 'OUTDATED'
-PRUNE = 'PRUNE'
-UNALLOWED = 'UNALLOWED'
+INSTALLED = "INSTALLED"
+UNINSTALLED = "UNINSTALLED"
+OUTDATED = "OUTDATED"
+PRUNE = "PRUNE"
+UNALLOWED = "UNALLOWED"
 
 
 class _Serializable:
@@ -46,7 +46,7 @@ class _Serializable:
                 raise ValueError(
                     f"Could not automatically serialize Trigger {self.__class__} for migrations."
                     ' Implement "get_init_vals()" on the trigger class. See the'
-                    ' FAQ in the django-pgtrigger docs for more information.'
+                    " FAQ in the django-pgtrigger docs for more information."
                 )
 
         args = tuple(
@@ -92,10 +92,10 @@ class Level(_Primitive):
 
 
 #: For specifying row-level triggers (the default)
-Row = Level('ROW')
+Row = Level("ROW")
 
 #: For specifying statement-level triggers
-Statement = Level('STATEMENT')
+Statement = Level("STATEMENT")
 
 
 class Referencing(_Serializable):
@@ -105,19 +105,19 @@ class Referencing(_Serializable):
         if not old and not new:
             raise ValueError(
                 'Must provide either "old" and/or "new" to the referencing'
-                ' construct of a trigger'
+                " construct of a trigger"
             )
 
         self.old = old
         self.new = new
 
     def __str__(self):
-        ref = 'REFERENCING'
+        ref = "REFERENCING"
         if self.old:
-            ref += f' OLD TABLE AS {self.old} '
+            ref += f" OLD TABLE AS {self.old} "
 
         if self.new:
-            ref += f' NEW TABLE AS {self.new} '
+            ref += f" NEW TABLE AS {self.new} "
 
         return ref
 
@@ -127,13 +127,13 @@ class When(_Primitive):
 
 
 #: For specifying ``BEFORE`` in the when clause of a trigger.
-Before = When('BEFORE')
+Before = When("BEFORE")
 
 #: For specifying ``AFTER`` in the when clause of a trigger.
-After = When('AFTER')
+After = When("AFTER")
 
 #: For specifying ``INSTEAD OF`` in the when clause of a trigger.
-InsteadOf = When('INSTEAD OF')
+InsteadOf = When("INSTEAD OF")
 
 
 class Operation(_Primitive):
@@ -157,20 +157,20 @@ class Operations(Operation):
         self.operations = operations
 
     def __str__(self):
-        return ' OR '.join(str(operation) for operation in self.operations)
+        return " OR ".join(str(operation) for operation in self.operations)
 
 
 #: For specifying ``UPDATE`` as the trigger operation.
-Update = Operation('UPDATE')
+Update = Operation("UPDATE")
 
 #: For specifying ``DELETE`` as the trigger operation.
-Delete = Operation('DELETE')
+Delete = Operation("DELETE")
 
 #: For specifying ``TRUNCATE`` as the trigger operation.
-Truncate = Operation('TRUNCATE')
+Truncate = Operation("TRUNCATE")
 
 #: For specifying ``INSERT`` as the trigger operation.
-Insert = Operation('INSERT')
+Insert = Operation("INSERT")
 
 
 class UpdateOf(Operation):
@@ -178,13 +178,13 @@ class UpdateOf(Operation):
 
     def __init__(self, *columns):
         if not columns:
-            raise ValueError('Must provide at least one column')
+            raise ValueError("Must provide at least one column")
 
         self.columns = columns
 
     def __str__(self):
-        columns = ', '.join(f'{utils.quote(col)}' for col in self.columns)
-        return f'UPDATE OF {columns}'
+        columns = ", ".join(f"{utils.quote(col)}" for col in self.columns)
+        return f"UPDATE OF {columns}"
 
 
 class Timing(_Primitive):
@@ -192,10 +192,10 @@ class Timing(_Primitive):
 
 
 #: For deferrable triggers that run immediately by default
-Immediate = Timing('IMMEDIATE')
+Immediate = Timing("IMMEDIATE")
 
 #: For deferrable triggers that run at the end of the transaction by default
-Deferred = Timing('DEFERRED')
+Deferred = Timing("DEFERRED")
 
 
 class Condition(_Serializable):
@@ -207,7 +207,7 @@ class Condition(_Serializable):
         self.sql = sql or self.sql
 
         if not self.sql:
-            raise ValueError('Must provide SQL to condition')
+            raise ValueError("Must provide SQL to condition")
 
     def resolve(self, model):
         return self.sql
@@ -223,7 +223,7 @@ class _OldNewQuery(Query):
         # Django does not allow custom lookups on foreign keys, even though
         # DISTINCT FROM is a comnpletely valid lookup. Trick django into
         # being able to apply this lookup to related fields.
-        if lookups == ['df'] and isinstance(lhs.output_field, RelatedField):
+        if lookups == ["df"] and isinstance(lhs.output_field, RelatedField):
             lhs = copy.deepcopy(lhs)
             lhs.output_field = models.IntegerField(null=lhs.output_field.null)
 
@@ -233,12 +233,12 @@ class _OldNewQuery(Query):
         if isinstance(filter_expr, Q):
             return super().build_filter(filter_expr, *args, **kwargs)
 
-        if filter_expr[0].startswith('old__'):
-            alias = 'OLD'
-        elif filter_expr[0].startswith('new__'):
-            alias = 'NEW'
+        if filter_expr[0].startswith("old__"):
+            alias = "OLD"
+        elif filter_expr[0].startswith("new__"):
+            alias = "NEW"
         else:  # pragma: no cover
-            raise ValueError('Filter expression on trigger.Q object must reference old__ or new__')
+            raise ValueError("Filter expression on trigger.Q object must reference old__ or new__")
 
         filter_expr = (filter_expr[0][5:], filter_expr[1])
         node, _ = super().build_filter(filter_expr, *args, **kwargs)
@@ -263,12 +263,12 @@ class F(models.F):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if self.name.startswith('old__'):
-            self.row_alias = 'OLD'
-        elif self.name.startswith('new__'):
-            self.row_alias = 'NEW'
+        if self.name.startswith("old__"):
+            self.row_alias = "OLD"
+        elif self.name.startswith("new__"):
+            self.row_alias = "NEW"
         else:
-            raise ValueError('F() values must reference old__ or new__')
+            raise ValueError("F() values must reference old__ or new__")
 
         self.col_name = self.name[5:]
 
@@ -279,7 +279,7 @@ class F(models.F):
 
     @property
     def resolved_name(self):
-        return f'{self.row_alias}.{utils.quote(self.col_name)}'
+        return f"{self.row_alias}.{utils.quote(self.col_name)}"
 
     def resolve_expression(self, query=None, *args, **kwargs):
         return Col(
@@ -295,13 +295,13 @@ class IsDistinctFrom(models.Lookup):
     For example, ``pgtrigger.Q(old__field__df=pgtrigger.F("new__field"))``.
     """
 
-    lookup_name = 'df'
+    lookup_name = "df"
 
     def as_sql(self, compiler, connection):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs, rhs_params = self.process_rhs(compiler, connection)
         params = lhs_params + rhs_params
-        return '%s IS DISTINCT FROM %s' % (lhs, rhs), params
+        return "%s IS DISTINCT FROM %s" % (lhs, rhs), params
 
 
 @models.fields.Field.register_lookup
@@ -311,13 +311,13 @@ class IsNotDistinctFrom(models.Lookup):
     For example, ``pgtrigger.Q(old__field__ndf=pgtrigger.F("new__field"))``.
     """
 
-    lookup_name = 'ndf'
+    lookup_name = "ndf"
 
     def as_sql(self, compiler, connection):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs, rhs_params = self.process_rhs(compiler, connection)
         params = lhs_params + rhs_params
-        return '%s IS NOT DISTINCT FROM %s' % (lhs, rhs), params
+        return "%s IS NOT DISTINCT FROM %s" % (lhs, rhs), params
 
 
 class Q(models.Q, Condition):
@@ -334,10 +334,10 @@ class Q(models.Q, Condition):
     def resolve(self, model):
         query = _OldNewQuery(model)
         sql, args = self.resolve_expression(query).as_sql(
-            compiler=query.get_compiler('default'),
+            compiler=query.get_compiler("default"),
             connection=utils.connection(),
         )
-        sql = sql.replace('"OLD"', 'OLD').replace('"NEW"', 'NEW')
+        sql = sql.replace('"OLD"', "OLD").replace('"NEW"', "NEW")
         args = tuple(psycopg2.extensions.adapt(arg).getquoted().decode() for arg in args)
 
         return sql % args
@@ -367,7 +367,7 @@ def _render_ignore_func():
     Note: This function is global and shared by all triggers in the current
     implementation. It isn't uninstalled when triggers are uninstalled.
     """
-    return f'''
+    return f"""
         CREATE OR REPLACE FUNCTION {_ignore_func_name()}(
             trigger_name NAME
         )
@@ -390,7 +390,7 @@ def _render_ignore_func():
                 END IF;
             END;
         $$ LANGUAGE plpgsql;
-    '''
+    """
 
 
 class Trigger(_Serializable):
@@ -466,10 +466,10 @@ class Trigger(_Serializable):
         if len(self.name) > MAX_NAME_LENGTH:
             raise ValueError(f'Trigger name "{self.name}" > {MAX_NAME_LENGTH} characters.')
 
-        if not re.match(r'^[a-zA-Z0-9-_]+$', self.name):
+        if not re.match(r"^[a-zA-Z0-9-_]+$", self.name):
             raise ValueError(
                 f'Trigger name "{self.name}" has invalid characters.'
-                ' Only alphanumeric characters, hyphens, and underscores are allowed.'
+                " Only alphanumeric characters, hyphens, and underscores are allowed."
             )
 
     def get_pgid(self, model):
@@ -479,7 +479,7 @@ class Trigger(_Serializable):
         discovered/managed by django-pgtrigger
         """
         model_hash = hashlib.sha1(self.get_uri(model).encode()).hexdigest()[:5]
-        pgid = f'pgtrigger_{self.name}_{model_hash}'
+        pgid = f"pgtrigger_{self.name}_{model_hash}"
 
         if len(pgid) > 63:
             raise ValueError(f'Trigger identifier "{pgid}" is greater than 63 chars')
@@ -501,7 +501,7 @@ class Trigger(_Serializable):
         """
         rendered_func = self.render_func(model)
         rendered_trigger = self.render_trigger(model)
-        return hashlib.sha1(f'{rendered_func} {rendered_trigger}'.encode()).hexdigest()
+        return hashlib.sha1(f"{rendered_func} {rendered_trigger}".encode()).hexdigest()
 
     def get_condition(self, model):
         return self.condition
@@ -523,23 +523,23 @@ class Trigger(_Serializable):
         clause
         """
         if not self.func:
-            raise ValueError('Must define func attribute or implement get_func')
+            raise ValueError("Must define func attribute or implement get_func")
         return self.func
 
     def get_uri(self, model):
         """The URI for the trigger"""
 
-        return f'{model._meta.app_label}.{model._meta.object_name}:{self.name}'
+        return f"{model._meta.app_label}.{model._meta.object_name}:{self.name}"
 
     def render_condition(self, model):
         """Renders the condition SQL in the trigger declaration"""
         condition = self.get_condition(model)
-        resolved = condition.resolve(model).strip() if condition else ''
+        resolved = condition.resolve(model).strip() if condition else ""
 
         if resolved:
-            if not resolved.startswith('('):
-                resolved = f'({resolved})'
-            resolved = f'WHEN {resolved}'
+            if not resolved.startswith("("):
+                resolved = f"({resolved})"
+            resolved = f"WHEN {resolved}"
 
         return resolved
 
@@ -547,11 +547,11 @@ class Trigger(_Serializable):
         """Renders the DECLARE of the trigger function, if any"""
         declare = self.get_declare(model)
         if declare:
-            rendered_declare = 'DECLARE \n' + '\n'.join(
-                f'{var_name} {var_type};' for var_name, var_type in declare
+            rendered_declare = "DECLARE \n" + "\n".join(
+                f"{var_name} {var_type};" for var_name, var_type in declare
             )
         else:
-            rendered_declare = ''
+            rendered_declare = ""
 
         return rendered_declare
 
@@ -559,7 +559,7 @@ class Trigger(_Serializable):
         """
         Renders the clause that can dynamically ignore the trigger's execution
         """
-        return f'''
+        return f"""
             IF ({_ignore_func_name()}(TG_NAME) IS TRUE) THEN
                 IF (TG_OP = 'DELETE') THEN
                     RETURN OLD;
@@ -567,11 +567,11 @@ class Trigger(_Serializable):
                     RETURN NEW;
                 END IF;
             END IF;
-        '''
+        """
 
     def render_func(self, model):
         """Renders the trigger function SQL statement"""
-        return f'''
+        return f"""
             CREATE OR REPLACE FUNCTION {self.get_pgid(model)}()
             RETURNS TRIGGER AS $$
                 {self.render_declare(model)}
@@ -580,7 +580,7 @@ class Trigger(_Serializable):
                     {self.get_func(model)}
                 END;
             $$ LANGUAGE plpgsql;
-        '''
+        """
 
     def render_trigger(self, model, function=None):
         """Renders the trigger declaration SQL statement
@@ -596,12 +596,12 @@ class Trigger(_Serializable):
         pgid = self.get_pgid(model)
         function = function or f"{pgid}()"
 
-        constraint = 'CONSTRAINT' if self.timing else ''
-        timing = f'DEFERRABLE INITIALLY {self.timing}' if self.timing else ''
+        constraint = "CONSTRAINT" if self.timing else ""
+        timing = f"DEFERRABLE INITIALLY {self.timing}" if self.timing else ""
 
         # Note: Postgres 14 has CREATE OR REPLACE syntax that
         # we might consider using.
-        return f'''
+        return f"""
             DROP TRIGGER IF EXISTS {pgid} on {utils.quote(table)};
             CREATE {constraint} TRIGGER {pgid}
                 {self.when} {self.operation} ON {utils.quote(table)}
@@ -609,7 +609,7 @@ class Trigger(_Serializable):
                 {self.referencing or ''}
                 FOR EACH {self.level} {self.render_condition(model)}
                 EXECUTE PROCEDURE {function};
-        '''
+        """
 
     def render_comment(self, model):
         """Renders the trigger commment SQL statement
@@ -664,12 +664,12 @@ class Trigger(_Serializable):
         if not self.allow_migrate(model, database=database):
             return (UNALLOWED, None)
 
-        trigger_exists_sql = f'''
+        trigger_exists_sql = f"""
             SELECT oid, obj_description(oid) AS hash, tgenabled AS enabled
             FROM pg_trigger
             WHERE tgname='{self.get_pgid(model)}'
                 AND tgrelid='{utils.quote(model._meta.db_table)}'::regclass;
-        '''
+        """
         try:
             with transaction.atomic(using=database):
                 results = self.exec_sql(
@@ -687,9 +687,9 @@ class Trigger(_Serializable):
         else:
             hash = self.get_hash(model)
             if hash != results[0][1]:
-                return (OUTDATED, results[0][2] == 'O')
+                return (OUTDATED, results[0][2] == "O")
             else:
-                return (INSTALLED, results[0][2] == 'O')
+                return (INSTALLED, results[0][2] == "O")
 
     def register(self, *models):
         """Register model classes with the trigger"""
@@ -723,8 +723,8 @@ class Trigger(_Serializable):
     def enable(self, model, database=None):
         """Enables the trigger for a model"""
         enable_sql = (
-            f'ALTER TABLE {utils.quote(model._meta.db_table)}'
-            f' ENABLE TRIGGER {self.get_pgid(model)};'
+            f"ALTER TABLE {utils.quote(model._meta.db_table)}"
+            f" ENABLE TRIGGER {self.get_pgid(model)};"
         )
         self.exec_sql(enable_sql, model, database=database)
         return _cleanup_on_exit(  # pragma: no branch
@@ -734,8 +734,8 @@ class Trigger(_Serializable):
     def disable(self, model, database=None):
         """Disables the trigger for a model"""
         disable_sql = (
-            f'ALTER TABLE {utils.quote(model._meta.db_table)}'
-            f' DISABLE TRIGGER {self.get_pgid(model)};'
+            f"ALTER TABLE {utils.quote(model._meta.db_table)}"
+            f" DISABLE TRIGGER {self.get_pgid(model)};"
         )
         self.exec_sql(disable_sql, model, database=database)
         return _cleanup_on_exit(lambda: self.enable(model, database=database))  # pragma: no branch

@@ -6,24 +6,24 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tests', '0004_fsm'),
+        ("tests", "0004_fsm"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='CustomSoftDelete',
+            name="CustomSoftDelete",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
                         auto_created=True,
                         primary_key=True,
                         serialize=False,
-                        verbose_name='ID',
+                        verbose_name="ID",
                     ),
                 ),
-                ('custom_active', models.BooleanField(default=True)),
-                ('other_field', models.TextField()),
+                ("custom_active", models.BooleanField(default=True)),
+                ("other_field", models.TextField()),
             ],
         ),
     ]

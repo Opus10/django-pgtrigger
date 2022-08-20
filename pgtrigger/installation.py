@@ -11,7 +11,7 @@ from pgtrigger import utils
 
 
 # The core pgtrigger logger
-LOGGER = logging.getLogger('pgtrigger')
+LOGGER = logging.getLogger("pgtrigger")
 
 
 def install(*uris, database=None):
@@ -26,9 +26,9 @@ def install(*uris, database=None):
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            f'pgtrigger: Installing {trigger} trigger'
-            f' for {model._meta.db_table} table'
-            f' on {database or DEFAULT_DB_ALIAS} database.'
+            f"pgtrigger: Installing {trigger} trigger"
+            f" for {model._meta.db_table} table"
+            f" on {database or DEFAULT_DB_ALIAS} database."
         )
         trigger.install(model, database=database)
 
@@ -56,18 +56,18 @@ def prunable(database=None):
         # this by parsing the tgrelid and only selecting triggers that don't have
         # a schema name in their path
         cursor.execute(
-            '''
+            """
             SELECT tgrelid::regclass, tgname, tgenabled
                 FROM pg_trigger
                 WHERE tgname LIKE 'pgtrigger_%' AND
                       tgparentid = 0 AND
                       array_length(parse_ident(tgrelid::regclass::varchar), 1) = 1
-            '''
+            """
         )
         triggers = set(cursor.fetchall())
 
     return [
-        (trigger[0], trigger[1], trigger[2] == 'O', database or DEFAULT_DB_ALIAS)
+        (trigger[0], trigger[1], trigger[2] == "O", database or DEFAULT_DB_ALIAS)
         for trigger in triggers
         if (utils.quote(trigger[0]), trigger[1]) not in registered
     ]
@@ -85,8 +85,8 @@ def prune(database=None):
     """
     for trigger in prunable(database=database):
         LOGGER.info(
-            f'pgtrigger: Pruning trigger {trigger[1]}'
-            f' for table {trigger[0]} on {trigger[3]} database.'
+            f"pgtrigger: Pruning trigger {trigger[1]}"
+            f" for table {trigger[0]} on {trigger[3]} database."
         )
 
         connection = connections[trigger[3]]
@@ -107,9 +107,9 @@ def enable(*uris, database=None):
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            f'pgtrigger: Enabling {trigger} trigger'
-            f' for {model._meta.db_table} table'
-            f' on {database or DEFAULT_DB_ALIAS} database.'
+            f"pgtrigger: Enabling {trigger} trigger"
+            f" for {model._meta.db_table} table"
+            f" on {database or DEFAULT_DB_ALIAS} database."
         )
         trigger.enable(model, database=database)
 
@@ -126,9 +126,9 @@ def uninstall(*uris, database=None):
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            f'pgtrigger: Uninstalling {trigger} trigger'
-            f' for {model._meta.db_table} table'
-            f' on {database or DEFAULT_DB_ALIAS} database.'
+            f"pgtrigger: Uninstalling {trigger} trigger"
+            f" for {model._meta.db_table} table"
+            f" on {database or DEFAULT_DB_ALIAS} database."
         )
         trigger.uninstall(model, database=database)
 
@@ -148,8 +148,8 @@ def disable(*uris, database=None):
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            f'pgtrigger: Disabling {trigger} trigger for'
-            f' {model._meta.db_table} table'
-            f' on {database or DEFAULT_DB_ALIAS} database.'
+            f"pgtrigger: Disabling {trigger} trigger for"
+            f" {model._meta.db_table} table"
+            f" on {database or DEFAULT_DB_ALIAS} database."
         )
         trigger.disable(model, database=database)
