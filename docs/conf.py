@@ -31,17 +31,13 @@ import pgtrigger
 
 sys.path.insert(0, os.path.abspath("."))
 sys.path.insert(0, os.path.abspath(".."))
+
+# Set these environment variables to ensure that ReadTheDocs builds work with
+# our Django settings
 os.environ["DJANGO_SETTINGS_MODULE"] = "settings"
+os.environ["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"
+os.environ["SPHINX"] = "True"
 django.setup()
-
-
-# -- Helper functions -----------------------------------------------------
-
-
-def _shell_stdout(cmd):
-    """Runs a shell command and returns stdout"""
-    ret = subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE)
-    return ret.stdout.decode("utf-8").strip()
 
 
 # -- General configuration ------------------------------------------------

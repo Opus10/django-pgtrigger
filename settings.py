@@ -5,22 +5,22 @@ import django
 import dj_database_url
 
 
-# This is needed to support ReadTheDocs builds for our multi-db setup
-if "DATABASE_URL" not in os.environ:
-    os.environ["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"
-
-
 SECRET_KEY = "django-pgtrigger"
 # Install the tests as an app so that we can make test models
 INSTALLED_APPS = [
     "pgtrigger",
-    "pgtrigger.tests",
     # For testing purposes
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.postgres",
     "psqlextra",
 ]
+
+# Conditionally add the test app when we aren't building docs,
+# otherwise sphinx builds won't work
+if not os.environ.get("SPHINX"):
+    INSTALLED_APPS += ["pgtrigger.tests"]
+
 # Database url comes from the DATABASE_URL env var
 # We have some multi-database and multi-schema tests
 DATABASES = {
