@@ -1,4 +1,8 @@
 # Changelog
+## 4.3.3 (2022-08-24)
+### Trivial
+  - Fix ReadTheDocs builds [Wes Kendall, 3870643]
+
 ## 4.3.2 (2022-08-20)
 ### Trivial
   - Fix release note rendering and code formatting changes [Wes Kendall, c834606]
