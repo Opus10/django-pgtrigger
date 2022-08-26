@@ -9,7 +9,8 @@ executors:
           # Ensure makefile commands are not wrapped in "docker-compose run"
           DOCKER_EXEC_WRAPPER: ''
           DATABASE_URL: postgres://root@localhost/circle_test?sslmode=disable
-      - image: circleci/postgres:13-ram
+          TOX_PARALLEL_NO_SPINNER: 1
+      - image: cimg/postgres:14.4
         environment:
           POSTGRES_USER: root
           POSTGRES_DB: circle_test
