@@ -86,8 +86,12 @@ Almost all users can simply run ``python manage.py makemigrations`` after upgrad
 
 1. If you already ran ``python manage.py makemigrations``, delete any new migrations made for these third-party apps.
 2. Declare proxy models for the third-party or many-to-many "through" models, register triggers in the ``Meta.triggers``, and call ``python manage.py makemigrations``. See code examples in the :ref:`advanced_installation` section.
+3. Declaring proxy models will rename old triggers, leaving them in an orphaned state since they weren't previously managed by migrations. Ensure these old triggers are removed by doing any of the following:
+    a. Make a ``migrations.RunPython`` operation at the end of your migration or in a new data migration that does ``call_command("pgtrigger", "prune")``. Note that ``call_command`` is imported from ``django.core.management``.
+    b. OR run ``python manage.py pgtrigger prune`` after your deployment is complete
+    c. OR set ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` for a short period of time in your settings. This will automatically prune those old triggers after deployment, and you can turn this setting back to ``False`` later.
 
-If you'd like to keep the legacy installation behavior, set ``settings.PGTRIGGER_MIGRATIONS`` to ``False`` to turn off trigger migrations and set ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` so that triggers are always installed at the end of ``python manage.py migrate``.
+If you'd like to keep the legacy installation behavior and turn off migrations entirely, set ``settings.PGTRIGGER_MIGRATIONS`` to ``False`` to turn off trigger migrations and set ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True`` so that triggers are always installed at the end of ``python manage.py migrate``.
 
 Dropping of ``django-pgconnection`` dependency
 **********************************************
