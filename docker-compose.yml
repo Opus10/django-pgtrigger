@@ -2,7 +2,7 @@ version: "3.3"
    
 services:
   db:
-    image: postgres:13
+    image: cimg/postgres:14.4
     volumes:
       - ./.db:/var/lib/postgresql/data
     environment:
