@@ -1,4 +1,13 @@
 # Changelog
+## 4.4.0 (2022-08-27)
+### Bug
+  - Pruning/installations fixed for Postgres versions 12 and under. [Wes Kendall, 22d60e9]
+
+    Paritioned table support introduced a bug in using trigger management
+    commands for Postgres 12 and under. This has been fixed.
+### Trivial
+  - Local development enhancements [Wes Kendall, a4d3c9c]
+
 ## 4.3.4 (2022-08-26)
 ### Trivial
   - Test against Django 4.1 and other CI improvements [Wes Kendall, 813f67e]
