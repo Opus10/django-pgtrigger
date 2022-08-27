@@ -88,7 +88,7 @@ Partitions
 
 ``django-pgtrigger`` supports tables that use `Postgres table partitioning <https://www.postgresql.org/docs/current/ddl-partitioning.html>`__ with no additional configuration.
 
-
 .. note::
-   Triggers cannot be installed or uninstalled on a per-partition basis. I.e. installing a trigger on a partitioned
+   Row-level triggers are only available for partitioned tables in Postgres 13 and above.
+   Triggers cannot be installed or uninstalled on a per-partition basis. Installing a trigger on a partitioned
    table installs it for all partitions.
