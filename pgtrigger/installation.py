@@ -52,15 +52,18 @@ def prunable(database=None):
     }
 
     with utils.connection(database).cursor() as cursor:
+        pg_maj_version = int(str(cursor.connection.server_version)[:-4])
+        parent_trigger_clause = "tgparentid = 0 AND" if pg_maj_version >= 13 else ""
+
         # Only select triggers that are in the current search path. We accomplish
         # this by parsing the tgrelid and only selecting triggers that don't have
         # a schema name in their path
         cursor.execute(
-            """
+            f"""
             SELECT tgrelid::regclass, tgname, tgenabled
                 FROM pg_trigger
                 WHERE tgname LIKE 'pgtrigger_%' AND
-                      tgparentid = 0 AND
+                      {parent_trigger_clause}
                       array_length(parse_ident(tgrelid::regclass::varchar), 1) = 1
             """
         )

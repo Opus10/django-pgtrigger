@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from django.contrib.postgres.search import SearchVectorField
-from django.db import models
+from django.db import connections, models
 from django.utils import timezone
 from psqlextra.models import PostgresPartitionedModel
 from psqlextra.types import PostgresPartitioningMethod
@@ -8,11 +8,26 @@ from psqlextra.types import PostgresPartitioningMethod
 import pgtrigger
 
 
+def _get_pg_maj_version(db):  # pragma: no cover
+    connection = connections[db]
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            return int(str(cursor.connection.server_version)[:4])
+
+
 class Router:
     route_app_labels = ["tests"]
 
     def allow_migrate(self, db, app_label, model_name=None, **hints):
-        if model_name == "partitionmodel" and db in ("sqlite", "other"):
+        """
+        Ignore the parititon model for the "other" DB, for non-Postgres DBs,
+        and for Postgres DBs that are less than version 13
+        """
+        pg_maj_version = _get_pg_maj_version(db)
+
+        if model_name == "partitionmodel" and (
+            db in ("sqlite", "other") or not pg_maj_version or pg_maj_version < 13
+        ):
             return False
 
 
