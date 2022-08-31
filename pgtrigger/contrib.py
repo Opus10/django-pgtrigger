@@ -13,11 +13,12 @@ class Protect(core.Trigger):
     when = core.Before
 
     def get_func(self, model):
-        return f"""
+        sql = f"""
             RAISE EXCEPTION
                 'pgtrigger: Cannot {str(self.operation).lower()} rows from % table',
                 TG_TABLE_NAME;
         """
+        return self.format_sql(sql)
 
 
 class FSM(core.Trigger):
@@ -55,7 +56,7 @@ class FSM(core.Trigger):
         col = model._meta.get_field(self.field).column
         transition_uris = "{" + ",".join([f"{old}:{new}" for old, new in self.transitions]) + "}"
 
-        return f"""
+        sql = f"""
             SELECT CONCAT(OLD.{utils.quote(col)}, ':', NEW.{utils.quote(col)}) = ANY('{transition_uris}'::text[])
                 INTO _is_valid_transition;
 
@@ -69,6 +70,7 @@ class FSM(core.Trigger):
                 RETURN NEW;
             END IF;
         """  # noqa
+        return self.format_sql(sql)
 
 
 class SoftDelete(core.Trigger):
@@ -110,12 +112,13 @@ class SoftDelete(core.Trigger):
             else:
                 return str(self.value)
 
-        return f"""
+        sql = f"""
             UPDATE {utils.quote(model._meta.db_table)}
             SET {soft_field} = {_render_value()}
             WHERE {utils.quote(pk_col)} = OLD.{utils.quote(pk_col)};
             RETURN NULL;
         """
+        return self.format_sql(sql)
 
 
 class UpdateSearchVector(core.Trigger):
@@ -160,15 +163,14 @@ class UpdateSearchVector(core.Trigger):
     def ignore(self, model):
         raise RuntimeError(f"Cannot ignore {self.__class__.__name__} triggers")
 
-    def render_func(self, model):
+    def get_func(self, model):
         return ""
 
-    def render_trigger(self, model, function=None):
+    def render_execute(self, model):
         document_cols = [model._meta.get_field(field).column for field in self.document_fields]
         rendered_document_cols = ", ".join(utils.quote(col) for col in document_cols)
         vector_col = model._meta.get_field(self.vector_field).column
-        function = (
+        return (
             f"tsvector_update_trigger({utils.quote(vector_col)},"
             f" {utils.quote(self.config_name)}, {rendered_document_cols})"
         )
-        return super().render_trigger(model, function=function)

@@ -27,8 +27,8 @@ Why not just use Django signals?
 
 Django signals can easily be bypassed, and they don't fire in model operations like ``bulk_create``. If you are solving a database-level problem, such as protecting deletes, triggers are much more reliable.
 
-My triggers are causing errors in migrations. What's going on?
---------------------------------------------------------------
+Trigger installations are failing when migrating. What's going on?
+------------------------------------------------------------------
 
 If your triggers access mutliple tables across apps, you may encounter installation issues if you haven't declared those apps as ``dependencies`` in the migration file.
 
@@ -49,10 +49,31 @@ Although there are backwards compatibilities for outdated triggers that don't cr
 My trigger can't be serialized for migrations. What do I do?
 ------------------------------------------------------------
 
-If a third-party app or custom trigger throws a ``ValueError`` that says it cannot be serialized, that means it isn't
-compatible with Django's migration system. In order to fix this, override ``get_init_vals`` on the trigger class that
-fails. Return the arguments originally passed to ``__init__`` as a tuple of ``(args, kwargs)``
-where ``args`` is a list of positional arguments and ``kwargs`` is a dictionary of keyword arguments.
+If a trigger throws a ``ValueError`` that says it cannot be serialized, it's because the trigger's
+``__init__`` method takes a variable argument such as ``**kwargs``. Because of this, the trigger cannot
+automatically determine what arguments are needed to pass to its ``__init__`` method.
+
+The ways to fix this are:
+
+1. If it's a third-party library that's failing, let the author know their triggers aren't compatible
+   with the django-pgtrigger version 3 and above. See the end of this section for a way to still get
+   around this.
+2. Remove the ``**kwargs``-style arguments from the trigger's ``__init__`` and instead explicitly
+   list them.
+3. Override the ``get_init_vals`` method on the trigger class. Return the arguments originally
+   passed to ``__init__`` as a tuple of ``(args, kwargs)`` where ``args`` is a list of positional
+   arguments and ``kwargs`` is a dictionary of keyword arguments.
+
+If all else fails, disable ``django-pgtrigger``'s integration with the migration system by setting
+``settings.PGTRIGGER_MIGRATIONS`` to ``False``. Triggers can be automatically installed at the end
+of all migrations (like before) by setting ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True``.
+It's not recommended to disable the migration system integration.
+
+.. note::
+
+    For ``django-pghistory`` users, either upgrade ``django-pghistory`` to version 2.1.0,
+    downgrade ``django-pgtrigger`` to below version 3, or disable ``django-pgtrigger``'s
+    integration with the migration system.
 
 Patches are causing my application to fail. How can I disable them?
 -------------------------------------------------------------------
