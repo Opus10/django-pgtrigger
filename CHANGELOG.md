@@ -1,4 +1,16 @@
 # Changelog
+## 4.5.0 (2022-08-31)
+### Bug
+  - Migrations properly serialize dynamic triggers and add better support for reverse migrations [Wes Kendall, 2eb3014]
+
+    Triggers that override ``get_func`` or otherwise generate dynamic SQL are properly reflected
+    in migrations when the underlying implementation changes. Along with this, migrations now serialize
+    SQL objects instead of trigger classes, making it more robust when reversing migrations or
+    updating underlying implementations of existing triggers.
+
+    This change updates the hashes of all triggers and thus re-creates all triggers when running
+    ``makemigrations`` or when manually installing them.
+
 ## 4.4.0 (2022-08-27)
 ### Bug
   - Pruning/installations fixed for Postgres versions 12 and under. [Wes Kendall, 22d60e9]
