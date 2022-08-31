@@ -154,7 +154,16 @@ def test_declaration_rendering():
     rendered = DeclaredTrigger(
         name="test", when=pgtrigger.Before, operation=pgtrigger.Insert
     ).render_declare(None)
-    assert rendered == "DECLARE \nvar_name UUID;"
+    assert rendered == "DECLARE var_name UUID;"
+
+    class DeclaredTriggerMultiple(pgtrigger.Trigger):
+        def get_declare(self, model):
+            return [("var_name", "UUID"), ("var2_name", "UUID")]
+
+    rendered = DeclaredTriggerMultiple(
+        name="test", when=pgtrigger.Before, operation=pgtrigger.Insert
+    ).render_declare(None)
+    assert rendered == "DECLARE var_name UUID; var2_name UUID;"
 
 
 def test_f():

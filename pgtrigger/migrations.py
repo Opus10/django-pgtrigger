@@ -6,26 +6,29 @@ from django.db import transaction
 from django.db.migrations.operations.fields import AddField
 from django.db.migrations.operations.models import CreateModel, IndexOperation
 
+from pgtrigger import compiler
 from pgtrigger import utils
 
 
 def _add_trigger(schema_editor, model, trigger):
     """Add a trigger to a model."""
-    sql = trigger.render_install(model)
+    if not isinstance(trigger, compiler.Trigger):  # pragma: no cover
+        trigger = trigger.compile(model)
 
-    # Trigger.render_install returns interpolated SQL which makes
-    # params=None a necessity to avoid escaping attempts on execution.
     with transaction.atomic(using=schema_editor.connection.alias):
-        schema_editor.execute(sql, params=None)
+        # Trigger install SQL returns interpolated SQL which makes
+        # params=None a necessity to avoid escaping attempts on execution.
+        schema_editor.execute(trigger.install_sql, params=None)
 
 
 def _remove_trigger(schema_editor, model, trigger):
     """Remove a trigger from a model."""
-    sql = trigger.render_uninstall(model)
+    if not isinstance(trigger, compiler.Trigger):  # pragma: no cover
+        trigger = trigger.compile(model)
 
-    # Trigger.render_uninstall returns interpolated SQL which makes
+    # Trigger uninstall SQL returns interpolated SQL which makes
     # params=None a necessity to avoid escaping attempts on execution.
-    schema_editor.execute(sql, params=None)
+    schema_editor.execute(trigger.uninstall_sql, params=None)
 
 
 class TriggerOperationMixin:
@@ -147,11 +150,17 @@ def _inject_m2m_dependency_in_proxy(proxy_op):
 
 
 class MigrationAutodetectorMixin:
-    """An mixin that can be subclassed with MigrationAutodetector and detects triggers"""
+    """A mixin that can be subclassed with MigrationAutodetector and detects triggers"""
 
     def _detect_changes(self, *args, **kwargs):
         self.altered_triggers = {}
         return super()._detect_changes(*args, **kwargs)
+
+    def _get_add_trigger_op(self, model, trigger):
+        if not isinstance(trigger, compiler.Trigger):
+            trigger = trigger.compile(model)
+
+        return AddTrigger(model_name=model._meta.model_name, trigger=trigger)
 
     def create_altered_constraints(self):
         """
@@ -162,9 +171,13 @@ class MigrationAutodetectorMixin:
             old_model_name = self.renamed_models.get((app_label, model_name), model_name)
             old_model_state = self.from_state.models[app_label, old_model_name]
             new_model_state = self.to_state.models[app_label, model_name]
+            new_model = self.to_state.apps.get_model(app_label, model_name)
 
             old_triggers = old_model_state.options.get("triggers", [])
-            new_triggers = new_model_state.options.get("triggers", [])
+            new_triggers = [
+                trigger.compile(new_model)
+                for trigger in new_model_state.options.get("triggers", [])
+            ]
             add_triggers = [c for c in new_triggers if c not in old_triggers]
             rem_triggers = [c for c in old_triggers if c not in new_triggers]
 
@@ -181,8 +194,11 @@ class MigrationAutodetectorMixin:
 
     def generate_added_constraints(self):
         for (app_label, model_name), alt_triggers in self.altered_triggers.items():
+            model = self.to_state.apps.get_model(app_label, model_name)
             for trigger in alt_triggers["added_triggers"]:
-                self.add_operation(app_label, AddTrigger(model_name=model_name, trigger=trigger))
+                self.add_operation(
+                    app_label, self._get_add_trigger_op(model=model, trigger=trigger)
+                )
 
         return super().generate_added_constraints()
 
@@ -202,6 +218,7 @@ class MigrationAutodetectorMixin:
         added_models = sorted(added_models, key=self.swappable_first_key, reverse=True)
 
         for app_label, model_name in added_models:
+            model = self.to_state.apps.get_model(app_label, model_name)
             model_state = self.to_state.models[app_label, model_name]
 
             if not model_state.options.get("managed", True):
@@ -222,7 +239,7 @@ class MigrationAutodetectorMixin:
             for trigger in model_state.options.pop("triggers", []):
                 self.add_operation(
                     app_label,
-                    AddTrigger(model_name=model_name, trigger=trigger),
+                    self._get_add_trigger_op(model=model, trigger=trigger),
                     dependencies=related_dependencies,
                 )
 
@@ -241,13 +258,14 @@ class MigrationAutodetectorMixin:
                 ):
                     _inject_m2m_dependency_in_proxy(op)
 
+            model = self.to_state.apps.get_model(app_label, model_name)
             model_state = self.to_state.models[app_label, model_name]
             assert model_state.options.get("proxy")
 
             for trigger in model_state.options.pop("triggers", []):
                 self.add_operation(
                     app_label,
-                    AddTrigger(model_name=model_name, trigger=trigger),
+                    self._get_add_trigger_op(model=model, trigger=trigger),
                     dependencies=[(app_label, model_name, None, True)],
                 )
 

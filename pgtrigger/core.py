@@ -12,6 +12,7 @@ from django.db.models.sql.datastructures import BaseTable
 from django.db.utils import ProgrammingError
 import psycopg2.extensions
 
+from pgtrigger import compiler
 from pgtrigger import features
 from pgtrigger import registry
 from pgtrigger import utils
@@ -46,7 +47,9 @@ class _Serializable:
                 raise ValueError(
                     f"Could not automatically serialize Trigger {self.__class__} for migrations."
                     ' Implement "get_init_vals()" on the trigger class. See the'
-                    " FAQ in the django-pgtrigger docs for more information."
+                    " docs for more information -"
+                    " https://django-pgtrigger.readthedocs.io/en/latest/"
+                    "faq.html#my-trigger-can-t-be-serialized-for-migrations-what-do-i-do."
                 )
 
         args = tuple(
@@ -64,8 +67,11 @@ class _Serializable:
 
         return args, kwargs
 
-    def deconstruct(self):
-        """For supporting Django migrations"""
+    def deconstruct(self):  # pragma: no cover
+        """For supporting Django migrations
+
+        TODO: This code has been deprecated and can be removed after more testing
+        """
         path = f"{self.__class__.__module__}.{self.__class__.__name__}"
         path = path.replace("pgtrigger.core", "pgtrigger")
         path = path.replace("pgtrigger.contrib", "pgtrigger")
@@ -73,6 +79,9 @@ class _Serializable:
         return path, args, kwargs
 
     def __eq__(self, other):
+        """
+        Determines if two triggers are equal.
+        """
         return self.__class__ == other.__class__ and self.get_init_vals() == other.get_init_vals()
 
 
@@ -272,7 +281,8 @@ class F(models.F):
 
         self.col_name = self.name[5:]
 
-    def deconstruct(self):
+    def deconstruct(self):  # pragma: no cover
+        """TODO: This is deprecated and can be removed after further testing"""
         path, args, kwargs = super().deconstruct()
         path = path.replace("pgtrigger.core", "pgtrigger")
         return path, args, kwargs
@@ -326,7 +336,8 @@ class Q(models.Q, Condition):
     rows in a trigger condition.
     """
 
-    def deconstruct(self):
+    def deconstruct(self):  # pragma: no cover
+        """TODO: this is deprecated and can be removed after further testing"""
         path, args, kwargs = super().deconstruct()
         path = path.replace("pgtrigger.core", "pgtrigger")
         return path, args, kwargs
@@ -357,40 +368,6 @@ def _ignore_func_name():
         ignore_func = f"{utils.quote(features.schema())}.{ignore_func}"
 
     return ignore_func
-
-
-def _render_ignore_func():
-    """
-    Triggers can be ignored dynamically by help of a special function that's installed.
-    The definition of this function is here.
-
-    Note: This function is global and shared by all triggers in the current
-    implementation. It isn't uninstalled when triggers are uninstalled.
-    """
-    return f"""
-        CREATE OR REPLACE FUNCTION {_ignore_func_name()}(
-            trigger_name NAME
-        )
-        RETURNS BOOLEAN AS $$
-            DECLARE
-                _pgtrigger_ignore TEXT[];
-                _result BOOLEAN;
-            BEGIN
-                BEGIN
-                    SELECT INTO _pgtrigger_ignore
-                        CURRENT_SETTING('pgtrigger.ignore');
-                    EXCEPTION WHEN OTHERS THEN
-                END;
-                IF _pgtrigger_ignore IS NOT NULL THEN
-                    SELECT trigger_name = ANY(_pgtrigger_ignore)
-                    INTO _result;
-                    RETURN _result;
-                ELSE
-                    RETURN FALSE;
-                END IF;
-            END;
-        $$ LANGUAGE plpgsql;
-    """
 
 
 class Trigger(_Serializable):
@@ -499,9 +476,7 @@ class Trigger(_Serializable):
         as the current time, the trigger hash will always change and
         appear to be out of sync.
         """
-        rendered_func = self.render_func(model)
-        rendered_trigger = self.render_trigger(model)
-        return hashlib.sha1(f"{rendered_func} {rendered_trigger}".encode()).hexdigest()
+        return self.render_install(model).hash
 
     def get_condition(self, model):
         return self.condition
@@ -547,7 +522,7 @@ class Trigger(_Serializable):
         """Renders the DECLARE of the trigger function, if any"""
         declare = self.get_declare(model)
         if declare:
-            rendered_declare = "DECLARE \n" + "\n".join(
+            rendered_declare = "DECLARE " + " ".join(
                 f"{var_name} {var_type};" for var_name, var_type in declare
             )
         else:
@@ -555,83 +530,35 @@ class Trigger(_Serializable):
 
         return rendered_declare
 
-    def render_ignore(self, model):
+    def render_execute(self, model):
         """
-        Renders the clause that can dynamically ignore the trigger's execution
+        Renders what should be executed by the trigger. This defaults
+        to the trigger function
         """
-        return f"""
-            IF ({_ignore_func_name()}(TG_NAME) IS TRUE) THEN
-                IF (TG_OP = 'DELETE') THEN
-                    RETURN OLD;
-                ELSE
-                    RETURN NEW;
-                END IF;
-            END IF;
-        """
-
-    def render_func(self, model):
-        """Renders the trigger function SQL statement"""
-        return f"""
-            CREATE OR REPLACE FUNCTION {self.get_pgid(model)}()
-            RETURNS TRIGGER AS $$
-                {self.render_declare(model)}
-                BEGIN
-                    {self.render_ignore(model)}
-                    {self.get_func(model)}
-                END;
-            $$ LANGUAGE plpgsql;
-        """
-
-    def render_trigger(self, model, function=None):
-        """Renders the trigger declaration SQL statement
-
-        Args:
-            model (``models.Model``): The Django model over which
-                the trigger will run.
-            function (str, default=None): The function that will
-                be called by the trigger. Defaults to the function that's
-                automatically created for the trigger.
-        """
-        table = model._meta.db_table
-        pgid = self.get_pgid(model)
-        function = function or f"{pgid}()"
-
-        constraint = "CONSTRAINT" if self.timing else ""
-        timing = f"DEFERRABLE INITIALLY {self.timing}" if self.timing else ""
-
-        # Note: Postgres 14 has CREATE OR REPLACE syntax that
-        # we might consider using.
-        return f"""
-            DROP TRIGGER IF EXISTS {pgid} on {utils.quote(table)};
-            CREATE {constraint} TRIGGER {pgid}
-                {self.when} {self.operation} ON {utils.quote(table)}
-                {timing}
-                {self.referencing or ''}
-                FOR EACH {self.level} {self.render_condition(model)}
-                EXECUTE PROCEDURE {function};
-        """
-
-    def render_comment(self, model):
-        """Renders the trigger commment SQL statement
-
-        pgtrigger comments the hash of the trigger in order for us to
-        determine if the trigger definition has changed
-        """
-        pgid = self.get_pgid(model)
-        hash = self.get_hash(model)
-        table = model._meta.db_table
-        return f"COMMENT ON TRIGGER {pgid} ON {utils.quote(table)} IS '{hash}'"
+        return f"{self.get_pgid(model)}()"
 
     def render_install(self, model):
-        ignore_func = _render_ignore_func()
-        rendered_func = self.render_func(model)
-        rendered_trigger = self.render_trigger(model)
-        rendered_comment = self.render_comment(model)
-
-        return f"{ignore_func}; {rendered_func}; {rendered_trigger}; {rendered_comment};"
+        return compiler.UpsertTriggerSql(
+            ignore_func_name=_ignore_func_name(),
+            pgid=self.get_pgid(model),
+            declare=self.render_declare(model),
+            func=self.get_func(model),
+            table=model._meta.db_table,
+            constraint="CONSTRAINT" if self.timing else "",
+            when=self.when,
+            operation=self.operation,
+            timing=f"DEFERRABLE INITIALLY {self.timing}" if self.timing else "",
+            referencing=self.referencing or "",
+            level=self.level,
+            condition=self.render_condition(model),
+            execute=self.render_execute(model),
+        )
 
     def render_uninstall(self, model):
-        return utils.render_uninstall(model._meta.db_table, self.get_pgid(model))
+        return compiler.DropTriggerSql(pgid=self.get_pgid(model), table=model._meta.db_table)
+
+    def compile(self, model):
+        return compiler.Trigger(name=self.name, sql=self.render_install(model))
 
     def allow_migrate(self, model, database=None):
         """True if the trigger for this model can be migrated.
@@ -643,10 +570,14 @@ class Trigger(_Serializable):
             database or DEFAULT_DB_ALIAS, model._meta.app_label, model_name=model._meta.model_name
         )
 
+    def format_sql(self, sql):
+        """Returns SQL as one line that has trailing whitespace removed from each line"""
+        return " ".join(line.strip() for line in sql.split("\n") if line.strip()).strip()
+
     def exec_sql(self, sql, model, database=None, fetchall=False):
         """Conditionally execute SQL if migrations are allowed"""
         if self.allow_migrate(model, database=database):
-            return utils.exec_sql(sql, database=database, fetchall=fetchall)
+            return utils.exec_sql(str(sql), database=database, fetchall=fetchall)
 
     def get_installation_status(self, model, database=None):
         """Returns the installation status of a trigger.
