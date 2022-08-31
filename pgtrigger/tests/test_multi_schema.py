@@ -6,11 +6,10 @@ import contextlib
 
 import ddf
 from django.core.management import call_command
-from django.db.utils import InternalError
 import pytest
 
 import pgtrigger
-from pgtrigger.tests import models
+from pgtrigger.tests import models, utils
 
 
 class SchemaRouter:
@@ -63,10 +62,10 @@ def test_multi_schema_triggers_work():
     order = ddf.G("tests.OrderSchema")
     receipt = ddf.G("tests.ReceiptSchema")
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete", database="order"):
         order.delete()
 
-    with pytest.raises(InternalError, match="Cannot update"):
+    with utils.raises_trigger_error(match="Cannot update", database="receipt"):
         receipt.char_field = "hello"
         receipt.save()
 

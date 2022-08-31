@@ -3,32 +3,31 @@ import datetime as dt
 import ddf
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.utils import InternalError
 from django.db.utils import NotSupportedError
 import pytest
 
 import pgtrigger
 from pgtrigger import core
-from pgtrigger.tests import models
+from pgtrigger.tests import models, utils
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_partition():
     p1 = ddf.G(models.PartitionModel, timestamp=dt.datetime(2019, 1, 3))
     p2 = ddf.G(models.PartitionModel, timestamp=dt.datetime(2019, 2, 4))
     p3 = ddf.G(models.PartitionModel, timestamp=dt.datetime(2019, 3, 5))
     default = ddf.G(models.PartitionModel, timestamp=dt.datetime(2019, 4, 5))
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         p1.delete()
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         p2.delete()
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         p3.delete()
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         default.delete()
 
     with pgtrigger.ignore("tests.PartitionModel:protect_delete"):
@@ -46,7 +45,7 @@ def test_through_model():
     test_trigger = ddf.G(models.TestTrigger)
     test_trigger.m2m_field.add(ddf.G("auth.User"))
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         test_trigger.m2m_field.clear()
 
 
@@ -101,7 +100,7 @@ def test_deferred_trigger():
     with trigger.register(models.TestModel), trigger.install(models.TestModel):
         obj = ddf.G(models.TestModel)
         deferring_worked = False
-        with pytest.raises(InternalError, match="Cannot delete"):
+        with utils.raises_trigger_error(match="Cannot delete"):
             with transaction.atomic():
                 obj.delete()
                 # Deletion works within the transaction, but fails
@@ -123,7 +122,7 @@ def test_deferred_trigger():
             assert not models.TestModel.objects.exists()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_updating_trigger_condition():
     """
     Tests re-installing a trigger when the condition changes
@@ -134,7 +133,7 @@ def test_updating_trigger_condition():
     with trigger.install(models.LogEntry):
         le = ddf.G(models.LogEntry, level="good")
 
-        with pytest.raises(InternalError, match="Cannot delete"):
+        with utils.raises_trigger_error(match="Cannot delete"):
             le.delete()
 
         # Protect deletes when "level" is "bad". The trigger should be reinstalled
@@ -174,7 +173,7 @@ def test_f():
     assert pgtrigger.F("old__value").resolved_name == 'OLD."value"'
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_is_distinct_from_condition():
     """Tests triggers where the old and new are distinct from one another
 
@@ -192,12 +191,12 @@ def test_is_distinct_from_condition():
         | pgtrigger.Q(new__nullable__df=pgtrigger.F("old__nullable")),
     )
     with trigger.install(models.TestTrigger):
-        with pytest.raises(InternalError, match="Cannot update rows"):
+        with utils.raises_trigger_error(match="Cannot update rows"):
             test_model.int_field = 1
             test_model.save()
 
         # Ensure the null case works
-        with pytest.raises(InternalError, match="Cannot update rows"):
+        with utils.raises_trigger_error(match="Cannot update rows"):
             test_model.nullable = "1"
             test_model.save()
 
@@ -207,7 +206,7 @@ def test_is_distinct_from_condition():
         test_model.save()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_invalid_trigger():
     """Ensures triggers with invalid syntax are not installed"""
     # Truncates can only be used on statement level triggers
@@ -219,7 +218,7 @@ def test_invalid_trigger():
         trigger.install(models.TestTrigger)
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_is_distinct_from_condition_fk_field():
     """Tests triggers where the old and new are distinct from one another
     on a foreign key field
@@ -237,7 +236,7 @@ def test_is_distinct_from_condition_fk_field():
         condition=pgtrigger.Q(old__fk_field__df=pgtrigger.F("new__fk_field")),
     )
     with trigger.install(models.TestTrigger):
-        with pytest.raises(InternalError, match="Cannot update rows"):
+        with utils.raises_trigger_error(match="Cannot update rows"):
             test_int_fk_model.fk_field = User(id=1)
             test_int_fk_model.save()
 
@@ -255,7 +254,7 @@ def test_is_distinct_from_condition_fk_field():
         condition=pgtrigger.Q(old__char_pk_fk_field__df=pgtrigger.F("new__char_pk_fk_field")),
     )
     with trigger.install(models.TestTrigger):
-        with pytest.raises(InternalError, match="Cannot update rows"):
+        with utils.raises_trigger_error(match="Cannot update rows"):
             test_char_fk_model.char_pk_fk_field = None
             test_char_fk_model.save()
 
@@ -264,7 +263,7 @@ def test_is_distinct_from_condition_fk_field():
         test_char_fk_model.save()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_is_not_distinct_from_condition():
     """Tests triggers where the old and new are not distinct from one another
 
@@ -285,12 +284,12 @@ def test_is_not_distinct_from_condition():
     )
     with trigger.install(models.TestTrigger):
 
-        with pytest.raises(InternalError, match="Cannot update rows"):
+        with utils.raises_trigger_error(match="Cannot update rows"):
             test_model.int_field = 1
             test_model.save()
 
         # Ensure the null case works
-        with pytest.raises(InternalError, match="Cannot update rows"):
+        with utils.raises_trigger_error(match="Cannot update rows"):
             test_model.int_field = 0
             test_model.nullable = "1"
             test_model.save()
@@ -341,7 +340,7 @@ def test_invalid_name_characters(mocker):
         )
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_complex_conditions():
     """Tests complex OLD and NEW trigger conditions"""
     zero_to_one = ddf.G(models.TestModel, int_field=0)
@@ -354,7 +353,7 @@ def test_complex_conditions():
         condition=pgtrigger.Q(old__int_field=0, new__int_field=1),
     )
     with trigger.install(models.TestModel):
-        with pytest.raises(InternalError, match="Cannot update rows"):
+        with utils.raises_trigger_error(match="Cannot update rows"):
             zero_to_one.int_field = 1
             zero_to_one.save()
 
@@ -370,13 +369,13 @@ def test_complex_conditions():
         ),
     )
     with trigger.install(models.TestTrigger):
-        with pytest.raises(InternalError, match="Cannot update rows"):
+        with utils.raises_trigger_error(match="Cannot update rows"):
             test_model.int_field = 1
             test_model.save()
         test_model.int_field = 2
         test_model.save()
 
-        with pytest.raises(InternalError, match="Cannot update rows"):
+        with utils.raises_trigger_error(match="Cannot update rows"):
             test_model.dt_field = dt.datetime(2019, 1, 1)
             test_model.save()
 
@@ -470,7 +469,7 @@ def test_operations():
     assert str(pgtrigger.Delete | pgtrigger.Update) == "DELETE OR UPDATE"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_custom_trigger_definitions():
     """Test a variety of custom trigger definitions"""
     test_model = ddf.G(models.TestTrigger)
@@ -487,10 +486,10 @@ def test_custom_trigger_definitions():
     with trigger.install(test_model):
 
         # Inserts and updates are no longer available
-        with pytest.raises(InternalError, match="no no no!"):
+        with utils.raises_trigger_error(match="no no no!"):
             models.TestTrigger.objects.create()
 
-        with pytest.raises(InternalError, match="no no no!"):
+        with utils.raises_trigger_error(match="no no no!"):
             test_model.save()
 
     # Inserts and updates should work again
@@ -508,7 +507,7 @@ def test_custom_trigger_definitions():
         # "field" should be able to be updated, but other_field should not
         test_model.save(update_fields=["field"])
 
-        with pytest.raises(InternalError, match="no no no!"):
+        with utils.raises_trigger_error(match="no no no!"):
             test_model.save(update_fields=["int_field"])
 
     # Protect statement-level creates
@@ -520,11 +519,11 @@ def test_custom_trigger_definitions():
         func="RAISE EXCEPTION 'bad statement!';",
     )
     with trigger.install(models.TestTrigger):
-        with pytest.raises(InternalError, match="bad statement!"):
+        with utils.raises_trigger_error(match="bad statement!"):
             test_model.save()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_trigger_conditions():
     """Tests triggers with custom conditions"""
     test_model = ddf.G(models.TestTrigger)
@@ -539,7 +538,7 @@ def test_trigger_conditions():
     )
     with trigger.install(test_model):
         ddf.G(models.TestTrigger, field="hi!")
-        with pytest.raises(InternalError, match="no no no!"):
+        with utils.raises_trigger_error(match="no no no!"):
             models.TestTrigger.objects.create(field="hello")
 
     # Protect updates where nothing is actually updated
@@ -555,7 +554,7 @@ def test_trigger_conditions():
         test_model.save()
 
         # Saving the same fields again will cause an error
-        with pytest.raises(InternalError, match="no no no!"):
+        with utils.raises_trigger_error(match="no no no!"):
             test_model.save()
 
     # Make a model readonly when the int_field is -1
@@ -570,10 +569,10 @@ def test_trigger_conditions():
         condition=pgtrigger.Q(old__int_field=-1),
     )
     with trigger.install(models.TestModel):
-        with pytest.raises(InternalError, match="no no no!"):
+        with utils.raises_trigger_error(match="no no no!"):
             read_only.save()
 
-        with pytest.raises(InternalError, match="no no no!"):
+        with utils.raises_trigger_error(match="no no no!"):
             read_only.delete()
 
         non_read_only.save()
@@ -587,7 +586,7 @@ def test_trigger_management(mocker):
     deletion_protected_model = ddf.G(models.TestTrigger)
 
     # Triggers should be installed initially
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()
 
     # Deactivate triggers. Deletions should happen without issue.
@@ -600,7 +599,7 @@ def test_trigger_management(mocker):
     pgtrigger.enable()
     pgtrigger.enable()
     deletion_protected_model = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()
 
     # Do the same tests again, except this time uninstall and reinstall
@@ -613,13 +612,13 @@ def test_trigger_management(mocker):
     pgtrigger.install()
     pgtrigger.install()
     deletion_protected_model = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()
 
     # Pruning triggers should do nothing at the moment
     pgtrigger.prune()
     pgtrigger.prune()
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()
 
     # However, changing the trigger name will cause the old triggers to

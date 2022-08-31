@@ -1,9 +1,8 @@
 import ddf
-from django.db.utils import InternalError
 import pytest
 
 import pgtrigger
-from pgtrigger.tests import models
+from pgtrigger.tests import models, utils
 
 
 def test_registered_invalid_args():
@@ -103,14 +102,14 @@ def test_soft_delete_different_values():
         assert models.LogEntry.objects.get().old_field is None
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_fsm():
     """
     Verifies the FSM test model cannot make invalid transitions
     """
     fsm = ddf.G(models.FSM, transition="unpublished")
     fsm.transition = "inactive"
-    with pytest.raises(InternalError, match="Invalid transition"):
+    with utils.raises_trigger_error(match="Invalid transition"):
         fsm.save()
 
     fsm.transition = "published"
@@ -119,7 +118,7 @@ def test_fsm():
     # Be sure we ignore FSM when there is no transition
     fsm.save()
 
-    with pytest.raises(InternalError, match="Invalid transition"):
+    with utils.raises_trigger_error(match="Invalid transition"):
         fsm.transition = "unpublished"
         fsm.save()
 
@@ -131,7 +130,7 @@ def test_fsm():
 def test_protect():
     """Verify deletion protect trigger works on test model"""
     deletion_protected_model = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()
 
 
@@ -139,5 +138,5 @@ def test_protect():
 def test_custom_db_table_protect_trigger():
     """Verify custom DB table names have successful triggers"""
     deletion_protected_model = ddf.G(models.CustomTableName)
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()

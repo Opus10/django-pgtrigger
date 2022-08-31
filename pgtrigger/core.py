@@ -1,7 +1,6 @@
 import contextlib
 import copy
 import hashlib
-import inspect
 import re
 
 from django.db import DEFAULT_DB_ALIAS, models, router, transaction
@@ -35,57 +34,7 @@ PRUNE = "PRUNE"
 UNALLOWED = "UNALLOWED"
 
 
-class _Serializable:
-    def get_init_vals(self):
-        """Returns class initialization args so that they are properly serialized for migrations"""
-        parameters = inspect.signature(self.__init__).parameters
-
-        for key, val in parameters.items():
-            if key != "self" and (
-                not hasattr(self, key) or val.kind == inspect.Parameter.VAR_KEYWORD
-            ):  # pragma: no cover
-                raise ValueError(
-                    f"Could not automatically serialize Trigger {self.__class__} for migrations."
-                    ' Implement "get_init_vals()" on the trigger class. See the'
-                    " docs for more information -"
-                    " https://django-pgtrigger.readthedocs.io/en/latest/"
-                    "faq.html#my-trigger-can-t-be-serialized-for-migrations-what-do-i-do."
-                )
-
-        args = tuple(
-            item
-            for key, val in parameters.items()
-            if val.kind == inspect.Parameter.VAR_POSITIONAL
-            for item in getattr(self, key)
-        )
-
-        kwargs = {
-            key: getattr(self, key)
-            for key, value in parameters.items()
-            if key != "self" and val.kind != inspect.Parameter.VAR_POSITIONAL
-        }
-
-        return args, kwargs
-
-    def deconstruct(self):  # pragma: no cover
-        """For supporting Django migrations
-
-        TODO: This code has been deprecated and can be removed after more testing
-        """
-        path = f"{self.__class__.__module__}.{self.__class__.__name__}"
-        path = path.replace("pgtrigger.core", "pgtrigger")
-        path = path.replace("pgtrigger.contrib", "pgtrigger")
-        args, kwargs = self.get_init_vals()
-        return path, args, kwargs
-
-    def __eq__(self, other):
-        """
-        Determines if two triggers are equal.
-        """
-        return self.__class__ == other.__class__ and self.get_init_vals() == other.get_init_vals()
-
-
-class _Primitive(_Serializable):
+class _Primitive:
     """Boilerplate for some of the primitive operations"""
 
     def __init__(self, name):
@@ -107,7 +56,7 @@ Row = Level("ROW")
 Statement = Level("STATEMENT")
 
 
-class Referencing(_Serializable):
+class Referencing:
     """For specifying the REFERENCING clause of a statement-level trigger"""
 
     def __init__(self, *, old=None, new=None):
@@ -207,7 +156,7 @@ Immediate = Timing("IMMEDIATE")
 Deferred = Timing("DEFERRED")
 
 
-class Condition(_Serializable):
+class Condition:
     """For specifying free-form SQL in the condition of a trigger."""
 
     sql = None
@@ -281,12 +230,6 @@ class F(models.F):
 
         self.col_name = self.name[5:]
 
-    def deconstruct(self):  # pragma: no cover
-        """TODO: This is deprecated and can be removed after further testing"""
-        path, args, kwargs = super().deconstruct()
-        path = path.replace("pgtrigger.core", "pgtrigger")
-        return path, args, kwargs
-
     @property
     def resolved_name(self):
         return f"{self.row_alias}.{utils.quote(self.col_name)}"
@@ -336,12 +279,6 @@ class Q(models.Q, Condition):
     rows in a trigger condition.
     """
 
-    def deconstruct(self):  # pragma: no cover
-        """TODO: this is deprecated and can be removed after further testing"""
-        path, args, kwargs = super().deconstruct()
-        path = path.replace("pgtrigger.core", "pgtrigger")
-        return path, args, kwargs
-
     def resolve(self, model):
         query = _OldNewQuery(model)
         sql, args = self.resolve_expression(query).as_sql(
@@ -370,7 +307,7 @@ def _ignore_func_name():
     return ignore_func
 
 
-class Trigger(_Serializable):
+class Trigger:
     """
     For specifying a free-form PL/pgSQL trigger function or for
     creating derived trigger classes.
