@@ -1,13 +1,12 @@
 import ddf
 from django.db import connection, IntegrityError, transaction
-from django.db.utils import InternalError
 import pytest
 
 import pgtrigger
-from pgtrigger.tests import models
+from pgtrigger.tests import models, utils
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_schema():
     """Verifies behavior of pgtrigger.schema"""
 
@@ -79,7 +78,7 @@ def test_constraints():
 
             # When we set constraints to Immediate, it should fail inside
             # of the transaction
-            with pytest.raises(InternalError, match="Cannot delete"):
+            with utils.raises_trigger_error(match="Cannot delete", transaction=False):
                 # The first statement does nothing because the trigger is already deferred
                 pgtrigger.constraints(
                     pgtrigger.Deferred, "tests.TestModel:protect_delete", databases=["default"]
@@ -137,16 +136,16 @@ def test_ignore_no_transaction_leaks():
         assert not models.TestTrigger.objects.exists()
 
     deletion_protected_model = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 @pytest.mark.parametrize("model_class", [models.TestTriggerProxy, models.CustomTableName])
 def test_basic_ignore(model_class):
     """Verify basic dynamic ignore functionality"""
     deletion_protected_model = ddf.G(model_class)
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()
 
     with pgtrigger.ignore(f"tests.{model_class.__name__}:protect_delete"):
@@ -155,16 +154,16 @@ def test_basic_ignore(model_class):
     assert not models.TestTrigger.objects.exists()
 
     deletion_protected_model = ddf.G(model_class)
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_nested_ignore():
     """Test nesting pgtrigger.ignore()"""
     deletion_protected_model1 = ddf.G(models.TestTrigger)
     deletion_protected_model2 = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model1.delete()
 
     with pgtrigger.ignore("tests.TestTriggerProxy:protect_delete"):
@@ -175,30 +174,30 @@ def test_nested_ignore():
     assert not models.TestTrigger.objects.exists()
 
     deletion_protected_model = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()
 
     with pgtrigger.ignore.session(databases=["default"]):
         deletion_protected_model = ddf.G(models.TestTrigger)
-        with pytest.raises(InternalError, match="Cannot delete rows"):
+        with utils.raises_trigger_error(match="Cannot delete rows"):
             deletion_protected_model.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_multiple_ignores():
     """Tests multiple pgtrigger.ignore()"""
     deletion_protected_model1 = ddf.G(models.TestTrigger)
     ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model1.delete()
 
     ddf.G(models.TestTrigger, field="hi!")
-    with pytest.raises(InternalError, match="no no no!"):
+    with utils.raises_trigger_error(match="no no no!"):
         models.TestTrigger.objects.create(field="misc_insert")
 
     with pgtrigger.ignore("tests.TestTriggerProxy:protect_delete"):
         deletion_protected_model1.delete()
-        with pytest.raises(InternalError, match="no no no!"):
+        with utils.raises_trigger_error(match="no no no!"):
             models.TestTrigger.objects.create(field="misc_insert")
 
         with pgtrigger.ignore("tests.TestTrigger:protect_misc_insert"):
@@ -210,7 +209,7 @@ def test_multiple_ignores():
     assert not models.TestTrigger.objects.exists()
 
     deletion_protected_model = ddf.G(models.TestTrigger)
-    with pytest.raises(InternalError, match="Cannot delete rows"):
+    with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()
 
 

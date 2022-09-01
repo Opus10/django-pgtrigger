@@ -3,12 +3,13 @@ django-pgtrigger
 
 ``django-pgtrigger`` helps you write
 `Postgres triggers <https://www.postgresql.org/docs/current/sql-createtrigger.html>`__
-for your Django models. It is compatible with Python 3.7 to 3.10 and Django 2.2 to 4.1.
+for your Django models.
 
 Why should I use triggers?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Triggers can solve a variety of complex problems much more reliably and succinctly than application code. For example,
+Triggers can solve a variety of complex problems more reliably, performantly, and succinctly than application code.
+For example,
 
 1. Protecting operations on rows or columns (`pgtrigger.Protect`).
 2. Soft-deleting models (`pgtrigger.SoftDelete`).
@@ -43,8 +44,8 @@ the model from being deleted:
                 pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
             ]
 
-When migrations are created and executed, ``ProtectedModel`` will raise an internal
-database error anytime someone tries to delete it.
+When migrations are created and executed, ``ProtectedModel`` will raise an
+exception anytime a deletion is attempted.
 
 Let's extend this example further and only protect deletions on inactive objects.
 In this example, the trigger conditionally runs when the row being deleted
@@ -75,20 +76,38 @@ however, can still use raw SQL for complex cases.
 Triggers are installed like other database objects. Run
 ``python manage.py makemigrations`` and ``python manage.py migrate`` to install triggers.
 
+Compatibility
+~~~~~~~~~~~~~
+
+``django-pgtrigger`` is compatible with Python 3.7 -- 3.10, Django 2.2 -- 4.1, and Postgres 10 -- 14.
+
 Next steps
 ~~~~~~~~~~
 
 We recommend everyone first read:
 
-* :ref:`basics` for an overview.
+* :ref:`installation` for how to install the library.
+* :ref:`basics` for an overview and motivation.
+
+After this, there are several usage guides:
+
 * :ref:`cookbook` for trigger examples.
-* :ref:`further_reading` for additional reading and videos.
-
-Other topics are available:
-
 * :ref:`ignoring_triggers` for dynamically ignoring triggers.
 * :ref:`deferrable` for deferring trigger execution.
 * :ref:`advanced_installation` for installing triggers on third-party models, many-to-many models, programmatic installation, and more.
 * :ref:`advanced_db` for notes on how triggers work in multi-database, mutli-schema, or partitioned database setups.
 
-View the :ref:`faq` for everything else.
+There's additional help in these sections:
+
+* :ref:`faq` for common questions like testing and disabling triggers.
+* :ref:`troubleshooting` for advice on known issues.
+* :ref:`upgrading` for upgrading to new major versions.
+* :ref:`further_reading` for additional reading and videos.
+
+Finally, core API information exists in these sections:
+
+* :ref:`settings` for all available Django settings.
+* :ref:`commands` for using the ``python manage.py pgtrigger`` management commands.
+* :ref:`module` for documentation of the ``pgtrigger`` module.
+* :ref:`release_notes` for information about every release.
+* :ref:`contributing` for details on contributing to the codebase.

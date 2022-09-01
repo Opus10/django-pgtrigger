@@ -7,11 +7,12 @@ from django.apps import apps
 import django.contrib.auth.models as auth_models
 from django.core.management import call_command
 from django.db import models
-from django.db.utils import InternalError, ProgrammingError
+from django.db.utils import ProgrammingError
 import pytest
 
 import pgtrigger
 from pgtrigger import core
+from pgtrigger.tests import utils
 import pgtrigger.tests.models as test_models
 
 
@@ -111,7 +112,7 @@ def test_makemigrations_existing_models(settings, request):
         assert_all_triggers_installed()
 
         # After migrating, test models should be protected
-        with pytest.raises(InternalError, match="no no no!"):
+        with utils.raises_trigger_error(match="no no no!"):
             test_models.TestModel.objects.create()
 
         # Update the trigger to allow inserts, but not updates.
@@ -125,7 +126,7 @@ def test_makemigrations_existing_models(settings, request):
 
         # We should be able to make test models but not update them
         test_model = ddf.G("tests.TestModel")
-        with pytest.raises(InternalError, match="no no no!"):
+        with utils.raises_trigger_error(match="no no no!"):
             test_model.save()
 
     # The trigger is now removed from the registry. It should create
@@ -165,7 +166,7 @@ def test_makemigrations_existing_models(settings, request):
 
         tm = ddf.G("tests.TestModel", char_field="hello")
 
-        with pytest.raises(InternalError, match="Cannot update rows"):
+        with utils.raises_trigger_error(match="Cannot update rows"):
             tm.char_field = "%"
             tm.save()
 
@@ -234,11 +235,11 @@ def test_makemigrations_create_remove_models(settings):
     # Sanity check that we cannot delete or update a DynamicTestModel
     protected_model = ddf.G(test_models.DynamicTestModel)
 
-    with pytest.raises(InternalError, match="Cannot update"):
+    with utils.raises_trigger_error(match="Cannot update"):
         protected_model.field = "hello_world"
         protected_model.save()
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         protected_model.delete()
 
     ###
@@ -260,11 +261,11 @@ def test_makemigrations_create_remove_models(settings):
     # Sanity check that we cannot delete or update a DynamicTestModel
     protected_model = ddf.G(test_models.DynamicTestModel)
 
-    with pytest.raises(InternalError, match="Cannot update"):
+    with utils.raises_trigger_error(match="Cannot update"):
         protected_model.field = "hello_world"
         protected_model.save()
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         protected_model.delete()
 
     ###
@@ -285,7 +286,7 @@ def test_makemigrations_create_remove_models(settings):
     protected_model.field = "hello_there"
     protected_model.save()
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         protected_model.delete()
 
     ###
@@ -324,11 +325,11 @@ def test_makemigrations_create_remove_models(settings):
     # Sanity check that we cannot delete or update a user
     protected_model = ddf.G(auth_models.User)
 
-    with pytest.raises(InternalError, match="Cannot update"):
+    with utils.raises_trigger_error(match="Cannot update"):
         protected_model.username = "wes"
         protected_model.save()
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         protected_model.delete()
 
     ###
@@ -349,7 +350,7 @@ def test_makemigrations_create_remove_models(settings):
     protected_model.username = "wes"
     protected_model.save()
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         protected_model.delete()
 
     ###
@@ -390,10 +391,10 @@ def test_makemigrations_create_remove_models(settings):
     call_command("migrate")
     assert_all_triggers_installed()
 
-    with pytest.raises(InternalError, match="Cannot insert"):
+    with utils.raises_trigger_error(match="Cannot insert"):
         protected_model.groups.add(ddf.G(auth_models.Group))
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         protected_model.groups.clear()
 
     ###
@@ -413,7 +414,7 @@ def test_makemigrations_create_remove_models(settings):
     # Inserts work, but deletes dont
     protected_model.groups.add(ddf.G(auth_models.Group))
 
-    with pytest.raises(InternalError, match="Cannot delete"):
+    with utils.raises_trigger_error(match="Cannot delete"):
         protected_model.groups.clear()
 
     # Remove the model and verify it migrates

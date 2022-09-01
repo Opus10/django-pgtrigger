@@ -1,7 +1,7 @@
 .. _further_reading:
 
-Other Material
-==============
+Talks and Tutorials
+===================
 
 Check out `this tutorial <https://wesleykendall.github.io/django-pgtrigger-tutorial/>`__
 with interactive examples from a Django meetup talk.

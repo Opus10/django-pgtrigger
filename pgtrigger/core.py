@@ -1,7 +1,6 @@
 import contextlib
 import copy
 import hashlib
-import inspect
 import re
 
 from django.db import DEFAULT_DB_ALIAS, models, router, transaction
@@ -35,57 +34,7 @@ PRUNE = "PRUNE"
 UNALLOWED = "UNALLOWED"
 
 
-class _Serializable:
-    def get_init_vals(self):
-        """Returns class initialization args so that they are properly serialized for migrations"""
-        parameters = inspect.signature(self.__init__).parameters
-
-        for key, val in parameters.items():
-            if key != "self" and (
-                not hasattr(self, key) or val.kind == inspect.Parameter.VAR_KEYWORD
-            ):  # pragma: no cover
-                raise ValueError(
-                    f"Could not automatically serialize Trigger {self.__class__} for migrations."
-                    ' Implement "get_init_vals()" on the trigger class. See the'
-                    " docs for more information -"
-                    " https://django-pgtrigger.readthedocs.io/en/latest/"
-                    "faq.html#my-trigger-can-t-be-serialized-for-migrations-what-do-i-do."
-                )
-
-        args = tuple(
-            item
-            for key, val in parameters.items()
-            if val.kind == inspect.Parameter.VAR_POSITIONAL
-            for item in getattr(self, key)
-        )
-
-        kwargs = {
-            key: getattr(self, key)
-            for key, value in parameters.items()
-            if key != "self" and val.kind != inspect.Parameter.VAR_POSITIONAL
-        }
-
-        return args, kwargs
-
-    def deconstruct(self):  # pragma: no cover
-        """For supporting Django migrations
-
-        TODO: This code has been deprecated and can be removed after more testing
-        """
-        path = f"{self.__class__.__module__}.{self.__class__.__name__}"
-        path = path.replace("pgtrigger.core", "pgtrigger")
-        path = path.replace("pgtrigger.contrib", "pgtrigger")
-        args, kwargs = self.get_init_vals()
-        return path, args, kwargs
-
-    def __eq__(self, other):
-        """
-        Determines if two triggers are equal.
-        """
-        return self.__class__ == other.__class__ and self.get_init_vals() == other.get_init_vals()
-
-
-class _Primitive(_Serializable):
+class _Primitive:
     """Boilerplate for some of the primitive operations"""
 
     def __init__(self, name):
@@ -107,7 +56,7 @@ Row = Level("ROW")
 Statement = Level("STATEMENT")
 
 
-class Referencing(_Serializable):
+class Referencing:
     """For specifying the REFERENCING clause of a statement-level trigger"""
 
     def __init__(self, *, old=None, new=None):
@@ -207,7 +156,7 @@ Immediate = Timing("IMMEDIATE")
 Deferred = Timing("DEFERRED")
 
 
-class Condition(_Serializable):
+class Condition:
     """For specifying free-form SQL in the condition of a trigger."""
 
     sql = None
@@ -281,12 +230,6 @@ class F(models.F):
 
         self.col_name = self.name[5:]
 
-    def deconstruct(self):  # pragma: no cover
-        """TODO: This is deprecated and can be removed after further testing"""
-        path, args, kwargs = super().deconstruct()
-        path = path.replace("pgtrigger.core", "pgtrigger")
-        return path, args, kwargs
-
     @property
     def resolved_name(self):
         return f"{self.row_alias}.{utils.quote(self.col_name)}"
@@ -336,12 +279,6 @@ class Q(models.Q, Condition):
     rows in a trigger condition.
     """
 
-    def deconstruct(self):  # pragma: no cover
-        """TODO: this is deprecated and can be removed after further testing"""
-        path, args, kwargs = super().deconstruct()
-        path = path.replace("pgtrigger.core", "pgtrigger")
-        return path, args, kwargs
-
     def resolve(self, model):
         query = _OldNewQuery(model)
         sql, args = self.resolve_expression(query).as_sql(
@@ -370,7 +307,7 @@ def _ignore_func_name():
     return ignore_func
 
 
-class Trigger(_Serializable):
+class Trigger:
     """
     For specifying a free-form PL/pgSQL trigger function or for
     creating derived trigger classes.
@@ -466,18 +403,6 @@ class Trigger(_Serializable):
         # and pruning tasks.
         return pgid.lower()
 
-    def get_hash(self, model):
-        """
-        Computes a hash for the trigger, which is used to
-        uniquely identify its contents. The hash is computed based
-        on the trigger function and declaration.
-
-        Note: If the trigger definition includes dynamic data, such
-        as the current time, the trigger hash will always change and
-        appear to be out of sync.
-        """
-        return self.render_install(model).hash
-
     def get_condition(self, model):
         return self.condition
 
@@ -537,28 +462,25 @@ class Trigger(_Serializable):
         """
         return f"{self.get_pgid(model)}()"
 
-    def render_install(self, model):
-        return compiler.UpsertTriggerSql(
-            ignore_func_name=_ignore_func_name(),
-            pgid=self.get_pgid(model),
-            declare=self.render_declare(model),
-            func=self.get_func(model),
-            table=model._meta.db_table,
-            constraint="CONSTRAINT" if self.timing else "",
-            when=self.when,
-            operation=self.operation,
-            timing=f"DEFERRABLE INITIALLY {self.timing}" if self.timing else "",
-            referencing=self.referencing or "",
-            level=self.level,
-            condition=self.render_condition(model),
-            execute=self.render_execute(model),
-        )
-
-    def render_uninstall(self, model):
-        return compiler.DropTriggerSql(pgid=self.get_pgid(model), table=model._meta.db_table)
-
     def compile(self, model):
-        return compiler.Trigger(name=self.name, sql=self.render_install(model))
+        return compiler.Trigger(
+            name=self.name,
+            sql=compiler.UpsertTriggerSql(
+                ignore_func_name=_ignore_func_name(),
+                pgid=self.get_pgid(model),
+                declare=self.render_declare(model),
+                func=self.get_func(model),
+                table=model._meta.db_table,
+                constraint="CONSTRAINT" if self.timing else "",
+                when=self.when,
+                operation=self.operation,
+                timing=f"DEFERRABLE INITIALLY {self.timing}" if self.timing else "",
+                referencing=self.referencing or "",
+                level=self.level,
+                condition=self.render_condition(model),
+                execute=self.render_execute(model),
+            ),
+        )
 
     def allow_migrate(self, model, database=None):
         """True if the trigger for this model can be migrated.
@@ -616,7 +538,7 @@ class Trigger(_Serializable):
         if not results:
             return (UNINSTALLED, None)
         else:
-            hash = self.get_hash(model)
+            hash = self.compile(model).hash
             if hash != results[0][1]:
                 return (OUTDATED, results[0][2] == "O")
             else:
@@ -638,14 +560,14 @@ class Trigger(_Serializable):
 
     def install(self, model, database=None):
         """Installs the trigger for a model"""
-        install_sql = self.render_install(model)
+        install_sql = self.compile(model).install_sql
         with transaction.atomic(using=database):
             self.exec_sql(install_sql, model, database=database)
         return _cleanup_on_exit(lambda: self.uninstall(model, database=database))
 
     def uninstall(self, model, database=None):
         """Uninstalls the trigger for a model"""
-        uninstall_sql = self.render_uninstall(model)
+        uninstall_sql = self.compile(model).uninstall_sql
         self.exec_sql(uninstall_sql, model, database=database)
         return _cleanup_on_exit(  # pragma: no branch
             lambda: self.install(model, database=database)
@@ -653,10 +575,7 @@ class Trigger(_Serializable):
 
     def enable(self, model, database=None):
         """Enables the trigger for a model"""
-        enable_sql = (
-            f"ALTER TABLE {utils.quote(model._meta.db_table)}"
-            f" ENABLE TRIGGER {self.get_pgid(model)};"
-        )
+        enable_sql = self.compile(model).enable_sql
         self.exec_sql(enable_sql, model, database=database)
         return _cleanup_on_exit(  # pragma: no branch
             lambda: self.disable(model, database=database)
@@ -664,9 +583,6 @@ class Trigger(_Serializable):
 
     def disable(self, model, database=None):
         """Disables the trigger for a model"""
-        disable_sql = (
-            f"ALTER TABLE {utils.quote(model._meta.db_table)}"
-            f" DISABLE TRIGGER {self.get_pgid(model)};"
-        )
+        disable_sql = self.compile(model).disable_sql
         self.exec_sql(disable_sql, model, database=database)
         return _cleanup_on_exit(lambda: self.enable(model, database=database))  # pragma: no branch

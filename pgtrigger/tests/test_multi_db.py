@@ -6,12 +6,11 @@ import ddf
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.db import transaction
-from django.db.utils import InternalError
 import pytest
 
 import pgtrigger
 from pgtrigger import core
-from pgtrigger.tests import models
+from pgtrigger.tests import models, utils
 
 
 class ToLogRouter:
@@ -47,11 +46,11 @@ def test_multi_db_ignore():
         stack.enter_context(trigger.install(models.ToLogModel, database="other"))
         stack.enter_context(trigger.install(User))
 
-        with pytest.raises(InternalError, match="Cannot delete"):
+        with utils.raises_trigger_error(match="Cannot delete", database="other"):
             log = ddf.G(models.ToLogModel)
             log.delete()
 
-        with pytest.raises(InternalError, match="Cannot delete"):
+        with utils.raises_trigger_error(match="Cannot delete"):
             user = ddf.G(User)
             user.delete()
 
@@ -62,11 +61,11 @@ def test_multi_db_ignore():
                 user = ddf.G(User)
                 user.delete()
 
-            with pytest.raises(InternalError, match="Cannot delete"):
+            with utils.raises_trigger_error(match="Cannot delete"):
                 user = User.objects.create(username="hi")
                 user.delete()
 
-            with pytest.raises(InternalError, match="Cannot delete"):
+            with utils.raises_trigger_error(match="Cannot delete", database="other"):
                 log = models.ToLogModel.objects.create()
                 log.delete()
 

@@ -86,6 +86,8 @@ It can be used as a decorator on a model or called like so:
     result in migrations not being added to your codebase, which can result in triggers
     not being installed.
 
+.. _turning_off_migrations:
+
 Turning off migration integration
 ---------------------------------
 
@@ -99,29 +101,34 @@ disable the migration integration by setting ``settings.PGTRIGGER_MIGRATIONS`` t
    ``settings.PGTRIGGER_INSTALL_ON_MIGRATE`` to ``True``. Keep in mind that
    reversing migrations can cause issues when installing triggers this way.
 
+.. warning::
+
+    There are known issues with installing triggers after migrations that
+    cannot be fixed. For example, reversing migrations can result in trigger
+    installation errors, and race conditions can happen if triggers are
+    installed after the underlying tables have been migrated.
+
 Manual installation, enabling, and disabling
 --------------------------------------------
 
-.. warning::
+The following commands allow one to manually manage trigger installation
+and are detailed more in the :ref:`commands` section:
 
-    Installing, uninstalling, enabling, and disabling triggers are global operations
-    that call ``ALTER`` on the table. These should never be called in application code,
-    and they will also interfere with migrations. Only use them when absolutely necessary or
-    when manually managing trigger installations outside of migrations.
-    If you want to temporarily ignore a trigger in an application, see the
+.. danger::
+
+    The commands are are global operations. Use these commands with extreme caution, especially if
+    the triggers are managed by migrations. If you need to temporarily ignore
+    a trigger inside your application, see the
     :ref:`ignoring_triggers` section.
 
-Sometimes one may need to manage installed triggers outside of the Django migration system
-or turn off migrations by setting ``settings.PGTRIGGER_MIGRATIONS`` to ``False``.
-The following functions manage trigger installation, and each one has an associated management
-command in the :ref:`commands` section:
 
-* `pgtrigger.install`: Install triggers
-* `pgtrigger.uninstall`: Uninstall triggers
-* `pgtrigger.enable`: Enable triggers
-* `pgtrigger.disable`: Disable triggers
-* `pgtrigger.prune`: Uninstall triggers created by ``django-pgtrigger``
+* ``python manage.py pgtrigger install``: Install triggers
+* ``python manage.py pgtrigger uninstall``: Uninstall triggers
+* ``python manage.py pgtrigger enable``: Enable triggers
+* ``python manage.py pgtrigger disable``: Disable triggers
+* ``python manage.py pgtrigger prune``: Uninstall triggers created by ``django-pgtrigger``
   that are no longer in the codebase.
+
 
 Showing installation status
 ---------------------------

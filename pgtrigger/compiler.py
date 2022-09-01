@@ -151,26 +151,9 @@ class UpsertTriggerSql(collections.UserString):
         return path, [], {**kwargs, **{"hash": self.hash}}
 
 
-class DropTriggerSql(collections.UserString):
-    """SQL for dropping a trigger
-
-    This class is intended to be versionable since migrations
-    reference it. Older migrations need to be able to point
-    to earlier versions of the installation template used
-    for triggers.
-
-    Note that removing a trigger is very simple, so it's unlikely
-    this class will ever change.
-    """
-
+class _TriggerDdlSql(collections.UserString):
     def get_template(self):
-        """
-        This is v1 of the removal template. Do NOT edit
-        this template unless you are absolutely sure it is
-        backwards compatible, otherwise it may affect migrations
-        that reference it.
-        """
-        return "DROP TRIGGER IF EXISTS {pgid} ON {table};"
+        raise NotImplementedError
 
     def __init__(self, *, pgid, table):
         """Initialize the SQL and store it in the ``.data`` attribute."""
@@ -179,10 +162,47 @@ class DropTriggerSql(collections.UserString):
         self.data = self.get_template().format(**sql_args)
 
 
+class DropTriggerSql(_TriggerDdlSql):
+    """SQL for dropping a trigger
+
+    Triggers are dropped in migrations, so any edits to
+    the drop trigger template should be backwards compatible
+    or versioned. I.e. older migrations need to always point to
+    the SQL here
+    """
+
+    def get_template(self):
+        return "DROP TRIGGER IF EXISTS {pgid} ON {table};"
+
+
+class EnableTriggerSql(_TriggerDdlSql):
+    """SQL for enabling a trigger
+
+    We don't currently perform enabling/disabling in migrations,
+    so this SQL can be changed without consequences to past
+    migrations.
+    """
+
+    def get_template(self):
+        return "ALTER TABLE {table} ENABLE TRIGGER {pgid};"
+
+
+class DisableTriggerSql(_TriggerDdlSql):
+    """SQL for disabling a trigger
+
+    We don't currently perform enabling/disabling in migrations,
+    so this SQL can be changed without consequences to past
+    migrations.
+    """
+
+    def get_template(self):
+        return "ALTER TABLE {table} DISABLE TRIGGER {pgid};"
+
+
 class Trigger:
     """
     A compiled trigger that's added to internal model state of migrations. It consists
-    of a name and the trigger SQL.
+    of a name and the trigger SQL for migrations.
     """
 
     def __init__(self, *, name, sql):
@@ -202,6 +222,18 @@ class Trigger:
     @property
     def uninstall_sql(self):
         return str(DropTriggerSql(pgid=self.sql.pgid, table=self.sql.table))
+
+    @property
+    def enable_sql(self):
+        return str(EnableTriggerSql(pgid=self.sql.pgid, table=self.sql.table))
+
+    @property
+    def disable_sql(self):
+        return str(DisableTriggerSql(pgid=self.sql.pgid, table=self.sql.table))
+
+    @property
+    def hash(self):
+        return self.sql.hash
 
     def deconstruct(self):
         """

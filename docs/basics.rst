@@ -144,3 +144,23 @@ Triggers are installed by first running ``python manage.py makemigrations`` and 
 If you'd like to install a trigger on a model of a third-party app, see the 
 :ref:`advanced_installation` section. This section also covers how you can manually install,
 enable, and disable triggers globally.
+
+.. _advantages_of_triggers:
+
+The advantages over signals and model methods
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+There are three key advantages to using triggers over implementing the logic
+in a `Django signal handler <https://docs.djangoproject.com/en/4.1/topics/signals/>`__
+or by overriding model methods:
+
+1. **Reliability**: Unlike Python code, triggers run alongside queries in the database, ensuring that nothing
+   falls through the cracks. On the other hand, signals and model methods can provide a false sense of security.
+   For example, signals aren't fired for ``bulk_create``, and custom model methods aren't called in data
+   migrations by default. Third party apps that bypass the ORM will also not work reliably.
+2. **Complexity**: Complexity can balloon when trying to override models, managers, or querysets to accomplish the
+   same logic a trigger can support. Even simple routines such as conditionally running code based on a
+   changed field are difficult to implement correctly and prone to race conditions.
+3. **Performance**: Triggers can perform SQL queries without needing to do expensive round trips to the
+   database to fetch data. This can be a major performance enhancement for routines like history tracking
+   or data denormalization.
