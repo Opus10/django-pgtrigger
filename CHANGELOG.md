@@ -1,4 +1,9 @@
 # Changelog
+## 4.5.1 (2022-08-31)
+### Trivial
+  - Remove unused migration code and restructure docs [Wes Kendall, a8793fc]
+  - Optimize test suite [Wes Kendall, 863fa93]
+
 ## 4.5.0 (2022-08-31)
 ### Bug
   - Migrations properly serialize dynamic triggers and add better support for reverse migrations [Wes Kendall, 2eb3014]
