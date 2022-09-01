@@ -3,12 +3,13 @@ django-pgtrigger
 
 ``django-pgtrigger`` helps you write
 `Postgres triggers <https://www.postgresql.org/docs/current/sql-createtrigger.html>`__
-for your Django models. It is compatible with Python 3.7 to 3.10 and Django 2.2 to 4.1.
+for your Django models.
 
 Why should I use triggers?
 ==========================
 
-Triggers can solve a variety of complex problems much more reliably and succinctly than application code. For example,
+Triggers can solve a variety of complex problems more reliably, performantly, and succinctly than application code.
+For example,
 
 1. Protecting operations on rows or columns (``pgtrigger.Protect``).
 2. Soft-deleting models (``pgtrigger.SoftDelete``).
@@ -43,8 +44,8 @@ the model from being deleted:
                 pgtrigger.Protect(name="protect_deletes", operation=pgtrigger.Delete)
             ]
 
-When migrations are created and executed, ``ProtectedModel`` will raise an internal
-database error anytime someone tries to delete it.
+When migrations are created and executed, ``ProtectedModel`` will raise an
+exception anytime a deletion is attempted.
 
 Let's extend this example further and only protect deletions on inactive objects.
 In this example, the trigger conditionally runs when the row being deleted
@@ -75,25 +76,29 @@ however, can still use raw SQL for complex cases.
 Triggers are installed like other database objects. Run
 ``python manage.py makemigrations`` and ``python manage.py migrate`` to install triggers.
 
-If triggers are new to you, don't fret.
-The `pgtrigger docs <https://django-pgtrigger.readthedocs.io/>`__ break
-down the core components of a trigger in the tutorial. They also
-provide many more examples.
+If triggers are new to you, don't worry.
+The `pgtrigger docs <https://django-pgtrigger.readthedocs.io/>`__ cover triggers in
+more detail and provide many examples.
+
+Compatibility
+=============
+
+``django-pgtrigger`` is compatible with Python 3.7 - 3.10, Django 2.2 - 4.1, and Postgres 10 - 14.
 
 Documentation
 =============
 
-`View the pgtrigger docs here <https://django-pgtrigger.readthedocs.io/>`__
+`View the pgtrigger docs here <https://django-pgtrigger.readthedocs.io/>`__ to
+learn more about:
 
-Other Material
-==============
-
-After you've read the docs, check out
-`this tutorial <https://wesleykendall.github.io/django-pgtrigger-tutorial/>`__
-with interactive examples from a Django meetup talk.
-
-The `DjangoCon 2021 talk <https://www.youtube.com/watch?v=Tte3d4JjxCk>`__
-also breaks down triggers and shows several examples.
+* Trigger basics and motivation for using triggers.
+* How to use the built-in triggers and how to build custom ones.
+* Installing triggers on third-party models, many-to-many fields, and other
+  advanced scenarios.
+* Ignoring triggers dynamically and deferring trigger execution.
+* Multiple database, schema, and partitioning support.
+* Frequently asked questions, common issues, and upgrading.
+* The commands, settings, and module.
 
 Installation
 ============
@@ -104,6 +109,16 @@ Install django-pgtrigger with::
 
 After this, add ``pgtrigger`` to the ``INSTALLED_APPS``
 setting of your Django project.
+
+Other Material
+==============
+
+After you've read the docs, check out
+`this tutorial <https://wesleykendall.github.io/django-pgtrigger-tutorial/>`__
+with interactive examples from a Django meetup talk.
+
+The `DjangoCon 2021 talk <https://www.youtube.com/watch?v=Tte3d4JjxCk>`__
+also breaks down triggers and shows several examples.
 
 Contributing Guide
 ==================

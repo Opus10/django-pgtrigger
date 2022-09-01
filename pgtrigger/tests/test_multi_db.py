@@ -35,7 +35,7 @@ def routed_db(settings):
     ]
 
 
-@pytest.mark.django_db(databases=["default", "sqlite", "other"])
+@pytest.mark.django_db(databases=["default", "sqlite", "other"], transaction=True)
 def test_multi_db_ignore():
     """Tests ignoring triggers across multiple databases"""
     trigger = pgtrigger.Protect(operation=pgtrigger.Delete, name="protect_deletes")

@@ -403,18 +403,6 @@ class Trigger:
         # and pruning tasks.
         return pgid.lower()
 
-    def get_hash(self, model):
-        """
-        Computes a hash for the trigger, which is used to
-        uniquely identify its contents. The hash is computed based
-        on the trigger function and declaration.
-
-        Note: If the trigger definition includes dynamic data, such
-        as the current time, the trigger hash will always change and
-        appear to be out of sync.
-        """
-        return self.render_install(model).hash
-
     def get_condition(self, model):
         return self.condition
 
@@ -474,28 +462,25 @@ class Trigger:
         """
         return f"{self.get_pgid(model)}()"
 
-    def render_install(self, model):
-        return compiler.UpsertTriggerSql(
-            ignore_func_name=_ignore_func_name(),
-            pgid=self.get_pgid(model),
-            declare=self.render_declare(model),
-            func=self.get_func(model),
-            table=model._meta.db_table,
-            constraint="CONSTRAINT" if self.timing else "",
-            when=self.when,
-            operation=self.operation,
-            timing=f"DEFERRABLE INITIALLY {self.timing}" if self.timing else "",
-            referencing=self.referencing or "",
-            level=self.level,
-            condition=self.render_condition(model),
-            execute=self.render_execute(model),
-        )
-
-    def render_uninstall(self, model):
-        return compiler.DropTriggerSql(pgid=self.get_pgid(model), table=model._meta.db_table)
-
     def compile(self, model):
-        return compiler.Trigger(name=self.name, sql=self.render_install(model))
+        return compiler.Trigger(
+            name=self.name,
+            sql=compiler.UpsertTriggerSql(
+                ignore_func_name=_ignore_func_name(),
+                pgid=self.get_pgid(model),
+                declare=self.render_declare(model),
+                func=self.get_func(model),
+                table=model._meta.db_table,
+                constraint="CONSTRAINT" if self.timing else "",
+                when=self.when,
+                operation=self.operation,
+                timing=f"DEFERRABLE INITIALLY {self.timing}" if self.timing else "",
+                referencing=self.referencing or "",
+                level=self.level,
+                condition=self.render_condition(model),
+                execute=self.render_execute(model),
+            ),
+        )
 
     def allow_migrate(self, model, database=None):
         """True if the trigger for this model can be migrated.
@@ -553,7 +538,7 @@ class Trigger:
         if not results:
             return (UNINSTALLED, None)
         else:
-            hash = self.get_hash(model)
+            hash = self.compile(model).hash
             if hash != results[0][1]:
                 return (OUTDATED, results[0][2] == "O")
             else:
@@ -575,14 +560,14 @@ class Trigger:
 
     def install(self, model, database=None):
         """Installs the trigger for a model"""
-        install_sql = self.render_install(model)
+        install_sql = self.compile(model).install_sql
         with transaction.atomic(using=database):
             self.exec_sql(install_sql, model, database=database)
         return _cleanup_on_exit(lambda: self.uninstall(model, database=database))
 
     def uninstall(self, model, database=None):
         """Uninstalls the trigger for a model"""
-        uninstall_sql = self.render_uninstall(model)
+        uninstall_sql = self.compile(model).uninstall_sql
         self.exec_sql(uninstall_sql, model, database=database)
         return _cleanup_on_exit(  # pragma: no branch
             lambda: self.install(model, database=database)
@@ -590,10 +575,7 @@ class Trigger:
 
     def enable(self, model, database=None):
         """Enables the trigger for a model"""
-        enable_sql = (
-            f"ALTER TABLE {utils.quote(model._meta.db_table)}"
-            f" ENABLE TRIGGER {self.get_pgid(model)};"
-        )
+        enable_sql = self.compile(model).enable_sql
         self.exec_sql(enable_sql, model, database=database)
         return _cleanup_on_exit(  # pragma: no branch
             lambda: self.disable(model, database=database)
@@ -601,9 +583,6 @@ class Trigger:
 
     def disable(self, model, database=None):
         """Disables the trigger for a model"""
-        disable_sql = (
-            f"ALTER TABLE {utils.quote(model._meta.db_table)}"
-            f" DISABLE TRIGGER {self.get_pgid(model)};"
-        )
+        disable_sql = self.compile(model).disable_sql
         self.exec_sql(disable_sql, model, database=database)
         return _cleanup_on_exit(lambda: self.enable(model, database=database))  # pragma: no branch

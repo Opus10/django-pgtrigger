@@ -168,8 +168,8 @@ def test_outdated(capsys, mocker):
     # its hash
     mocker.patch.object(
         registry._registry["tests.SoftDelete:soft_delete"][1],
-        "get_hash",
-        return_value="hash",
+        "compile",
+        return_value=mocker.Mock(hash="hash"),
     )
 
     call_command("pgtrigger", "ls")
