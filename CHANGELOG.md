@@ -1,5 +1,9 @@
 # Changelog
-## 4.5.1 (2022-08-31)
+## 4.5.2 (2022-09-06)
+### Trivial
+  - Add Soft-Delete Model Manager example to docs [Jason Oppel, 3a46ae7]
+
+## 4.5.1 (2022-09-01)
 ### Trivial
   - Remove unused migration code and restructure docs [Wes Kendall, a8793fc]
   - Optimize test suite [Wes Kendall, 863fa93]
