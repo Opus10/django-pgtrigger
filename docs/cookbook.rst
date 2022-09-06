@@ -83,9 +83,10 @@ or insert to keep two fields in sync.
 Soft-delete models
 ~~~~~~~~~~~~~~~~~~
 
-Rather than fully deleting a model, one can "soft delete" it by setting a field to an inactive state.
-The `pgtrigger.SoftDelete` trigger takes the field as an argument and
-a value to set on delete, which defaults to ``False``. For example:
+Rather than fully deleting a model, one can "soft-delete" it by setting a
+field to an inactive state. The `pgtrigger.SoftDelete` takes the field
+as an argument and a value to set on delete, which defaults to ``False``.
+For example:
 
 .. code-block:: python
 
@@ -107,6 +108,53 @@ a value to set on delete, which defaults to ``False``. For example:
 
 `pgtrigger.SoftDelete` works with nullable
 ``CharField``, ``IntField``, and ``BooleanField`` fields.
+
+Let's extend this example with the assumption that we're mostly interested in 
+active objects and don't want to see soft-deleted items when pulling data from
+QuerySets. The addition of the custom Model Manager below along with changes to
+SoftDeleteModel ensures that QuerySets using ``objects`` (e.g.,
+``Foo.objects.all()``) will automatically filter out soft-deleted items and
+only return active objects.
+
+.. code-block:: python
+
+    class NotDeletedManager(models.Manager):
+    """Automatically filters out soft deleted objects from QuerySets"""
+    
+        def get_queryset(self):
+            return (
+                super(NotDeletedManager, self)
+                .get_queryset()
+                .filter(is_active=False)
+            )
+    
+    
+    class SoftDeleteModel(models.Model):
+        # This field is set to false when the model is deleted
+        is_active = models.BooleanField(default=True)
+        
+        all_objects = models.ModelManager()  # access deleted objects too
+        objects = NotDeletedManager()  # filter out soft deleted objects
+
+        class Meta:
+            triggers = [
+                pgtrigger.SoftDelete(name="soft_delete", field="is_active")
+            ]
+            # Return both active/deleted data via Django Admin, dumpdata, etc.
+            default_manager_name = "all_objects"
+
+We can still get to both the deleted and active items by using the
+``all_objects`` Model Manager like so:
+
+.. code-block:: python
+
+    MyModelName.all_objects.all()
+
+Please also note the addition of ``default_manager_name`` to Meta. This
+attribute configures Django to use ``all_objects`` (i.e. the built-in
+``models.Manager`` in this case) as its default Model Manager internally. This
+allows access to soft deleted objects via the Django Admin Page, dumpdata, and
+other Django internals.
 
 .. note::
 
