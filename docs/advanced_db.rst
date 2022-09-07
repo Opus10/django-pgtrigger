@@ -46,7 +46,7 @@ Schemas
 There are two common ways of using Postgres schemas in Django, both of which
 work with ``django-pgtrigger``:
 
-1. Create a database in ``settings.DATABASE`` for each schema, configuring the
+1. Create a database in ``settings.DATABASES`` for each schema, configuring the
    ``search_path`` in the ``OPTIONS``.
 2. Use an app like `django-tenants <https://github.com/django-tenants/django-tenants>`__
    to dynamically set the ``search_path`` for a single database.

@@ -7,7 +7,7 @@ Third-party models
 ------------------
 
 Install triggers on third-party models by declaring them on a proxy model.
-For example, here we protect Django's ``User`` models from being deleted:
+For example, here we protect Django's ``User`` model from being deleted:
 
 .. code-block:: python
 

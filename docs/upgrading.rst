@@ -37,8 +37,8 @@ New ``Meta.triggers`` syntax
 
 Version 2.5 introduced the ability to register triggers on your model's ``Meta.triggers`` list. User can still use `pgtrigger.register` to register triggers programmatically, but it has been deprecated.
 
-Version 4.0?
-------------
+Version 4
+---------
 
 Version 4 changes the behavior of multi-database and multi-schema usage. If you don't use multiple database and multiple
 schemas, the only breaking API change that might affect you is ``pgtrigger.get`` being renamed to
