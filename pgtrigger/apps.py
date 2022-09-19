@@ -56,19 +56,19 @@ def patch_schema_editor():
     if features.schema_editor():  # pragma: no branch
         for config in settings.DATABASES.values():
             backend = load_backend(config["ENGINE"])
+            schema_editor_class = backend.DatabaseWrapper.SchemaEditorClass
 
-            if issubclass(
-                backend.DatabaseWrapper.SchemaEditorClass,
-                postgresql_schema.DatabaseSchemaEditor,
-            ) and not issubclass(
-                backend.DatabaseWrapper.SchemaEditorClass, migrations.DatabaseSchemaEditorMixin
+            if (
+                schema_editor_class
+                and issubclass(
+                    schema_editor_class,
+                    postgresql_schema.DatabaseSchemaEditor,
+                )
+                and not issubclass(schema_editor_class, migrations.DatabaseSchemaEditorMixin)
             ):
                 backend.DatabaseWrapper.SchemaEditorClass = type(
                     "DatabaseSchemaEditor",
-                    (
-                        migrations.DatabaseSchemaEditorMixin,
-                        backend.DatabaseWrapper.SchemaEditorClass,
-                    ),
+                    (migrations.DatabaseSchemaEditorMixin, schema_editor_class),
                     {},
                 )
 
