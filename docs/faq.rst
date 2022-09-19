@@ -23,7 +23,7 @@ Why can't I join foreign keys in conditions?
 ---------------------------------------------
 
 Postgres only allows columns of the changed rows to be used in trigger conditions, and data cannot
-be joined. That's why, for example, one cannot write a condition like ``Q(old__foriegn_key__field="value")``.
+be joined. That's why, for example, one cannot write a condition like ``Q(old__foreign_key__field="value")``.
 
 Conditional logic like this must be performed in the trigger function itself by manually joining
 data.
