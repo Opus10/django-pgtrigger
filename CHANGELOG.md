@@ -1,4 +1,10 @@
 # Changelog
+## 4.5.3 (2022-09-19)
+### Trivial
+  - Fix typo in documentation [Francisco Couzo, def5432]
+  - Fix issues when using Django's dummy database. [Wesley Kendall, cc1cb95]
+  - Fixed minor documentation typos [Wes Kendall, dc473ff]
+
 ## 4.5.2 (2022-09-06)
 ### Trivial
   - Add Soft-Delete Model Manager example to docs [Jason Oppel, 3a46ae7]
