@@ -1,4 +1,21 @@
 # Changelog
+## 4.6.0 (2022-10-06)
+### Feature
+  - Added ``pgtrigger.Func`` for accessing model properties in function declarations. [Wesley Kendall, 4bd6abf]
+
+    When describing a trigger in ``Meta``, it's not possible to access model meta properties
+    like ``db_table``. ``pgtrigger.Func`` solves this by exposing ``meta``, ``fields``,
+    and ``columns`` variables that can be used in a format string.
+
+    See the trigger cookbook in the docs for an example.
+  - Added ``ReadOnly`` trigger for uneditable models and fields [Wesley Kendall, 0a3c162]
+
+    The ``pgtrigger.ReadOnly`` trigger protects updates on models and takes
+    an optional ``fields`` or ``exclude`` argument to specify which fields are
+    read only. If no arguments are provided, the entire model is read only.
+### Trivial
+  - Updated with latest Django template [Wesley Kendall, 84b46f1]
+
 ## 4.5.3 (2022-09-19)
 ### Trivial
   - Fix typo in documentation [Francisco Couzo, def5432]
