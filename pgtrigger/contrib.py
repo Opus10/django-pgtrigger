@@ -1,4 +1,7 @@
 """Additional goodies"""
+import functools
+import operator
+
 from pgtrigger import core
 from pgtrigger import utils
 
@@ -19,6 +22,47 @@ class Protect(core.Trigger):
                 TG_TABLE_NAME;
         """
         return self.format_sql(sql)
+
+
+class ReadOnly(Protect):
+    """A trigger that prevents edits to fields.
+
+    If ``fields`` are provided, will protect edits to only those fields.
+    If ``exclude`` is provided, will protect all fields except the ones
+    excluded.
+    If none of these arguments are provided, all fields cannot be edited.
+    """
+
+    fields = None
+    exclude = None
+    operation = core.Update
+
+    def __init__(self, *, fields=None, exclude=None, **kwargs):
+        self.fields = fields or self.fields
+        self.exclude = exclude or self.exclude
+
+        if self.fields and self.exclude:
+            raise ValueError('Must provide only one of "fields" or "exclude" to ReadOnly trigger')
+
+        super().__init__(**kwargs)
+
+    def get_condition(self, model):
+        if not self.fields and not self.exclude:
+            return core.Condition("OLD.* IS DISTINCT FROM NEW.*")
+        else:
+            if self.exclude:
+                # Sanity check that the exclude list contains valid fields
+                for field in self.exclude:
+                    model._meta.get_field(field)
+
+                fields = [f.name for f in model._meta.fields if f.name not in self.exclude]
+            else:
+                fields = [model._meta.get_field(field).name for field in self.fields]
+
+            return functools.reduce(
+                operator.or_,
+                [core.Q(**{f"old__{field}__df": core.F(f"new__{field}")}) for field in fields],
+            )
 
 
 class FSM(core.Trigger):

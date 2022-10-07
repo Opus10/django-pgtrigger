@@ -78,6 +78,7 @@ Triggers
 --------
 .. autoclass:: pgtrigger.Trigger
 .. autoclass:: pgtrigger.Protect
+.. autoclass:: pgtrigger.ReadOnly
 .. autoclass:: pgtrigger.SoftDelete
 .. autoclass:: pgtrigger.FSM
 .. autoclass:: pgtrigger.UpdateSearchVector

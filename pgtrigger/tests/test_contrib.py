@@ -1,4 +1,5 @@
 import ddf
+from django.core.exceptions import FieldDoesNotExist
 import pytest
 
 import pgtrigger
@@ -8,6 +9,50 @@ from pgtrigger.tests import models, utils
 def test_registered_invalid_args():
     with pytest.raises(ValueError):
         pgtrigger.registered("uri")
+
+
+@pytest.mark.django_db
+def test_read_only():
+    """Tests the ReadOnly trigger"""
+    with pytest.raises(ValueError, match="only one of"):
+        pgtrigger.ReadOnly(name="uneditable", fields=["level"], exclude=["hello"])
+
+    trigger = pgtrigger.ReadOnly(name="uneditable", fields=["level"])
+    with pytest.raises(FieldDoesNotExist):
+        trigger.install(models.TestModel)
+
+    trigger = pgtrigger.ReadOnly(name="uneditable", exclude=["level"])
+    with pytest.raises(FieldDoesNotExist):
+        trigger.install(models.TestModel)
+
+    trigger = pgtrigger.ReadOnly(name="uneditable")
+    with trigger.install(models.TestModel):
+        m = ddf.G(models.TestModel, int_field=1)
+        m.save()
+
+        with utils.raises_trigger_error(match="Cannot update rows"):
+            m.int_field = 2
+            m.save()
+
+    trigger = pgtrigger.ReadOnly(name="uneditable", fields=["char_field", "float_field"])
+    with trigger.install(models.TestModel):
+        m = ddf.G(models.TestModel, int_field=2, char_field="a")
+        m.int_field = 3
+        m.save()
+
+        with utils.raises_trigger_error(match="Cannot update rows"):
+            m.char_field = "b"
+            m.save()
+
+    trigger = pgtrigger.ReadOnly(name="uneditable", exclude=["int_field"])
+    with trigger.install(models.TestModel):
+        m = ddf.G(models.TestModel, int_field=4, char_field="a")
+        m.int_field = 5
+        m.save()
+
+        with utils.raises_trigger_error(match="Cannot update rows"):
+            m.char_field = "b"
+            m.save()
 
 
 @pytest.mark.django_db

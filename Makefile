@@ -84,7 +84,7 @@ dependencies:
 
 
 .PHONY: multi-db-setup
-db-setup:
+multi-db-setup:
 	-$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE DATABASE postgres_other WITH TEMPLATE postgres"
 	$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE SCHEMA IF NOT EXISTS \"order\""
 	$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE SCHEMA IF NOT EXISTS receipt;"
