@@ -345,3 +345,6 @@ tags
 
 # Ignore PyCharm
 .idea/
+
+# Ignore local poetry settings
+poetry.toml

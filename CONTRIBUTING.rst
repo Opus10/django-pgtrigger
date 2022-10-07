@@ -12,11 +12,15 @@ Set up your development environment with::
 
     git clone git@github.com:Opus10/django-pgtrigger.git
     cd django-pgtrigger
-    make setup
+    make docker-setup
 
-``make setup`` will set up a development environment managed by Docker.
+``make docker-setup`` will set up a development environment managed by Docker.
 Install docker `here <https://www.docker.com/get-started>`_ and be sure
 it is running when executing any of the commands below.
+
+If you prefer a native development environment,
+``make conda-setup`` will set up a development environment managed
+by `Conda <https://conda.io>`__. The database must be ran manually.
 
 Testing and Validation
 ~~~~~~~~~~~~~~~~~~~~~~
