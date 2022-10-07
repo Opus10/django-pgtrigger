@@ -7,7 +7,7 @@ executors:
       - image: opus10/circleci-public-django-app
         environment:
           # Ensure makefile commands are not wrapped in "docker-compose run"
-          DOCKER_EXEC_WRAPPER: ''
+          EXEC_WRAPPER: ''
           DATABASE_URL: postgres://root@localhost/circle_test?sslmode=disable
           TOX_PARALLEL_NO_SPINNER: 1
       - image: cimg/postgres:14.4
