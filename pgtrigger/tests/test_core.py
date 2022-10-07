@@ -11,6 +11,17 @@ from pgtrigger import core
 from pgtrigger.tests import models, utils
 
 
+def test_func():
+    """Tests using custom Func object"""
+    trigger = pgtrigger.Trigger(
+        name="example",
+        when=pgtrigger.After,
+        operation=pgtrigger.Delete,
+        func=pgtrigger.Func("SELECT {columns.int_field} FROM {meta.db_table}"),
+    )
+    assert trigger.render_func(models.TestModel) == "SELECT int_field FROM tests_testmodel"
+
+
 @pytest.mark.django_db
 def test_partition():
     p1 = ddf.G(models.PartitionModel, timestamp=dt.datetime(2019, 1, 3))

@@ -11,10 +11,7 @@ from django.db.models.sql.datastructures import BaseTable
 from django.db.utils import ProgrammingError
 import psycopg2.extensions
 
-from pgtrigger import compiler
-from pgtrigger import features
-from pgtrigger import registry
-from pgtrigger import utils
+from pgtrigger import compiler, features, registry, utils
 
 
 # Postgres only allows identifiers to be 63 chars max. Since "pgtrigger_"
@@ -291,6 +288,24 @@ class Q(models.Q, Condition):
         return sql % args
 
 
+class Func:
+    """
+    Allows for rendering a function with access to the "meta", "fields",
+    and "columns" variables of the current model.
+
+    For example, ``func=Func("SELECT {columns.id} FROM {meta.db_table};")`` makes it
+    possible to do inline SQL in the ``Meta`` of a model and reference its properties.
+    """
+
+    def __init__(self, func):
+        self.func = func
+
+    def render(self, model):
+        fields = utils.AttrDict({field.name: field for field in model._meta.fields})
+        columns = utils.AttrDict({field.name: field.column for field in model._meta.fields})
+        return self.func.format(meta=model._meta, fields=fields, columns=columns)
+
+
 # Allows Trigger methods to be used as context managers, mostly for
 # testing purposes
 @contextlib.contextmanager
@@ -462,6 +477,17 @@ class Trigger:
         """
         return f"{self.get_pgid(model)}()"
 
+    def render_func(self, model):
+        """
+        Renders the func
+        """
+        func = self.get_func(model)
+
+        if isinstance(func, Func):
+            return func.render(model)
+        else:
+            return func
+
     def compile(self, model):
         return compiler.Trigger(
             name=self.name,
@@ -469,7 +495,7 @@ class Trigger:
                 ignore_func_name=_ignore_func_name(),
                 pgid=self.get_pgid(model),
                 declare=self.render_declare(model),
-                func=self.get_func(model),
+                func=self.render_func(model),
                 table=model._meta.db_table,
                 constraint="CONSTRAINT" if self.timing else "",
                 when=self.when,
