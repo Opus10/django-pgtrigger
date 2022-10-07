@@ -66,6 +66,12 @@ Timing clause
 
   For specifying ``DEFERRED`` as the default timing for deferrable triggers
 
+
+Func clause
+-----------
+
+.. autoclass:: pgtrigger.Func
+
 Conditions
 ----------
 .. autoclass:: pgtrigger.Condition

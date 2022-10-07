@@ -525,3 +525,44 @@ Tracking model history and changes
 Check out `django-pghistory <https://django-pghistory.readthedocs.io>`__
 to snapshot model changes and attach context from
 your application (e.g. the authenticated user) to the event.
+
+.. _func_model_properties:
+
+Model properties in the func
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When writing triggers in the model ``Meta``, it's not possible
+to access properties of the model like the database name or fields.
+`pgtrigger.Func` solves this by exposing the following variables
+you can use in a template string:
+
+* **meta**: The ``._meta`` of the model.
+* **fields**: The fields of the model, accessible as attributes.
+* **columns**: The field columns. ``columns.field_name`` will return
+  the database column of the ``field_name`` field.
+
+For example, say that we have the following model and trigger:
+
+.. code-block:: python
+
+    class MyModel(models.Model):
+        text_field = models.TextField()
+
+        class Meta:
+            triggers = [
+                pgtrigger.Trigger(
+                    func=pgtrigger.Func(
+                        """
+                        # This is only pseudocode
+                        SELECT {columns.text_field} FROM {meta.db_table};
+                        """
+                    )
+                )
+            ]
+
+Above the `pgtrigger.Func` references the table name of the model and the column
+of ``text_field``.
+
+.. note::
+
+    Remember to escape curly bracket characters when using `pgtrigger.Func`.

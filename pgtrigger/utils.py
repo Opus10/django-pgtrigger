@@ -2,6 +2,14 @@ from django.conf import settings
 from django.db import connections, DEFAULT_DB_ALIAS
 
 
+class AttrDict(dict):
+    """A dictionary where keys can be accessed as attributes"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__dict__ = self
+
+
 def connection(database=None):
     """
     Obtains the connection used for a trigger / model pair. The database

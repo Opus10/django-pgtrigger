@@ -67,6 +67,12 @@ How do I disable triggers?
 Use `pgtrigger.ignore` if you need to temporarily ignore triggers in your application (see :ref:`ignoring_triggers`). Only use the core installation commands if you want to disable or uninstall triggers globally (see the :ref:`commands` section). **Never** run the core
 installation commands in application code.
 
+How can I reference the table name in a custom function?
+--------------------------------------------------------
+
+When writing a trigger in ``Meta``, it's not possible to access other model meta properties like ``db_table``.
+Use `pgtrigger.Func` to get around this. See :ref:`func_model_properties`.
+
 How can I contact the author?
 -----------------------------
 
