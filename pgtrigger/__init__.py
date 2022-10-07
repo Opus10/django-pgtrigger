@@ -3,6 +3,7 @@ import django
 from pgtrigger.contrib import (
     FSM,
     Protect,
+    ReadOnly,
     SoftDelete,
     UpdateSearchVector,
 )
@@ -82,6 +83,7 @@ __all__ = [
     "prunable",
     "prune",
     "Q",
+    "ReadOnly",
     "Referencing",
     "register",
     "registered",

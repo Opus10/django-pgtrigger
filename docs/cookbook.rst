@@ -8,6 +8,42 @@ Here we provide examples using the built-in triggers of
 examples are practical application examples, some exist to illustrate
 a starting point of how one can use triggers for more complex cases.
 
+Read-only models and fields
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Ensure a set of fields on a model are read-only with
+`pgtrigger.ReadOnly`. This trigger takes one of the following
+optional arguments:
+
+* **fields**: A list of read-only fields.
+* **exclude**: Fields to exclude. All other fields will be
+  read-only.
+
+If no arguments are provided, the entire model will be read-only.
+
+For example, here we have a model with a read-only ``created_at``
+timestamp. Any changes to this field will result in an exception:
+
+.. code-block:: python
+
+    class TimestampedModel(models.Model):
+        """Ensure created_at timestamp is read only"""
+        created_at = models.DateTimeField(auto_now_add=True)
+        editable_value = models.TextField()
+
+        class Meta:
+            triggers = [
+                pgtrigger.ReadOnly(
+                    name="read_only_created_at",
+                    fields=["created_at"]
+                )
+            ]
+
+.. note::
+
+    A condition is automatically generated and cannot be supplied
+    to `pgtrigger.ReadOnly`.
+
 Validating field transitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

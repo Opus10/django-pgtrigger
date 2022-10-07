@@ -11,15 +11,16 @@ Why should I use triggers?
 Triggers can solve a variety of complex problems more reliably, performantly, and succinctly than application code.
 For example,
 
-1. Protecting operations on rows or columns (``pgtrigger.Protect``).
-2. Soft-deleting models (``pgtrigger.SoftDelete``).
-3. Snapshotting and tracking model changes (`django-pghistory <https://django-pghistory.readthedocs.io/>`__).
-4. Enforcing field transitions (``pgtrigger.FSM``).
-5. Keeping a search vector updated for full-text search (``pgtrigger.UpdateSearchVector``).
-6. Building official interfaces
-   (e.g. enforcing use of ``User.objects.create_user`` and not
-   ``User.objects.create``).
-7. Versioning models, mirroring fields, computing unique model hashes, and the list goes on...
+* Protecting operations on rows or columns (``pgtrigger.Protect``).
+* Making read-only models or fields (``pgtrigger.ReadOnly``).
+* Soft-deleting models (``pgtrigger.SoftDelete``).
+* Snapshotting and tracking model changes (`django-pghistory <https://django-pghistory.readthedocs.io/>`__).
+* Enforcing field transitions (``pgtrigger.FSM``).
+* Keeping a search vector updated for full-text search (``pgtrigger.UpdateSearchVector``).
+* Building official interfaces
+  (e.g. enforcing use of ``User.objects.create_user`` and not
+  ``User.objects.create``).
+* Versioning models, mirroring fields, computing unique model hashes, and the list goes on...
 
 All of these examples require no overridden methods, no base models, and no signal handling.
 
