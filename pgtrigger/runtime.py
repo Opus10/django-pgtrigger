@@ -52,7 +52,8 @@ def _can_inject_variable(cursor, sql):
     setting. Ignore these cases for now.
     """
     return (
-        not cursor.name
+        # psycopg 3+: only some cursors have name attribute
+        not getattr(cursor, "name", None)
         and not _is_concurrent_statement(sql)
         and not _is_transaction_errored(cursor)
     )
