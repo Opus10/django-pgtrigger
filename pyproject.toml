@@ -90,6 +90,7 @@ footing = "*"
 tox = "3.24.5"
 zipp = "3.4.1"
 pytest-order = "^1.0.1"
+psycopg = "^3.1.8"
 
 [tool.pytest.ini_options]
 xfail_strict = true
