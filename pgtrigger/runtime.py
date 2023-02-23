@@ -5,11 +5,20 @@ them or dynamically setting the search path.
 import contextlib
 import threading
 
+import django
 from django.db import connections
-import psycopg2.extensions
 
 from pgtrigger import registry
 from pgtrigger import utils
+
+try:
+    from psycopg.pq import TransactionStatus
+
+    HAVE_PSYCOPG3 = True
+except ImportError:
+    from psycopg2.extensions import TRANSACTION_STATUS_INERROR
+
+    HAVE_PSYCOPG3 = False
 
 
 # All triggers currently being ignored
@@ -27,14 +36,17 @@ def _is_concurrent_statement(sql):
     return sql.startswith("create") and "concurrently" in sql
 
 
+DJANGO_4_2_PLUS = django.VERSION >= (4, 2)
+
+
 def _is_transaction_errored(cursor):
     """
     True if the current transaction is in an errored state
     """
-    return (
-        cursor.connection.get_transaction_status()
-        == psycopg2.extensions.TRANSACTION_STATUS_INERROR
-    )
+    if DJANGO_4_2_PLUS and HAVE_PSYCOPG3:
+        return cursor.connection.info.transaction_status == TransactionStatus.INERROR
+    else:
+        return cursor.connection.get_transaction_status() == TRANSACTION_STATUS_INERROR
 
 
 def _can_inject_variable(cursor, sql):
