@@ -9,6 +9,13 @@ from pgtrigger import features
 from pgtrigger import registry
 from pgtrigger import utils
 
+try:
+    from psycopg import Connection as Psycopg3Connection
+
+    HAVE_PSYCOPG3 = True
+except ImportError:
+    HAVE_PSYCOPG3 = False
+
 
 # The core pgtrigger logger
 LOGGER = logging.getLogger("pgtrigger")
@@ -52,7 +59,12 @@ def prunable(database=None):
     }
 
     with utils.connection(database).cursor() as cursor:
-        pg_maj_version = int(str(cursor.connection.server_version)[:-4])
+        conn = cursor.connection
+        if HAVE_PSYCOPG3 and isinstance(conn, Psycopg3Connection):
+            version = conn.info.server_version
+        else:
+            version = conn.server_version
+        pg_maj_version = int(str(version)[:-4])
         parent_trigger_clause = "tgparentid = 0 AND" if pg_maj_version >= 13 else ""
 
         # Only select triggers that are in the current search path. We accomplish

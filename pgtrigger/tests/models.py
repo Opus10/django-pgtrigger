@@ -4,6 +4,7 @@ from django.db import connections, models
 from django.utils import timezone
 from psqlextra.models import PostgresPartitionedModel
 from psqlextra.types import PostgresPartitioningMethod
+from psycopg import Connection as Psycopg3Connection
 
 import pgtrigger
 
@@ -12,7 +13,13 @@ def _get_pg_maj_version(db):  # pragma: no cover
     connection = connections[db]
     if connection.vendor == "postgresql":
         with connection.cursor() as cursor:
-            return int(str(cursor.connection.server_version)[:4])
+            conn = cursor.connection
+            # Django 4.2+ uses psycopg 3 when installed
+            if isinstance(conn, Psycopg3Connection):
+                version = conn.info.server_version
+            else:
+                version = conn.server_version
+            return int(str(version)[:4])
 
 
 class Router:
