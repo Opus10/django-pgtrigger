@@ -6,10 +6,16 @@ import contextlib
 import threading
 
 from django.db import connections
-import psycopg2.extensions
 
 from pgtrigger import registry
 from pgtrigger import utils
+
+if utils.psycopg_maj_version == 2:
+    import psycopg2.extensions
+elif utils.psycopg_maj_version == 3:
+    import psycopg.pq
+else:
+    raise AssertionError
 
 
 # All triggers currently being ignored
@@ -31,10 +37,15 @@ def _is_transaction_errored(cursor):
     """
     True if the current transaction is in an errored state
     """
-    return (
-        cursor.connection.get_transaction_status()
-        == psycopg2.extensions.TRANSACTION_STATUS_INERROR
-    )
+    if utils.psycopg_maj_version == 2:
+        return (
+            cursor.connection.get_transaction_status()
+            == psycopg2.extensions.TRANSACTION_STATUS_INERROR
+        )
+    elif utils.psycopg_maj_version == 3:
+        return cursor.connection.info.transaction_status == psycopg.pq.TransactionStatus.INERROR
+    else:
+        raise AssertionError
 
 
 def _can_inject_variable(cursor, sql):
@@ -43,7 +54,7 @@ def _can_inject_variable(cursor, sql):
     A named cursor automatically prepends
     "NO SCROLL CURSOR WITHOUT HOLD FOR" to the query, which
     causes invalid SQL to be generated. There is no way
-    to override this behavior in psycopg2, so ignoring triggers
+    to override this behavior in psycopg, so ignoring triggers
     cannot happen for named cursors. Django only names cursors
     for iterators and other statements that read the database,
     so it seems to be safe to ignore named cursors.
@@ -52,10 +63,17 @@ def _can_inject_variable(cursor, sql):
     setting. Ignore these cases for now.
     """
     return (
-        not cursor.name
+        not getattr(cursor, "name", None)
         and not _is_concurrent_statement(sql)
         and not _is_transaction_errored(cursor)
     )
+
+
+def _execute_wrapper(execute_result):
+    if utils.psycopg_maj_version == 3:
+        while execute_result.nextset():
+            pass
+    return execute_result
 
 
 def _inject_pgtrigger_ignore(execute, sql, params, many, context):
@@ -65,9 +83,11 @@ def _inject_pgtrigger_ignore(execute, sql, params, many, context):
     they should ignore execution
     """
     if _can_inject_variable(context["cursor"], sql):
-        sql = "SET LOCAL pgtrigger.ignore='{" + ",".join(_ignore.value) + "}';" + sql
+        serialized_ignore = "{" + ",".join(_ignore.value) + "}"
+        sql = f"SELECT set_config('pgtrigger.ignore', %s, true); {sql}"
+        params = [serialized_ignore, *(params or ())]
 
-    return execute(sql, params, many, context)
+    return _execute_wrapper(execute(sql, params, many, context))
 
 
 @contextlib.contextmanager
@@ -83,7 +103,7 @@ def _set_ignore_session_state(database=None):
                     # We've finished ignoring triggers and are in a transaction,
                     # so flush the local variable.
                     with connection.cursor() as cursor:
-                        cursor.execute("RESET pgtrigger.ignore;")
+                        cursor.execute("SELECT set_config('pgtrigger.ignore', NULL, false);")
     else:
         yield
 
@@ -171,14 +191,11 @@ def _inject_schema(execute, sql, params, many, context):
     variable in the executed SQL.
     """
     if _can_inject_variable(context["cursor"], sql) and _schema.value:
-        sql = (
-            "SET LOCAL search_path="
-            + ",".join(utils.quote(val) for val in _schema.value)
-            + ";"
-            + sql
-        )
+        path = ", ".join(val if not val.startswith("$") else f'"{val}"' for val in _schema.value)
+        sql = f"SELECT set_config('search_path', %s, true); {sql}"
+        params = [path, *(params or ())]
 
-    return execute(sql, params, many, context)
+    return _execute_wrapper(execute(sql, params, many, context))
 
 
 @contextlib.contextmanager
@@ -190,10 +207,10 @@ def _set_schema_session_state(database=None):
             # If this is the first time we are setting the search path,
             # register the pre_execute_hook and store a reference to the original
             # search path. Note that we must use this approach because we cannot
-            # simply RESET the search_path at the end. A user may have previously
+            # simply reset the search_path at the end. A user may have previously
             # set it
             with connection.cursor() as cursor:
-                cursor.execute("SHOW search_path;")
+                cursor.execute("SELECT current_setting('search_path')")
                 initial_search_path = cursor.fetchall()[0][0]
 
         with connection.execute_wrapper(_inject_schema):
@@ -204,7 +221,9 @@ def _set_schema_session_state(database=None):
                     # We've finished modifying the search path and are in a transaction,
                     # so flush the local variable
                     with connection.cursor() as cursor:
-                        cursor.execute(f"SET search_path={initial_search_path};")
+                        cursor.execute(
+                            "SELECT set_config('search_path', %s, false)", [initial_search_path]
+                        )
     else:
         yield
 

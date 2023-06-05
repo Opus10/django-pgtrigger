@@ -6,13 +6,14 @@ from psqlextra.models import PostgresPartitionedModel
 from psqlextra.types import PostgresPartitioningMethod
 
 import pgtrigger
+import pgtrigger.utils
 
 
 def _get_pg_maj_version(db):  # pragma: no cover
     connection = connections[db]
     if connection.vendor == "postgresql":
         with connection.cursor() as cursor:
-            return int(str(cursor.connection.server_version)[:4])
+            return pgtrigger.utils.pg_maj_version(cursor)
 
 
 class Router:

@@ -1,5 +1,27 @@
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db import connections, DEFAULT_DB_ALIAS
+from django.utils.version import get_version_tuple
+
+
+def _psycopg_version():
+    try:
+        import psycopg as Database
+    except ImportError:
+        import psycopg2 as Database
+    except ImportError:  # pragma: no cover
+        raise ImproperlyConfigured("Error loading psycopg2 or psycopg module")
+
+    version_tuple = get_version_tuple(Database.__version__.split(" ", 1)[0])
+
+    if version_tuple[0] not in (2, 3):  # pragma: no cover
+        raise ImproperlyConfigured(f"Pysocpg version {version_tuple[0]} not supported")
+
+    return version_tuple
+
+
+psycopg_version = _psycopg_version()
+psycopg_maj_version = psycopg_version[0]
 
 
 class AttrDict(dict):
@@ -17,6 +39,12 @@ def connection(database=None):
     router config.
     """
     return connections[database or DEFAULT_DB_ALIAS]
+
+
+def pg_maj_version(cursor):
+    """Return the major version of Postgres that's running"""
+    version = getattr(cursor.connection, "server_version", cursor.connection.info.server_version)
+    return int(str(version)[:-4])
 
 
 def is_postgres(database):
@@ -42,12 +70,12 @@ def exec_sql(sql, database=None, fetchall=False):
                 return cursor.fetchall()
 
 
-def quote(label):
+def quote(label, char='"'):
     """Conditionally wraps a label in quotes"""
-    if label.startswith('"') or label.endswith('"'):
+    if label.startswith(char) or label.endswith(char):
         return label
     else:
-        return f'"{label}"'
+        return f"{char}{label}{char}"
 
 
 def render_uninstall(table, trigger_pgid):
