@@ -157,6 +157,10 @@ def test_basic_ignore(model_class):
     with utils.raises_trigger_error(match="Cannot delete rows"):
         deletion_protected_model.delete()
 
+    # Verify that named cursors are ignored and that valid SQL is still generated
+    with pgtrigger.ignore(f"tests.{model_class.__name__}:protect_delete"):
+        assert len(list(model_class.objects.all().iterator())) == 1
+
 
 @pytest.mark.django_db
 def test_nested_ignore():

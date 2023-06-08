@@ -1,64 +1,83 @@
 version: 2.1
 
-executors:
-  python:
-    working_directory: /code
-    docker:
-      - image: opus10/circleci-public-django-app
-        environment:
-          # Ensure makefile commands are not wrapped in "docker-compose run"
-          EXEC_WRAPPER: ''
-          DATABASE_URL: postgres://root@localhost/circle_test?sslmode=disable
-          TOX_PARALLEL_NO_SPINNER: 1
-      - image: cimg/postgres:14.4
-        environment:
-          POSTGRES_USER: root
-          POSTGRES_DB: circle_test
-          POSTGRES_PASSWORD: password
+orbs:
+  opus10:
+    executors:
+      python-pg:
+        parameters:
+          pg_version:
+            type: "string"
+            default: "14.4"
+        working_directory: /code
+        docker:
+          - image: opus10/circleci-public-django-app:2023-06-04
+            environment:
+              # Ensure makefile commands are not wrapped in "docker-compose run"
+              EXEC_WRAPPER: ''
+              DATABASE_URL: postgres://root@localhost/circle_test?sslmode=disable
+              TOX_PARALLEL_NO_SPINNER: 1
+          - image: cimg/postgres:<<parameters.pg_version>>
+            environment:
+              POSTGRES_USER: root
+              POSTGRES_DB: circle_test
+              POSTGRES_PASSWORD: password
+    commands:
+      test:
+        steps:
+          - checkout
+          - restore_cache:
+              key: v4-{{ checksum "poetry.lock" }}
+          - run: make dependencies
+          - run: make full-test-suite
+          - save_cache:
+              key: v4-{{ checksum "poetry.lock" }}
+              paths:
+                - /home/circleci/.cache/pypoetry/
+                - /code/.venv
+                - /code/.tox
 
 jobs:
-  test:
-    executor: python
+  test_pg_min:
+    executor:
+      name: opus10/python-pg
+      pg_version: "13.11"
     steps:
-      - checkout
-      - restore_cache:
-          key: v2-{{ checksum "poetry.lock" }}
-      - run: make dependencies
-      - run: make full-test-suite
-      - save_cache:
-          key: v2-{{ checksum "poetry.lock" }}
-          paths:
-            - /home/circleci/.cache/pypoetry/
-            - /code/.venv
-            - /code/.tox
+      - opus10/test
+
+  test_pg_max:
+    executor:
+      name: opus10/python-pg
+      pg_version: "15.2"
+    steps:
+      - opus10/test
 
   lint:
-    executor: python
+    executor: opus10/python-pg
     steps:
       - checkout
       - restore_cache:
-          key: v2-{{ checksum "poetry.lock" }}
+          key: v4-{{ checksum "poetry.lock" }}
       - run: make dependencies
       - run: make lint
 
   check_changelog:
-    executor: python
+    executor: opus10/python-pg
     steps:
       - checkout
       - restore_cache:
-          key: v2-{{ checksum "poetry.lock" }}
+          key: v4-{{ checksum "poetry.lock" }}
       - run: make dependencies
       - run: git tidy-log origin/master..
       - run: make tidy-lint
 
   deploy:
-    executor: python
+    executor: opus10/python-pg
     steps:
       - checkout
       - run: ssh-add -D
       - run: echo "${GITHUB_DEVOPS_PRIVATE_SSH_KEY_BASE64}" | base64 --decode | ssh-add - > /dev/null
       - restore_cache:
-          key: v2-{{ checksum "poetry.lock" }}
+          key: v4-{{ checksum "poetry.lock" }}
       - run: make dependencies
       - run: poetry run python devops.py deploy
 
@@ -66,7 +85,8 @@ workflows:
   version: 2
   on_commit:
     jobs:
-      - test
+      - test_pg_min
+      - test_pg_max
       - lint
       - check_changelog:
           filters:
@@ -75,7 +95,8 @@ workflows:
       - deploy:
           context: public-django-app
           requires:
-            - test
+            - test_pg_min
+            - test_pg_max
             - lint
           filters:
             branches:

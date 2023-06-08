@@ -9,9 +9,15 @@ from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
 from django.db.models.sql.datastructures import BaseTable
 from django.db.utils import ProgrammingError
-import psycopg2.extensions
 
 from pgtrigger import compiler, features, registry, utils
+
+if utils.psycopg_maj_version == 2:
+    import psycopg2.extensions
+elif utils.psycopg_maj_version == 3:
+    import psycopg.adapt
+else:
+    raise AssertionError
 
 
 # Postgres only allows identifiers to be 63 chars max. Since "pgtrigger_"
@@ -278,12 +284,24 @@ class Q(models.Q, Condition):
 
     def resolve(self, model):
         query = _OldNewQuery(model)
+        connection = utils.connection()
         sql, args = self.resolve_expression(query).as_sql(
             compiler=query.get_compiler("default"),
-            connection=utils.connection(),
+            connection=connection,
         )
         sql = sql.replace('"OLD"', "OLD").replace('"NEW"', "NEW")
-        args = tuple(psycopg2.extensions.adapt(arg).getquoted().decode() for arg in args)
+
+        def _quote(val):
+            """Given a value, quote it and handle psycopg2/3 differences"""
+            if utils.psycopg_maj_version == 2:
+                return psycopg2.extensions.adapt(val).getquoted()
+            elif utils.psycopg_maj_version == 3:
+                transformer = psycopg.adapt.Transformer()
+                return transformer.as_literal(val) if val is not None else b"NULL"
+            else:
+                raise AssertionError
+
+        args = tuple(_quote(arg).decode() for arg in args)
 
         return sql % args
 

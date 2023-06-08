@@ -53,7 +53,7 @@ from pgtrigger.runtime import (
 )
 from pgtrigger.version import __version__
 
-if django.VERSION < (3, 2):
+if django.VERSION < (3, 2):  # pragma: no cover
     default_app_config = "pgtrigger.apps.PGTriggerConfig"
 
 del django

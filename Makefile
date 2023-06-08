@@ -80,12 +80,13 @@ lock:
 # Install dependencies
 .PHONY: dependencies
 dependencies:
-	$(EXEC_WRAPPER) poetry install
+	mkdir -p .venv
+	$(EXEC_WRAPPER) poetry install --no-ansi
 
 
 .PHONY: multi-db-setup
 multi-db-setup:
-	-$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE DATABASE postgres_other WITH TEMPLATE postgres"
+	-$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE DATABASE ${MODULE_NAME}_local_other WITH TEMPLATE ${MODULE_NAME}_local"
 	$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE SCHEMA IF NOT EXISTS \"order\""
 	$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE SCHEMA IF NOT EXISTS receipt;"
 
