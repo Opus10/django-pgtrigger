@@ -1,5 +1,12 @@
 # Changelog
-## 4.6.0 (2022-10-06)
+## 4.7.0 (2023-06-08)
+### Feature
+  - Added Python 3.11, Django 4.2, and Psycopg 3 support [Wesley Kendall, 27dc243]
+
+    Python 3.11, Django 4.2, and Psycopg 3 are now supported and tested.
+    Django 2.2 support has been dropped.
+
+## 4.6.0 (2022-10-07)
 ### Feature
   - Added ``pgtrigger.Func`` for accessing model properties in function declarations. [Wesley Kendall, 4bd6abf]
 
