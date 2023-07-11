@@ -42,30 +42,48 @@ class TriggerOperationMixin:
 
 
 
-class AddSequence(TriggerOperationMixin, IndexOperation):
-    option_name = 'trigger_sequences'
-    def __init__(self, model_name, sequence_name,):
+class AddPrefixedSequence(TriggerOperationMixin, IndexOperation):
+    option_name = 'prefixed_sequences'
+    def __init__(self, model_name, sequence_name, prefix, field_name):
         self.model_name=model_name
         self.sequence_name=sequence_name
+        self.prefix=prefix # prefix='APP-'
+        self.field_name=field_name # field_name='name'
         
-
     def state_forwards(self, app_label, state):
         pass
         
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
-        # create the trigger name 
-        # breakpoint()
-        # from psycopg2 import sql # hack
+        
         with schema_editor.connection.cursor() as cursor:
+            breakpoint()
+   
+            model_cls = to_state.apps.get_model(app_label, self.model_name)
+            table_name = model_cls._meta.db_table.replace('"', "" )
+            # TODO safer substitution
+            sql_string=f"select substring({self.field_name},{len(self.prefix)+1})::int from {table_name} where name like '{self.prefix}%' order by  substring({self.field_name},{len(self.prefix)+1})::int desc limit 1"
+    
+            cursor.execute(sql_string)
+
+            try:
+                highest_existing_idx=[i for i in cursor][0][0]
+            except KeyError:
+                highest_existing_idx = 0
+    
+            if not isinstance(highest_existing_idx, int):
+                raise ValueError("Huh, result isn't an integer?")
+
             # cursor.execute('create sequence %s', (sql.Identifier(self.sequence_name),))
-            cursor.execute(f'create sequence {self.sequence_name}')
+            # TODO safer substitution
+            cursor.execute(f'create sequence {self.sequence_name} start with {highest_existing_idx+1}')
 
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
         # from psycopg2 import sql # hack
         with schema_editor.connection.cursor() as cursor:
             # cursor.execute('drop sequence %s', (sql.Identifier(self.sequence_name),))
+            
             cursor.execute(f'drop sequence {self.sequence_name}')
         
 
@@ -80,6 +98,8 @@ class AddSequence(TriggerOperationMixin, IndexOperation):
             {
                 "model_name": self.model_name,
                 "sequence_name": self.sequence_name,
+                "prefix": self.prefix,
+                "field_name": self.field_name,
             },
         )
     
@@ -90,8 +110,8 @@ class AddSequence(TriggerOperationMixin, IndexOperation):
 
 
 
-class RemoveSequence(TriggerOperationMixin, IndexOperation):
-    option_name = 'trigger_sequences'
+class RemovePrefixedSequence(TriggerOperationMixin, IndexOperation):
+    option_name = 'prefixed_sequences'
     def __init__(self, model_name, sequence_name,):
         self.model_name=model_name
         self.sequence_name=sequence_name
@@ -99,7 +119,8 @@ class RemoveSequence(TriggerOperationMixin, IndexOperation):
 
 
     def state_forwards(self, app_label, state):
-        breakpoint()
+        pass
+       
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         with schema_editor.connection.cursor() as cursor:
@@ -295,10 +316,9 @@ class MigrationAutodetectorMixin:
                 self.add_operation(
                     app_label, self._get_add_trigger_op(model=model, trigger=trigger)
                 )
-                breakpoint()
                 if trigger.sequence_name:
                     self.add_operation(
-                        app_label, AddSequence(model_name=model_name, sequence_name=trigger.sequence_name)
+                        app_label, AddPrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name, prefix=trigger.prefix, field_name=trigger.field_name)
                     )
 
         return super().generate_added_constraints()
@@ -309,10 +329,9 @@ class MigrationAutodetectorMixin:
                 self.add_operation(
                     app_label, RemoveTrigger(model_name=model_name, name=trigger.name)
                 )
-                breakpoint()
                 if trigger.sequence_name:
                     self.add_operation(
-                        app_label, RemoveSequence(model_name=model_name, sequence_name=trigger.sequence_name)
+                        app_label, RemovePrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name)
                     )
 
         return super().generate_removed_constraints()
@@ -350,7 +369,7 @@ class MigrationAutodetectorMixin:
                 )
                 if trigger.sequence_name:
                     self.add_operation(
-                        app_label, AddSequence(model_name=model_name, sequence_name=trigger.sequence_name),dependencies=related_dependencies,
+                        app_label, AddPrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name),dependencies=related_dependencies,
                     )
 
     def generate_created_proxies(self):
@@ -393,7 +412,7 @@ class MigrationAutodetectorMixin:
                 )
                 if trigger.sequence_name:
                     self.add_operation(
-                        app_label, RemoveSequence(model_name=model_name, sequence_name=trigger.sequence_name), dependencies=[(app_label, model_name, None, True)],
+                        app_label, RemovePrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name), dependencies=[(app_label, model_name, None, True)],
                     )
 
         super().generate_deleted_proxies()

@@ -356,6 +356,8 @@ class Trigger:
     declare = None
     timing = None
     sequence_name = None
+    prefix = None
+    field_name = None
 
     def __init__(
         self,
@@ -370,6 +372,8 @@ class Trigger:
         declare=None,
         timing=None,
         sequence_name=None,
+        prefix=None,
+        field_name=None,
     ):
         self.name = name or self.name
         self.level = level or self.level
@@ -381,6 +385,8 @@ class Trigger:
         self.declare = declare or self.declare
         self.timing = timing or self.timing
         self.sequence_name = sequence_name or self.sequence_name
+        self.prefix=prefix if prefix is not None else self.prefix
+        self.field_name=field_name or self.field_name
 
         if not self.level or not isinstance(self.level, Level):
             raise ValueError(f'Invalid "level" attribute: {self.level}')
@@ -408,6 +414,10 @@ class Trigger:
         
         if not isinstance(self.sequence_name, str):
             raise ValueError(f'Invalid "sequence_name" attribute: {self.sequence_name}')
+        
+        if self.sequence_name and not (self.prefix is not None and self.field_name):
+            breakpoint()
+            raise ValueError(f'Attributes "prefix" and "field_name" must both be provided if "sequence_name" is provided.')
 
         self.validate_name()
 
@@ -530,7 +540,9 @@ class Trigger:
                 condition=self.render_condition(model),
                 execute=self.render_execute(model),
             ),
-            sequence_name=self.sequence_name
+            sequence_name=self.sequence_name,
+            prefix=self.prefix,
+            field_name=self.field_name,
         )
 
     def allow_migrate(self, model, database=None):
