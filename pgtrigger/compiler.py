@@ -202,17 +202,18 @@ class DisableTriggerSql(_TriggerDdlSql):
 class Trigger:
     """
     A compiled trigger that's added to internal model state of migrations. It consists
-    of a name and the trigger SQL for migrations.
+    of a name , trigger SQL and sequence name for migrations.
     """
 
-    def __init__(self, *, name, sql):
+    def __init__(self, *, name, sql, sequence_name):
         self.name = name
         self.sql = sql
+        self.sequence_name=sequence_name
         assert isinstance(sql, UpsertTriggerSql)
 
     def __eq__(self, other):
         return (
-            self.__class__ == other.__class__ and self.name == other.name and self.sql == other.sql
+            self.__class__ == other.__class__ and self.name == other.name and self.sql == other.sql and self.sequence_name==other.sequence_name
         )
 
     @property
@@ -240,4 +241,4 @@ class Trigger:
         Serialize the construction of this class so that it can be used in migrations.
         """
         path = f"{self.__class__.__module__}.{self.__class__.__name__}"
-        return path, [], {"name": self.name, "sql": self.sql}
+        return path, [], {"name": self.name, "sql": self.sql, "sequence_name": self.sequence_name}
