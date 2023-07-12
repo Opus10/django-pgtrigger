@@ -205,17 +205,17 @@ class Trigger:
     of a name , trigger SQL and sequence name for migrations.
     """
 
-    def __init__(self, *, name, sql, sequence_name, prefix, field_name):
+    def __init__(self, *, name, sql, sequence_name, sequence_last_idx_sql):
         self.name = name
         self.sql = sql
         self.sequence_name=sequence_name
-        self.prefix = prefix
-        self.field_name = field_name
+        self.sequence_last_idx_sql=sequence_last_idx_sql
+        
         assert isinstance(sql, UpsertTriggerSql)
 
     def __eq__(self, other):
         return (
-            self.__class__ == other.__class__ and self.name == other.name and self.sql == other.sql and self.sequence_name==other.sequence_name
+            self.__class__ == other.__class__ and self.name == other.name and self.sql == other.sql and self.sequence_name == other.sequence_name and self.sequence_last_idx_sql == other.sequence_last_idx_sql
         )
 
     @property
@@ -243,4 +243,4 @@ class Trigger:
         Serialize the construction of this class so that it can be used in migrations.
         """
         path = f"{self.__class__.__module__}.{self.__class__.__name__}"
-        return path, [], {"name": self.name, "sql": self.sql, "sequence_name": self.sequence_name, "prefix": self.prefix, "field_name": self.field_name}
+        return path, [], {"name": self.name, "sql": self.sql, "sequence_name": self.sequence_name,"sequence_last_idx_sql": self.sequence_last_idx_sql}

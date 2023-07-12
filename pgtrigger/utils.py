@@ -81,3 +81,22 @@ def quote(label, char='"'):
 def render_uninstall(table, trigger_pgid):
     """Renders uninstallation SQL"""
     return f"DROP TRIGGER IF EXISTS {trigger_pgid} ON {quote(table)};"
+
+
+
+class NoResultException(Exception):
+    pass
+
+
+def get_single_result(cursor, sql, expected_type=None):
+    cursor.execute(sql)
+    
+    try:
+        result=[i for i in cursor][0][0]    
+    except IndexError:
+        raise NoResultException
+
+    if expected_type and not isinstance(result, expected_type):
+        raise ValueError("Huh, result isn't an integer?")
+    
+    return result

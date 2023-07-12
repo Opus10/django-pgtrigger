@@ -44,35 +44,23 @@ class TriggerOperationMixin:
 
 class AddPrefixedSequence(TriggerOperationMixin, IndexOperation):
     option_name = 'prefixed_sequences'
-    def __init__(self, model_name, sequence_name, prefix, field_name):
+    def __init__(self, model_name, sequence_name, sequence_last_idx_sql):
         self.model_name=model_name
         self.sequence_name=sequence_name
-        self.prefix=prefix # prefix='APP-'
-        self.field_name=field_name # field_name='name'
+        self.sequence_last_idx_sql=sequence_last_idx_sql
         
     def state_forwards(self, app_label, state):
         pass
         
-
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         
         with schema_editor.connection.cursor() as cursor:
-            breakpoint()
-   
-            model_cls = to_state.apps.get_model(app_label, self.model_name)
-            table_name = model_cls._meta.db_table.replace('"', "" )
-            # TODO safer substitution
-            sql_string=f"select substring({self.field_name},{len(self.prefix)+1})::int from {table_name} where name like '{self.prefix}%' order by  substring({self.field_name},{len(self.prefix)+1})::int desc limit 1"
-    
-            cursor.execute(sql_string)
-
+            
+            cursor.execute(self.sequence_last_idx_sql)
             try:
-                highest_existing_idx=[i for i in cursor][0][0]
-            except KeyError:
+                highest_existing_idx = utils.get_single_result(cursor=cursor, sql=self.sequence_last_idx_sql, expected_type=int) 
+            except utils.NoResultException:
                 highest_existing_idx = 0
-    
-            if not isinstance(highest_existing_idx, int):
-                raise ValueError("Huh, result isn't an integer?")
 
             # cursor.execute('create sequence %s', (sql.Identifier(self.sequence_name),))
             # TODO safer substitution
@@ -98,8 +86,7 @@ class AddPrefixedSequence(TriggerOperationMixin, IndexOperation):
             {
                 "model_name": self.model_name,
                 "sequence_name": self.sequence_name,
-                "prefix": self.prefix,
-                "field_name": self.field_name,
+                "sequence_last_idx_sql": self.sequence_last_idx_sql,
             },
         )
     
@@ -112,11 +99,10 @@ class AddPrefixedSequence(TriggerOperationMixin, IndexOperation):
 
 class RemovePrefixedSequence(TriggerOperationMixin, IndexOperation):
     option_name = 'prefixed_sequences'
-    def __init__(self, model_name, sequence_name,):
+    def __init__(self, model_name, sequence_name,sequence_last_idx_sql):
         self.model_name=model_name
         self.sequence_name=sequence_name
-        
-
+        self.sequence_last_idx_sql=sequence_last_idx_sql # passed in case this operation needs to be reversed
 
     def state_forwards(self, app_label, state):
         pass
@@ -124,14 +110,22 @@ class RemovePrefixedSequence(TriggerOperationMixin, IndexOperation):
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         with schema_editor.connection.cursor() as cursor:
-            cursor.execute('drop sequence %s', (sql.Identifier(self.sequence_name),))
+            # cursor.execute('drop sequence %s', (sql.Identifier(self.sequence_name),))
+            cursor.execute(f'drop sequence {self.sequence_name}')
         # model = to_state.apps.get_model(app_label, self.model_name)
         # if self.allow_migrate_model_trigger(schema_editor, model):  # pragma: no branch
         #     _add_trigger(schema_editor, model, self.trigger)
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
         with schema_editor.connection.cursor() as cursor:
-            cursor.execute('create sequence %s', (sql.Identifier(self.sequence_name),))
+            cursor.execute(self.sequence_last_idx_sql)
+            try:
+                highest_existing_idx = utils.get_single_result(cursor=cursor, sql=self.sequence_last_idx_sql, expected_type=int) 
+            except utils.NoResultException:
+                highest_existing_idx = 0
+
+            cursor.execute(f'create sequence {self.sequence_name} start with {highest_existing_idx+1}')
+            # cursor.execute('create sequence %s', (sql.Identifier(self.sequence_name),))
         # model = to_state.apps.get_model(app_label, self.model_name)
         # if self.allow_migrate_model_trigger(schema_editor, model):  # pragma: no branch
         #     _remove_trigger(schema_editor, model, self.trigger)
@@ -146,6 +140,7 @@ class RemovePrefixedSequence(TriggerOperationMixin, IndexOperation):
             {
                 "model_name": self.model_name,
                 "sequence_name": self.sequence_name,
+                "sequence_last_idx_sql": self.sequence_last_idx_sql,
             },
         )
     
@@ -318,7 +313,7 @@ class MigrationAutodetectorMixin:
                 )
                 if trigger.sequence_name:
                     self.add_operation(
-                        app_label, AddPrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name, prefix=trigger.prefix, field_name=trigger.field_name)
+                        app_label, AddPrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name, sequence_last_idx_sql=trigger.sequence_last_idx_sql)
                     )
 
         return super().generate_added_constraints()
@@ -331,7 +326,7 @@ class MigrationAutodetectorMixin:
                 )
                 if trigger.sequence_name:
                     self.add_operation(
-                        app_label, RemovePrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name)
+                        app_label, RemovePrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name, sequence_last_idx_sql=trigger.sequence_last_idx_sql)
                     )
 
         return super().generate_removed_constraints()
@@ -369,7 +364,7 @@ class MigrationAutodetectorMixin:
                 )
                 if trigger.sequence_name:
                     self.add_operation(
-                        app_label, AddPrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name),dependencies=related_dependencies,
+                        app_label, AddPrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name,sequence_last_idx_sql=trigger.sequence_last_idx_sql),dependencies=related_dependencies,
                     )
 
     def generate_created_proxies(self):
@@ -412,7 +407,7 @@ class MigrationAutodetectorMixin:
                 )
                 if trigger.sequence_name:
                     self.add_operation(
-                        app_label, RemovePrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name), dependencies=[(app_label, model_name, None, True)],
+                        app_label, RemovePrefixedSequence(model_name=model_name, sequence_name=trigger.sequence_name, sequence_last_idx_sql=trigger.sequence_last_idx_sql), dependencies=[(app_label, model_name, None, True)],
                     )
 
         super().generate_deleted_proxies()
