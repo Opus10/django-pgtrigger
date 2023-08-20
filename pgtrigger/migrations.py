@@ -403,3 +403,16 @@ class DatabaseSchemaEditorMixin:
                 raise  # pragma: no cover
         else:
             return super().execute(*args, **kwargs)
+
+    def create_model(self, model):
+        super().create_model(model)
+        # models.triggers isn't populated on the forwards CreateTable migration
+        # (as Triggers are only added to the migration state via AddTrigger
+        # operatoins). models.triggers may be populated when:
+        # - the backwards operaton of a RemoveTable operation where there was
+        #   still triggers defined in the model state when the table was
+        #   removed.
+        # - creating the tables of an unmigrated app when `run_syncdb` is
+        #   supplied to the migrate command (or when running tests).
+        for trigger in getattr(model._meta, "triggers", []):
+            _add_trigger(self, model, trigger)

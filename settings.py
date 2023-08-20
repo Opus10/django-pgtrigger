@@ -19,7 +19,10 @@ INSTALLED_APPS = [
 # Conditionally add the test app when we aren't building docs,
 # otherwise sphinx builds won't work
 if not os.environ.get("SPHINX"):
-    INSTALLED_APPS += ["pgtrigger.tests"]
+    INSTALLED_APPS += [
+        "pgtrigger.tests",
+        "pgtrigger.tests.test_syncdb_app",
+    ]
 
 # Database url comes from the DATABASE_URL env var
 # We have some multi-database and multi-schema tests
