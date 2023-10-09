@@ -1,17 +1,13 @@
 import django.apps
+import django.db.backends.postgresql.schema as postgresql_schema
 from django.conf import settings
 from django.core.management.commands import makemigrations, migrate
-import django.db.backends.postgresql.schema as postgresql_schema
 from django.db.migrations import state
 from django.db.models import options
 from django.db.models.signals import post_migrate
 from django.db.utils import load_backend
 
-from pgtrigger import core
-from pgtrigger import features
-from pgtrigger import installation
-from pgtrigger import migrations
-
+from pgtrigger import core, features, installation, migrations
 
 # Allow triggers to be specified in model Meta. Users can turn this
 # off via settings if it causes issues. If turned off, migrations
@@ -75,7 +71,7 @@ def patch_schema_editor():
 
 def register_triggers_from_meta():
     """
-    Populate the trigger registry from model ``Meta.triggers``
+    Populate the trigger registry from model `Meta.triggers`
     """
     if features.model_meta():  # pragma: no branch
         for model in django.apps.apps.get_models():

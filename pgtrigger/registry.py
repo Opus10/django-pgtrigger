@@ -1,9 +1,15 @@
 import collections
+from typing import TYPE_CHECKING, Callable, List, Tuple
 
 from pgtrigger import features
 
-
 _unset = object()
+
+
+if TYPE_CHECKING:
+    from django.db.models import Model
+
+    from pgtrigger.core import Trigger
 
 
 # All registered triggers for each model
@@ -86,39 +92,51 @@ class _Registry(collections.UserDict):
 _registry = _Registry()
 
 
-def set(uri, *, model, trigger):
+def set(uri: str, *, model: "Model", trigger: "Trigger") -> None:
+    """Set a trigger in the registry
+
+    Args:
+        uri: The trigger URI
+        model: The trigger model
+        trigger: The trigger object
+    """
     _registry[uri] = (model, trigger)
 
 
-def delete(uri):
+def delete(uri: str) -> None:
+    """Delete a trigger from the registry.
+
+    Args:
+        uri: The trigger URI
+    """
     del _registry[uri]
 
 
-def registered(*uris):
+def registered(*uris: str) -> List[Tuple["Model", "Trigger"]]:
     """
     Get registered trigger objects.
 
     Args:
-        *uris (str): URIs of triggers to get. If none are provided,
+        *uris: URIs of triggers to get. If none are provided,
             all triggers are returned. URIs are in the format of
-            ``{app_label}.{model_name}:{trigger_name}``.
+            `{app_label}.{model_name}:{trigger_name}`.
 
     Returns:
-        List[Tuple[``models.Model``, `pgtrigger.Trigger`]]: Matching trigger objects.
+        Matching trigger objects.
     """
     uris = uris or _registry.keys()
     return [_registry[uri] for uri in uris]
 
 
-def register(*triggers):
+def register(*triggers: "Trigger") -> Callable:
     """
     Register the given triggers with wrapped Model class.
 
     Args:
-        *triggers (`pgtrigger.Trigger`): Trigger classes to register.
+        *triggers: Trigger classes to register.
 
-    Examples:
-        Register by decorating a model::
+    Example:
+        Register by decorating a model:
 
             @pgtrigger.register(
                 pgtrigger.Protect(
@@ -129,7 +147,8 @@ def register(*triggers):
             class MyModel(models.Model):
                 pass
 
-        Register by calling functionally::
+    Example:
+        Register by calling functionally:
 
             pgtrigger.register(trigger_object)(MyModel)
     """

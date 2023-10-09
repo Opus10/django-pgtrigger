@@ -2,33 +2,31 @@
 The primary functional API for pgtrigger
 """
 import logging
+from typing import List, Tuple, Union
 
-from django.db import connections, DEFAULT_DB_ALIAS
+from django.db import DEFAULT_DB_ALIAS, connections
 
-from pgtrigger import features
-from pgtrigger import registry
-from pgtrigger import utils
-
+from pgtrigger import features, registry, utils
 
 # The core pgtrigger logger
 LOGGER = logging.getLogger("pgtrigger")
 
 
-def install(*uris, database=None):
+def install(*uris: str, database: Union[str, None] = None) -> None:
     """
     Install triggers.
 
     Args:
-        *uris (str): URIs of triggers to install. If none are provided,
+        *uris: URIs of triggers to install. If none are provided,
             all triggers are installed and orphaned triggers are pruned.
-        database (str, default=None): The database. Defaults to
-            the "default" database.
+        database: The database. Defaults to the "default" database.
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            f"pgtrigger: Installing {trigger} trigger"
-            f" for {model._meta.db_table} table"
-            f" on {database or DEFAULT_DB_ALIAS} database."
+            "pgtrigger: Installing {trigger} trigger for {db_table} table on {database} database.",
+            trigger=trigger,
+            db_table=model._meta.db_table,
+            database=database or DEFAULT_DB_ALIAS,
         )
         trigger.install(model, database=database)
 
@@ -36,12 +34,14 @@ def install(*uris, database=None):
         prune(database=database)
 
 
-def prunable(database=None):
+def prunable(database: Union[str, None] = None) -> List[Tuple[str, str, bool, str]]:
     """Return triggers that are candidates for pruning
 
     Args:
-        database (str, default=None): The database. Defaults to
-            the "default" database.
+        database: The database. Defaults to the "default" database.
+
+    Returns:
+        A list of tuples consisting of the table, trigger ID, enablement, and database
     """
     if not utils.is_postgres(database):
         return []
@@ -75,20 +75,21 @@ def prunable(database=None):
     ]
 
 
-def prune(database=None):
+def prune(database: Union[str, None] = None) -> None:
     """
     Remove any pgtrigger triggers in the database that are not used by models.
     I.e. if a model or trigger definition is deleted from a model, ensure
     it is removed from the database
 
     Args:
-        database (str, default=None): The database. Defaults to
-            the "default" database.
+        database: The database. Defaults to the "default" database.
     """
     for trigger in prunable(database=database):
         LOGGER.info(
-            f"pgtrigger: Pruning trigger {trigger[1]}"
-            f" for table {trigger[0]} on {trigger[3]} database."
+            "pgtrigger: Pruning trigger {name} for table {table} on {database} database.",
+            name=trigger[1],
+            table=trigger[0],
+            database=trigger[3],
         )
 
         connection = connections[trigger[3]]
@@ -97,40 +98,41 @@ def prune(database=None):
             cursor.execute(uninstall_sql)
 
 
-def enable(*uris, database=None):
+def enable(*uris: str, database: Union[str, None] = None) -> None:
     """
     Enables registered triggers.
 
     Args:
-        *uris (str): URIs of triggers to enable. If none are provided,
+        *uris: URIs of triggers to enable. If none are provided,
             all triggers are enabled.
-        database (str, default=None): The database. Defaults to
-            the "default" database.
+        database: The database. Defaults to the "default" database.
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            f"pgtrigger: Enabling {trigger} trigger"
-            f" for {model._meta.db_table} table"
-            f" on {database or DEFAULT_DB_ALIAS} database."
+            "pgtrigger: Enabling {trigger} trigger for {db_table} table on {database} database.",
+            trigger=trigger,
+            db_table=model._meta.db_table,
+            database=database or DEFAULT_DB_ALIAS,
         )
         trigger.enable(model, database=database)
 
 
-def uninstall(*uris, database=None):
+def uninstall(*uris: str, database: Union[str, None] = None) -> None:
     """
     Uninstalls triggers.
 
     Args:
-        *uris (str): URIs of triggers to uninstall. If none are provided,
+        *uris: URIs of triggers to uninstall. If none are provided,
             all triggers are uninstalled and orphaned triggers are pruned.
-        database (str, default=None): The database. Defaults to
-            the "default" database.
+        database: The database. Defaults to the "default" database.
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            f"pgtrigger: Uninstalling {trigger} trigger"
-            f" for {model._meta.db_table} table"
-            f" on {database or DEFAULT_DB_ALIAS} database."
+            "pgtrigger: Uninstalling {trigger} trigger for {db_table} table on"
+            " {database} database.",
+            trigger=trigger,
+            db_table=model._meta.db_table,
+            database=database or DEFAULT_DB_ALIAS,
         )
         trigger.uninstall(model, database=database)
 
@@ -138,20 +140,20 @@ def uninstall(*uris, database=None):
         prune(database=database)
 
 
-def disable(*uris, database=None):
+def disable(*uris: str, database: Union[str, None] = None) -> None:
     """
     Disables triggers.
 
     Args:
-        *uris (str): URIs of triggers to disable. If none are provided,
+        *uris: URIs of triggers to disable. If none are provided,
             all triggers are disabled.
-        database (str, default=None): The database. Defaults to
-            the "default" database.
+        database: The database. Defaults to the "default" database.
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            f"pgtrigger: Disabling {trigger} trigger for"
-            f" {model._meta.db_table} table"
-            f" on {database or DEFAULT_DB_ALIAS} database."
+            "pgtrigger: Disabling {trigger} trigger for {db_table} table on {database} database.",
+            trigger=trigger,
+            db_table=model._meta.db_table,
+            database=database or DEFAULT_DB_ALIAS,
         )
         trigger.disable(model, database=database)

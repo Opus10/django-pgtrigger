@@ -4,11 +4,11 @@ them or dynamically setting the search path.
 """
 import contextlib
 import threading
+from typing import TYPE_CHECKING, List, Union
 
 from django.db import connections
 
-from pgtrigger import registry
-from pgtrigger import utils
+from pgtrigger import registry, utils
 
 if utils.psycopg_maj_version == 2:
     import psycopg2.extensions
@@ -16,6 +16,9 @@ elif utils.psycopg_maj_version == 3:
     import psycopg.pq
 else:
     raise AssertionError
+
+if TYPE_CHECKING:
+    from pgtrigger import Timing
 
 
 # All triggers currently being ignored
@@ -128,7 +131,6 @@ def _set_ignore_state(model, trigger):
 
     pgid = trigger.get_pgid(model)
     if pgid not in _ignore.value:
-
         # In order to preserve backwards compatibiliy with older installations
         # of the _pgtrigger_ignore func, we must set a full URI (old version)
         # and trigger ID (new version).
@@ -147,7 +149,7 @@ def _set_ignore_state(model, trigger):
 
 
 @contextlib.contextmanager
-def ignore(*uris, databases=None):
+def ignore(*uris: str, databases: Union[List[str], None] = None):
     """
     Dynamically ignore registered triggers matching URIs from executing in
     an individual thread.
@@ -155,19 +157,19 @@ def ignore(*uris, databases=None):
     individual thread.
 
     Args:
-        *uris (str): Trigger URIs to ignore. If none are provided, all
+        *uris: Trigger URIs to ignore. If none are provided, all
             triggers will be ignored.
-        databases (List[str], default=None): The databases to use.
-            If none, all postgres databases will be used.
+        databases: The databases to use. If none, all postgres databases
+            will be used.
 
-    Examples:
-
-        Ingore triggers in a context manager::
+    Example:
+        Ingore triggers in a context manager:
 
             with pgtrigger.ignore("my_app.Model:trigger_name"):
                 # Do stuff while ignoring trigger
 
-        Ignore multiple triggers as a decorator::
+    Example:
+        Ignore multiple triggers as a decorator:
 
             @pgtrigger.ignore("my_app.Model:trigger_name", "my_app.Model:other_trigger")
             def my_func():
@@ -254,18 +256,18 @@ def _set_schema_state(*schemas):
 
 
 @contextlib.contextmanager
-def schema(*schemas, databases=None):
+def schema(*schemas: str, databases: Union[List[str], None] = None):
     """
     Sets the search path to the provided schemas.
 
     If nested, appends the schemas to the search path if not already in it.
 
     Args:
-        *schemas (str): Schemas that should be appended to the search path.
+        *schemas: Schemas that should be appended to the search path.
             Schemas already in the search path from nested calls will not be
             appended.
-        databases (List[str], default=None): The databases to set the search path.
-            If none, all postgres databases will be used.
+        databases: The databases to set the search path. If none, all postgres
+            databases will be used.
     """
     with contextlib.ExitStack() as stack:
         stack.enter_context(_schema_session(databases=databases))
@@ -277,21 +279,19 @@ def schema(*schemas, databases=None):
 schema.session = _schema_session
 
 
-def constraints(timing, *uris, databases=None):
+def constraints(timing: "Timing", *uris: str, databases: Union[List[str], None] = None) -> None:
     """
     Set deferrable constraint timing for the given triggers, which
     will persist until overridden or until end of transaction.
     Must be in a transaction to run this.
 
     Args:
-        timing (``pgtrigger.Timing``): The timing value that overrides
-            the default trigger timing.
-        *uris (str): Trigger URIs over which to set constraint timing.
+        timing: The timing value that overrides the default trigger timing.
+        *uris: Trigger URIs over which to set constraint timing.
             If none are provided, all trigger constraint timing will
             be set. All triggers must be deferrable.
-        databases (List[str], default=None): The databases on which
-            to set constraints. If none, all postgres databases
-            will be used.
+        databases: The databases on which to set constraints. If none, all
+            postgres databases will be used.
 
     Raises:
         RuntimeError: If the database of any triggers is not in a transaction.

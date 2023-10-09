@@ -1,10 +1,10 @@
 import datetime as dt
 
 import ddf
+import pytest
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.utils import NotSupportedError
-import pytest
 
 import pgtrigger
 from pgtrigger import core
@@ -294,7 +294,6 @@ def test_is_not_distinct_from_condition():
         | pgtrigger.Q(old__nullable__ndf=pgtrigger.F("new__nullable")),
     )
     with trigger.install(models.TestTrigger):
-
         with utils.raises_trigger_error(match="Cannot update rows"):
             test_model.int_field = 1
             test_model.save()
@@ -464,7 +463,9 @@ def test_arg_checks():
         )
 
     with pytest.raises(ValueError, match="> 47"):
-        pgtrigger.Trigger(when=pgtrigger.Before, operation=pgtrigger.Update, name="1" * 48).pgid
+        pgtrigger.Trigger(  # noqa
+            when=pgtrigger.Before, operation=pgtrigger.Update, name="1" * 48
+        ).pgid
 
 
 def test_operations():
@@ -495,7 +496,6 @@ def test_custom_trigger_definitions():
         func="RAISE EXCEPTION 'no no no!';",
     )
     with trigger.install(test_model):
-
         # Inserts and updates are no longer available
         with utils.raises_trigger_error(match="no no no!"):
             models.TestTrigger.objects.create()

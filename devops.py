@@ -119,15 +119,16 @@ def _generate_changelog_and_tag(old_version, new_version):
     # renders properly
     _shell(f'git tag -f -a {new_version} -m "Version {new_version}"')
 
-    # Generate the full changelog
+    # Generate the full changelog and copy it to docs/release_notes.md
     _shell("git tidy-log > CHANGELOG.md")
+    _shell("cp CHANGELOG.md docs/release_notes.md")
 
     # Generate a requirements.txt for readthedocs.org
-    _shell("poetry export --dev --without-hashes -f requirements.txt > docs/requirements.txt")
+    _shell("poetry export --with dev --without-hashes -f requirements.txt > docs/requirements.txt")
     _shell('echo "." >> docs/requirements.txt')
 
     # Add all updated files
-    _shell("git add pyproject.toml CHANGELOG.md docs/requirements.txt")
+    _shell("git add pyproject.toml CHANGELOG.md docs/release_notes.md docs/requirements.txt")
 
     # Use [skip ci] to ensure CircleCI doesnt recursively deploy
     _shell(
@@ -145,7 +146,7 @@ def _generate_changelog_and_tag(old_version, new_version):
         # Update the tag so that it includes the latest release messages and
         # the automated commit
         _shell(f"git tag -d {new_version}")
-        _shell(f"git tag -f -a {new_version} -F {commit_msg_file.name}" " --cleanup=whitespace")
+        _shell(f"git tag -f -a {new_version} -F {commit_msg_file.name} --cleanup=whitespace")
 
 
 def _publish_to_pypi():

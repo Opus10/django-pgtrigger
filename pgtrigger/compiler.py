@@ -3,7 +3,6 @@ import hashlib
 
 from pgtrigger import utils
 
-
 _unset = object()
 
 
@@ -120,7 +119,7 @@ class UpsertTriggerSql(collections.UserString):
         execute=_unset,
         hash=None,
     ):
-        """Initialize the SQL and store it in the ``.data`` attribute."""
+        """Initialize the SQL and store it in the `.data` attribute."""
         self.kwargs = {
             key: str(val)
             for key, val in locals().items()
@@ -156,7 +155,7 @@ class _TriggerDdlSql(collections.UserString):
         raise NotImplementedError
 
     def __init__(self, *, pgid, table):
-        """Initialize the SQL and store it in the ``.data`` attribute."""
+        """Initialize the SQL and store it in the `.data` attribute."""
         sql_args = {**locals(), **{"table": utils.quote(table)}}
 
         self.data = self.get_template().format(**sql_args)

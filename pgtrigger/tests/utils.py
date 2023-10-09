@@ -1,8 +1,9 @@
 import contextlib
 
-from django.db import connections, DEFAULT_DB_ALIAS, transaction as db_transaction
-from django.db.utils import DatabaseError
 import pytest
+from django.db import DEFAULT_DB_ALIAS, connections
+from django.db import transaction as db_transaction
+from django.db.utils import DatabaseError
 
 
 @contextlib.contextmanager

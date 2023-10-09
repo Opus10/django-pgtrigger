@@ -10,7 +10,7 @@ orbs:
             default: "14.4"
         working_directory: /code
         docker:
-          - image: opus10/circleci-public-django-app:2023-06-04
+          - image: opus10/circleci-public-django-app:2023-10-06
             environment:
               # Ensure makefile commands are not wrapped in "docker-compose run"
               EXEC_WRAPPER: ''
@@ -47,7 +47,7 @@ jobs:
   test_pg_max:
     executor:
       name: opus10/python-pg
-      pg_version: "15.2"
+      pg_version: "16.0"
     steps:
       - opus10/test
 

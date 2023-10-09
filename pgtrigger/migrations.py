@@ -6,8 +6,7 @@ from django.db import transaction
 from django.db.migrations.operations.fields import AddField
 from django.db.migrations.operations.models import CreateModel, IndexOperation
 
-from pgtrigger import compiler
-from pgtrigger import utils
+from pgtrigger import compiler, utils
 
 
 def _add_trigger(schema_editor, model, trigger):
