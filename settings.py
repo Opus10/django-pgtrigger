@@ -15,6 +15,7 @@ INSTALLED_APPS = [
     "django.contrib.postgres",
     "psqlextra",
     "pgtrigger.tests",
+    "pgtrigger.tests.syncdb_app",
 ]
 
 # Database url comes from the DATABASE_URL env var
