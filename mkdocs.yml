@@ -1,0 +1,99 @@
+site_name: django-pgtrigger
+docs_dir: docs
+
+repo_name: Opus10/django-pgtrigger
+repo_url: https://github.com/Opus10/django-pgtrigger
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          import:
+          - https://docs.python.org/3/objects.inv
+          - https://installer.readthedocs.io/en/stable/objects.inv
+          - https://mkdocstrings.github.io/autorefs/objects.inv
+          options:
+            docstring_options:
+              ignore_init_summary: true
+            line_length: 80
+            heading_level: 3
+            merge_init_into_class: true
+            separate_signature: true
+            show_root_heading: true
+            show_root_full_path: true
+            show_root_members_full_path: true
+            show_signature_annotations: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+
+markdown_extensions:
+  # For admonitions
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - tables
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+theme:
+  name: material
+  logo: static/logo.svg
+  features:
+    - navigation.footer
+    - navigation.path
+    - navigation.sections
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: #6658ea
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: #6658ea
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+extra_css:
+  - css/mkdocstrings.css
+  - css/mkdocs-material.css
+
+nav:
+  - Overview: index.md
+  - Installation: installation.md
+  - Usage Guides:
+      - Basics: basics.md
+      - Trigger Cookbook: cookbook.md
+      - Ignoring Execution: ignoring_triggers.md
+      - Deferrable Triggers: deferrable.md
+      - Advanced Installation: advanced_installation.md
+      - Advanced Database Setups: advanced_db.md
+  - Help:
+      - Frequently Asked Questions: faq.md
+      - Troubleshooting: troubleshooting.md
+      - Upgrading: upgrading.md
+      - Further Reading: further_reading.md
+  - API:
+      - Settings: settings.md
+      - Commands: commands.md
+      - Module: module.md
+      - Release Notes: release_notes.md
+      - Contributing Guide: contributing.md

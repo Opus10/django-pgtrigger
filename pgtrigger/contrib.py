@@ -1,10 +1,9 @@
 """Additional goodies"""
 import functools
 import operator
+from typing import Any, List, Tuple, Union
 
-from pgtrigger import core
-from pgtrigger import utils
-
+from pgtrigger import core, utils
 
 # A sentinel value to determine if a kwarg is unset
 _unset = object()
@@ -13,7 +12,7 @@ _unset = object()
 class Protect(core.Trigger):
     """A trigger that raises an exception."""
 
-    when = core.Before
+    when: core.When = core.Before
 
     def get_func(self, model):
         sql = f"""
@@ -27,17 +26,23 @@ class Protect(core.Trigger):
 class ReadOnly(Protect):
     """A trigger that prevents edits to fields.
 
-    If ``fields`` are provided, will protect edits to only those fields.
-    If ``exclude`` is provided, will protect all fields except the ones
+    If `fields` are provided, will protect edits to only those fields.
+    If `exclude` is provided, will protect all fields except the ones
     excluded.
     If none of these arguments are provided, all fields cannot be edited.
     """
 
-    fields = None
-    exclude = None
-    operation = core.Update
+    fields: Union[List[str], None] = None
+    exclude: Union[List[str], None] = None
+    operation: core.Operation = core.Update
 
-    def __init__(self, *, fields=None, exclude=None, **kwargs):
+    def __init__(
+        self,
+        *,
+        fields: Union[List[str], None] = None,
+        exclude: Union[List[str], None] = None,
+        **kwargs: Any,
+    ):
         self.fields = fields or self.fields
         self.exclude = exclude or self.exclude
 
@@ -68,20 +73,27 @@ class ReadOnly(Protect):
 class FSM(core.Trigger):
     """Enforces a finite state machine on a field.
 
-    Supply the trigger with the "field" that transitions and then
-    a list of tuples of valid transitions to the "transitions" argument.
+    Supply the trigger with the `field` that transitions and then
+    a list of tuples of valid transitions to the `transitions` argument.
 
-    .. note::
+    !!! note
 
-        Only non-null ``CharField`` fields are currently supported.
+        Only non-null `CharField` fields are currently supported.
     """
 
-    when = core.Before
-    operation = core.Update
-    field = None
-    transitions = None
+    when: core.When = core.Before
+    operation: core.Operation = core.Update
+    field: str = None
+    transitions: List[Tuple[str, str]] = None
 
-    def __init__(self, *, name=None, condition=None, field=None, transitions=None):
+    def __init__(
+        self,
+        *,
+        name: str = None,
+        condition: Union[core.Condition, None] = None,
+        field: str = None,
+        transitions: List[Tuple[str, str]] = None,
+    ):
         self.field = field or self.field
         self.transitions = transitions or self.transitions
 
@@ -122,20 +134,27 @@ class SoftDelete(core.Trigger):
 
     Supply the trigger with the "field" that will be set
     upon deletion and the "value" to which it should be set.
-    The "value" defaults to ``False``.
+    The "value" defaults to `False`.
 
-    .. note::
+    !!! note
 
-        This trigger currently only supports nullable ``BooleanField``,
-        ``CharField``, and ``IntField`` fields.
+        This trigger currently only supports nullable `BooleanField`,
+        `CharField`, and `IntField` fields.
     """
 
-    when = core.Before
-    operation = core.Delete
-    field = None
-    value = False
+    when: core.When = core.Before
+    operation: core.Operation = core.Delete
+    field: str = None
+    value: Union[bool, str, int, None] = False
 
-    def __init__(self, *, name=None, condition=None, field=None, value=_unset):
+    def __init__(
+        self,
+        *,
+        name: str = None,
+        condition: Union[core.Condition, None] = None,
+        field: str = None,
+        value: Union[bool, str, int, None] = _unset,
+    ):
         self.field = field or self.field
         self.value = value if value is not _unset else self.value
 
@@ -166,29 +185,36 @@ class SoftDelete(core.Trigger):
 
 
 class UpdateSearchVector(core.Trigger):
-    """Updates a ``django.contrib.postgres.search.SearchVectorField`` from document fields.
+    """Updates a `django.contrib.postgres.search.SearchVectorField` from document fields.
 
-    Supply the trigger with the ``vector_field`` that will be updated with
-    changes to the ``document_fields``. Optionally provide a ``config_name``, which
-    defaults to ``pg_catalog.english``.
+    Supply the trigger with the `vector_field` that will be updated with
+    changes to the `document_fields`. Optionally provide a `config_name`, which
+    defaults to `pg_catalog.english`.
 
-    This trigger uses ``tsvector_update_trigger`` to update the vector field.
-    See `the Postgres docs <https://www.postgresql.org/docs/current/textsearch-features.html#TEXTSEARCH-UPDATE-TRIGGERS>`__
+    This trigger uses `tsvector_update_trigger` to update the vector field.
+    See [the Postgres docs](https://www.postgresql.org/docs/current/textsearch-features.html#TEXTSEARCH-UPDATE-TRIGGERS)
     for more information.
 
-    .. note::
+    !!! note
 
-        ``UpdateSearchVector`` triggers are not compatible with `pgtrigger.ignore` since
+        `UpdateSearchVector` triggers are not compatible with [pgtrigger.ignore][] since
         it references a built-in trigger. Trying to ignore this trigger results in a
         `RuntimeError`.
     """  # noqa
 
-    when = core.Before
-    vector_field = None
-    document_fields = None
-    config_name = "pg_catalog.english"
+    when: core.When = core.Before
+    vector_field: str = None
+    document_fields: List[str] = None
+    config_name: str = "pg_catalog.english"
 
-    def __init__(self, *, name=None, vector_field=None, document_fields=None, config_name=None):
+    def __init__(
+        self,
+        *,
+        name: str = None,
+        vector_field: str = None,
+        document_fields: List[str] = None,
+        config_name: str = None,
+    ):
         self.vector_field = vector_field or self.vector_field
         self.document_fields = document_fields or self.document_fields
         self.config_name = config_name or self.config_name

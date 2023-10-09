@@ -1,6 +1,6 @@
 import ddf
-from django.core.exceptions import FieldDoesNotExist
 import pytest
+from django.core.exceptions import FieldDoesNotExist
 
 import pgtrigger
 from pgtrigger.tests import models, utils

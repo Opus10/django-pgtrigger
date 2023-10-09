@@ -2,6 +2,7 @@ import contextlib
 import copy
 import hashlib
 import re
+from typing import Any, List, Tuple, Union
 
 from django.db import DEFAULT_DB_ALIAS, models, router, transaction
 from django.db.models.expressions import Col
@@ -52,15 +53,19 @@ class Level(_Primitive):
     values = ("ROW", "STATEMENT")
 
 
-#: For specifying row-level triggers (the default)
 Row = Level("ROW")
+"""
+For specifying row-level triggers (the default)
+"""
 
-#: For specifying statement-level triggers
 Statement = Level("STATEMENT")
+"""
+For specifying statement-level triggers
+"""
 
 
 class Referencing:
-    """For specifying the REFERENCING clause of a statement-level trigger"""
+    """For specifying the `REFERENCING` clause of a statement-level trigger"""
 
     def __init__(self, *, old=None, new=None):
         if not old and not new:
@@ -87,14 +92,20 @@ class When(_Primitive):
     values = ("BEFORE", "AFTER", "INSTEAD OF")
 
 
-#: For specifying ``BEFORE`` in the when clause of a trigger.
 Before = When("BEFORE")
+"""
+For specifying `BEFORE` in the when clause of a trigger.
+"""
 
-#: For specifying ``AFTER`` in the when clause of a trigger.
 After = When("AFTER")
+"""
+For specifying `AFTER` in the when clause of a trigger.
+"""
 
-#: For specifying ``INSTEAD OF`` in the when clause of a trigger.
 InsteadOf = When("INSTEAD OF")
+"""
+For specifying `INSTEAD OF` in the when clause of a trigger.
+"""
 
 
 class Operation(_Primitive):
@@ -106,9 +117,9 @@ class Operation(_Primitive):
 
 
 class Operations(Operation):
-    """For providing multiple operations ``OR``ed together.
+    """For providing multiple operations `OR`ed together.
 
-    Note that using the ``|`` operator is preferred syntax.
+    Note that using the `|` operator is preferred syntax.
     """
 
     def __init__(self, *operations):
@@ -121,21 +132,29 @@ class Operations(Operation):
         return " OR ".join(str(operation) for operation in self.operations)
 
 
-#: For specifying ``UPDATE`` as the trigger operation.
 Update = Operation("UPDATE")
+"""
+For specifying `UPDATE` as the trigger operation.
+"""
 
-#: For specifying ``DELETE`` as the trigger operation.
 Delete = Operation("DELETE")
+"""
+For specifying `DELETE` as the trigger operation.
+"""
 
-#: For specifying ``TRUNCATE`` as the trigger operation.
 Truncate = Operation("TRUNCATE")
+"""
+For specifying `TRUNCATE` as the trigger operation.
+"""
 
-#: For specifying ``INSERT`` as the trigger operation.
 Insert = Operation("INSERT")
+"""
+For specifying `INSERT` as the trigger operation.
+"""
 
 
 class UpdateOf(Operation):
-    """For specifying ``UPDATE OF`` as the trigger operation."""
+    """For specifying `UPDATE OF` as the trigger operation."""
 
     def __init__(self, *columns):
         if not columns:
@@ -152,11 +171,15 @@ class Timing(_Primitive):
     values = ("IMMEDIATE", "DEFERRED")
 
 
-#: For deferrable triggers that run immediately by default
 Immediate = Timing("IMMEDIATE")
+"""
+For deferrable triggers that run immediately by default
+"""
 
-#: For deferrable triggers that run at the end of the transaction by default
 Deferred = Timing("DEFERRED")
+"""
+For deferrable triggers that run at the end of the transaction by default
+"""
 
 
 class Condition:
@@ -176,8 +199,8 @@ class Condition:
 
 class _OldNewQuery(Query):
     """
-    A special Query object for referencing the ``OLD`` and ``NEW`` variables in a
-    trigger. Only used by the `pgtrigger.Q` object.
+    A special Query object for referencing the `OLD` and `NEW` variables in a
+    trigger. Only used by the [pgtrigger.Q][] object.
     """
 
     def build_lookup(self, lookups, lhs, rhs):
@@ -217,7 +240,7 @@ class _OldNewQuery(Query):
 
 class F(models.F):
     """
-    Similar to Django's ``F`` object, allows referencing the old and new
+    Similar to Django's `F` object, allows referencing the old and new
     rows in a trigger condition.
     """
 
@@ -247,8 +270,8 @@ class F(models.F):
 @models.fields.Field.register_lookup
 class IsDistinctFrom(models.Lookup):
     """
-    A custom ``IS DISTINCT FROM`` field lookup for common trigger conditions.
-    For example, ``pgtrigger.Q(old__field__df=pgtrigger.F("new__field"))``.
+    A custom `IS DISTINCT FROM` field lookup for common trigger conditions.
+    For example, `pgtrigger.Q(old__field__df=pgtrigger.F("new__field"))`.
     """
 
     lookup_name = "df"
@@ -263,8 +286,8 @@ class IsDistinctFrom(models.Lookup):
 @models.fields.Field.register_lookup
 class IsNotDistinctFrom(models.Lookup):
     """
-    A custom ``IS NOT DISTINCT FROM`` field lookup for common trigger conditions.
-    For example, ``pgtrigger.Q(old__field__ndf=pgtrigger.F("new__field"))``.
+    A custom `IS NOT DISTINCT FROM` field lookup for common trigger conditions.
+    For example, `pgtrigger.Q(old__field__ndf=pgtrigger.F("new__field"))`.
     """
 
     lookup_name = "ndf"
@@ -278,11 +301,11 @@ class IsNotDistinctFrom(models.Lookup):
 
 class Q(models.Q, Condition):
     """
-    Similar to Django's ``Q`` object, allows referencing the old and new
+    Similar to Django's `Q` object, allows referencing the old and new
     rows in a trigger condition.
     """
 
-    def resolve(self, model):
+    def resolve(self, model: models.Model) -> str:
         query = _OldNewQuery(model)
         connection = utils.connection()
         sql, args = self.resolve_expression(query).as_sql(
@@ -311,14 +334,23 @@ class Func:
     Allows for rendering a function with access to the "meta", "fields",
     and "columns" variables of the current model.
 
-    For example, ``func=Func("SELECT {columns.id} FROM {meta.db_table};")`` makes it
-    possible to do inline SQL in the ``Meta`` of a model and reference its properties.
+    For example, `func=Func("SELECT {columns.id} FROM {meta.db_table};")` makes it
+    possible to do inline SQL in the `Meta` of a model and reference its properties.
     """
 
     def __init__(self, func):
         self.func = func
 
-    def render(self, model):
+    def render(self, model: models.Model) -> str:
+        """
+        Render the SQL of the function.
+
+        Args:
+            model: The model.
+
+        Returns:
+            The rendered SQL.
+        """
         fields = utils.AttrDict({field.name: field for field in model._meta.fields})
         columns = utils.AttrDict({field.name: field.column for field in model._meta.fields})
         return self.func.format(meta=model._meta, fields=fields, columns=columns)
@@ -346,28 +378,28 @@ class Trigger:
     creating derived trigger classes.
     """
 
-    name = None
-    level = Row
-    when = None
-    operation = None
-    condition = None
-    referencing = None
-    func = None
-    declare = None
-    timing = None
+    name: str = None
+    level: Level = Row
+    when: When = None
+    operation: Operation = None
+    condition: Union[Condition, None] = None
+    referencing: Union[Referencing, None] = None
+    func: Union[Func, str] = None
+    declare: Union[List[Tuple[str, str]], None] = None
+    timing: Union[Timing, None] = None
 
     def __init__(
         self,
         *,
-        name=None,
-        level=None,
-        when=None,
-        operation=None,
-        condition=None,
-        referencing=None,
-        func=None,
-        declare=None,
-        timing=None,
+        name: str = None,
+        level: Level = None,
+        when: When = None,
+        operation: Operation = None,
+        condition: Union[Condition, None] = None,
+        referencing: Union[Referencing, None] = None,
+        func: Union[Func, str] = None,
+        declare: Union[List[Tuple[str, str]], None] = None,
+        timing: Union[Timing, None] = None,
     ):
         self.name = name or self.name
         self.level = level or self.level
@@ -405,11 +437,15 @@ class Trigger:
 
         self.validate_name()
 
-    def __str__(self):
+    def __str__(self) -> str:  # pragma: no cover
         return self.name
 
-    def validate_name(self):
-        """Verifies the name is under the maximum length"""
+    def validate_name(self) -> None:
+        """Verifies the name is under the maximum length and has valid characters.
+
+        Raises:
+            ValueError: If the name is invalid
+        """
         if len(self.name) > MAX_NAME_LENGTH:
             raise ValueError(f'Trigger name "{self.name}" > {MAX_NAME_LENGTH} characters.')
 
@@ -419,11 +455,17 @@ class Trigger:
                 " Only alphanumeric characters, hyphens, and underscores are allowed."
             )
 
-    def get_pgid(self, model):
+    def get_pgid(self, model: models.Model) -> str:
         """The ID of the trigger and function object in postgres
 
         All objects are prefixed with "pgtrigger_" in order to be
-        discovered/managed by django-pgtrigger
+        discovered/managed by django-pgtrigger.
+
+        Args:
+            model: The model.
+
+        Returns:
+            The Postgres ID.
         """
         model_hash = hashlib.sha1(self.get_uri(model).encode()).hexdigest()[:5]
         pgid = f"pgtrigger_{self.name}_{model_hash}"
@@ -436,36 +478,67 @@ class Trigger:
         # and pruning tasks.
         return pgid.lower()
 
-    def get_condition(self, model):
+    def get_condition(self, model: models.Model) -> Condition:
+        """Get the condition of the trigger.
+
+        Args:
+            model: The model.
+
+        Returns:
+            The condition.
+        """
         return self.condition
 
-    def get_declare(self, model):
+    def get_declare(self, model: models.Model) -> List[Tuple[str, str]]:
         """
         Gets the DECLARE part of the trigger function if any variables
         are used.
 
+        Args:
+            model: The model
+
         Returns:
-            List[tuple]: A list of variable name / type tuples that will
+            A list of variable name / type tuples that will
             be shown in the DECLARE. For example [('row_data', 'JSONB')]
         """
         return self.declare or []
 
-    def get_func(self, model):
+    def get_func(self, model: models.Model) -> Union[str, Func]:
         """
         Returns the trigger function that comes between the BEGIN and END
-        clause
+        clause.
+
+        Args:
+            model: The model
+
+        Returns:
+            The trigger function as a SQL string or [pgtrigger.Func][] object.
         """
         if not self.func:
             raise ValueError("Must define func attribute or implement get_func")
         return self.func
 
-    def get_uri(self, model):
-        """The URI for the trigger"""
+    def get_uri(self, model: models.Model) -> str:
+        """The URI for the trigger.
+
+        Args:
+            model: The model
+
+        Returns:
+            The URI in the format of the "<app>.<model>:<trigger>"
+        """
 
         return f"{model._meta.app_label}.{model._meta.object_name}:{self.name}"
 
-    def render_condition(self, model):
-        """Renders the condition SQL in the trigger declaration"""
+    def render_condition(self, model: models.Model) -> str:
+        """Renders the condition SQL in the trigger declaration.
+
+        Args:
+            model: The model.
+
+        Returns:
+            The rendered condition SQL
+        """
         condition = self.get_condition(model)
         resolved = condition.resolve(model).strip() if condition else ""
 
@@ -476,8 +549,15 @@ class Trigger:
 
         return resolved
 
-    def render_declare(self, model):
-        """Renders the DECLARE of the trigger function, if any"""
+    def render_declare(self, model: models.Model) -> str:
+        """Renders the DECLARE of the trigger function, if any.
+
+        Args:
+            model: The model.
+
+        Returns:
+            The rendered declare SQL.
+        """
         declare = self.get_declare(model)
         if declare:
             rendered_declare = "DECLARE " + " ".join(
@@ -488,16 +568,28 @@ class Trigger:
 
         return rendered_declare
 
-    def render_execute(self, model):
+    def render_execute(self, model: models.Model) -> str:
         """
         Renders what should be executed by the trigger. This defaults
-        to the trigger function
+        to the trigger function.
+
+        Args:
+            model: The model
+
+        Returns:
+            The SQL for the execution of the trigger function.
         """
         return f"{self.get_pgid(model)}()"
 
-    def render_func(self, model):
+    def render_func(self, model: models.Model) -> str:
         """
-        Renders the func
+        Renders the func.
+
+        Args:
+            model: The model
+
+        Returns:
+            The rendered SQL of the trigger function
         """
         func = self.get_func(model)
 
@@ -506,7 +598,16 @@ class Trigger:
         else:
             return func
 
-    def compile(self, model):
+    def compile(self, model: models.Model) -> compiler.Trigger:
+        """
+        Create a compiled representation of the trigger. useful for migrations.
+
+        Args:
+            model: The model
+
+        Returns:
+            The compiled trigger object.
+        """
         return compiler.Trigger(
             name=self.name,
             sql=compiler.UpsertTriggerSql(
@@ -526,37 +627,76 @@ class Trigger:
             ),
         )
 
-    def allow_migrate(self, model, database=None):
+    def allow_migrate(self, model: models.Model, database: Union[str, None] = None) -> bool:
         """True if the trigger for this model can be migrated.
 
-        Defaults to using the router's allow_migrate
+        Defaults to using the router's allow_migrate.
+
+        Args:
+            model: The model.
+            database: The name of the database configuration.
+
+        Returns:
+            `True` if the trigger for the model can be migrated.
         """
         model = model._meta.concrete_model
         return utils.is_postgres(database) and router.allow_migrate(
             database or DEFAULT_DB_ALIAS, model._meta.app_label, model_name=model._meta.model_name
         )
 
-    def format_sql(self, sql):
-        """Returns SQL as one line that has trailing whitespace removed from each line"""
+    def format_sql(self, sql: str) -> str:
+        """Returns SQL as one line that has trailing whitespace removed from each line.
+
+        Args:
+            sql: The unformatted SQL
+
+        Returns:
+            The formatted SQL
+        """
         return " ".join(line.strip() for line in sql.split("\n") if line.strip()).strip()
 
-    def exec_sql(self, sql, model, database=None, fetchall=False):
-        """Conditionally execute SQL if migrations are allowed"""
+    def exec_sql(
+        self,
+        sql: str,
+        model: models.Model,
+        database: Union[str, None] = None,
+        fetchall: bool = False,
+    ) -> Any:
+        """Conditionally execute SQL if migrations are allowed.
+
+        Args:
+            sql: The SQL string.
+            model: The model.
+            database: The name of the database configuration.
+            fetchall: True if all results should be fetched
+
+        Returns:
+            A psycopg cursor result
+        """
         if self.allow_migrate(model, database=database):
             return utils.exec_sql(str(sql), database=database, fetchall=fetchall)
 
-    def get_installation_status(self, model, database=None):
+    def get_installation_status(
+        self, model: models.Model, database: Union[str, None] = None
+    ) -> Tuple[str, Union[bool, None]]:
         """Returns the installation status of a trigger.
 
         The return type is (status, enabled), where status is one of:
 
-        1. ``INSTALLED``: If the trigger is installed
-        2. ``UNINSTALLED``: If the trigger is not installed
-        3. ``OUTDATED``: If the trigger is installed but has been modified
-        4. ``IGNORED``: If migrations are not allowed
+        1. `INSTALLED`: If the trigger is installed
+        2. `UNINSTALLED`: If the trigger is not installed
+        3. `OUTDATED`: If the trigger is installed but has been modified
+        4. `IGNORED`: If migrations are not allowed
 
         "enabled" is True if the trigger is installed and enabled or false
         if installed and disabled (or uninstalled).
+
+        Args:
+            model: The model.
+            database: The name of the database configuration.
+
+        Returns:
+            A tuple with the installation and enablement status.
         """
         if not self.allow_migrate(model, database=database):
             return (UNALLOWED, None)
@@ -588,45 +728,73 @@ class Trigger:
             else:
                 return (INSTALLED, results[0][2] == "O")
 
-    def register(self, *models):
-        """Register model classes with the trigger"""
+    def register(self, *models: models.Model):
+        """Register model classes with the trigger
+
+        Args:
+            *models: Models to register to this trigger.
+        """
         for model in models:
             registry.set(self.get_uri(model), model=model, trigger=self)
 
         return _cleanup_on_exit(lambda: self.unregister(*models))
 
-    def unregister(self, *models):
-        """Unregister model classes with the trigger"""
+    def unregister(self, *models: models.Model):
+        """Unregister model classes with the trigger.
+
+        Args:
+            *models: Models to unregister to this trigger.
+        """
         for model in models:
             registry.delete(self.get_uri(model))
 
         return _cleanup_on_exit(lambda: self.register(*models))
 
-    def install(self, model, database=None):
-        """Installs the trigger for a model"""
+    def install(self, model: models.Model, database: Union[str, None] = None):
+        """Installs the trigger for a model.
+
+        Args:
+            model: The model.
+            database: The name of the database configuration.
+        """
         install_sql = self.compile(model).install_sql
         with transaction.atomic(using=database):
             self.exec_sql(install_sql, model, database=database)
         return _cleanup_on_exit(lambda: self.uninstall(model, database=database))
 
-    def uninstall(self, model, database=None):
-        """Uninstalls the trigger for a model"""
+    def uninstall(self, model: models.Model, database: Union[str, None] = None):
+        """Uninstalls the trigger for a model.
+
+        Args:
+            model: The model.
+            database: The name of the database configuration.
+        """
         uninstall_sql = self.compile(model).uninstall_sql
         self.exec_sql(uninstall_sql, model, database=database)
         return _cleanup_on_exit(  # pragma: no branch
             lambda: self.install(model, database=database)
         )
 
-    def enable(self, model, database=None):
-        """Enables the trigger for a model"""
+    def enable(self, model: models.Model, database: Union[str, None] = None):
+        """Enables the trigger for a model.
+
+        Args:
+            model: The model.
+            database: The name of the database configuration.
+        """
         enable_sql = self.compile(model).enable_sql
         self.exec_sql(enable_sql, model, database=database)
         return _cleanup_on_exit(  # pragma: no branch
             lambda: self.disable(model, database=database)
         )
 
-    def disable(self, model, database=None):
-        """Disables the trigger for a model"""
+    def disable(self, model: models.Model, database: Union[str, None] = None):
+        """Disables the trigger for a model.
+
+        Args:
+            model: The model.
+            database: The name of the database configuration.
+        """
         disable_sql = self.compile(model).disable_sql
         self.exec_sql(disable_sql, model, database=database)
         return _cleanup_on_exit(lambda: self.enable(model, database=database))  # pragma: no branch

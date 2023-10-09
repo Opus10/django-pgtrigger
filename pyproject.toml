@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 99
-target-version = ['py37']
+target-version = ['py38']
 
 [tool.coverage.run]
 branch = true
@@ -16,7 +16,8 @@ exclude_lines = [
     "raise AssertionError",
     "raise NotImplementedError",
     "pass",
-    "pytest.mark.skip"
+    "pytest.mark.skip",
+    "if TYPE_CHECKING:"
 ]
 show_missing = true
 fail_under = 100
@@ -42,54 +43,45 @@ classifiers = [
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3 :: Only",
   "Framework :: Django",
 ]
 license = "BSD-3-Clause"
-readme = "README.rst"
+readme = "README.md"
 homepage = "https://github.com/Opus10/django-pgtrigger"
 repository = "https://github.com/Opus10/django-pgtrigger"
 documentation = "https://django-pgtrigger.readthedocs.io"
 
 [tool.poetry.dependencies]
-python = ">=3.7.0,<4"
-django = ">=2"
-importlib_metadata = { version = ">=4", python = "~3.7" }
+python = ">=3.8.0,<4"
+django = ">=3"
 
 [tool.poetry.dev-dependencies]
-black = "22.6.0"
-dj-database-url = "0.5.0"
-django-dynamic-fixture = "3.1.1"
-django-postgres-extra = "2.0.4"
-flake8 = "3.9.2"
-flake8-bugbear = "22.1.11"
-flake8-comprehensions = "3.8.0"
-flake8-import-order = "0.18.1"
-flake8-logging-format = "0.6.0"
-flake8-mutable = "1.2.0"
+black = "23.9.1"
+dj-database-url = "2.1.0"
 git-tidy = "1.2.0"
-myst-parser = "0.18.0"
-packaging = ">=19.2"
-poetry-core = "1.6.1"
-pre-commit = "2.13.0"
-psycopg2-binary = "2.9.6"
-pytest = "7.0.0"
-pytest-cov = "3.0.0"
+psycopg2-binary = "2.9.9"
+pytest = "7.4.2"
+pytest-cov = "4.1.0"
 pytest-dotenv = "0.5.2"
 pytest-django = "4.5.2"
 pytest-mock = "3.6.1"
-requests = "2.25.1"
-Sphinx = "4.4.0"
-sphinx-rtd-theme = "1.0.0"
+pytest-order = "1.1.0"
+django-dynamic-fixture = "4.0.1"
+django-postgres-extra = "2.0.4"
+tox = "4.11.3"
+ruff = "0.0.292"
+mkdocs = "1.5.3"
+mkdocs-material = "9.4.4"
+mkdocstrings-python = "1.7.2"
 footing = "*"
-tox = "3.24.5"
-zipp = "3.4.1"
-pytest-order = "^1.0.1"
+setuptools = "*"
+poetry-core = "*"
 
 [tool.pytest.ini_options]
 xfail_strict = true
@@ -100,3 +92,8 @@ DJANGO_SETTINGS_MODULE = "test_settings"
 markers = [
     "independent: marks tests that should run independently of normal suite"
 ]
+
+[tool.ruff]
+select = ["E", "F", "B", "I", "G", "C4"]
+line-length = 99
+target-version = "py38"

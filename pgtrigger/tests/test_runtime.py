@@ -1,6 +1,6 @@
 import ddf
-from django.db import connection, IntegrityError, transaction
 import pytest
+from django.db import IntegrityError, connection, transaction
 
 import pgtrigger
 from pgtrigger.tests import models, utils
@@ -45,7 +45,7 @@ def test_schema():
 @pytest.mark.django_db(transaction=True)
 def test_constraints():
     """
-    Tests running ``pgtrigger.constraints`` on deferrable triggers
+    Tests running [pgtrigger.constraints][] on deferrable triggers
     """
     # Not every trigger is deferrable, so this should raise an error
     with transaction.atomic():
@@ -61,7 +61,6 @@ def test_constraints():
         timing=pgtrigger.Deferred,
     )
     with trigger.register(models.TestModel), trigger.install(models.TestModel):
-
         # Verify we have to be in a transaction
         with pytest.raises(RuntimeError, match="not in a transaction"):
             pgtrigger.constraints(pgtrigger.Immediate, "tests.TestModel:protect_delete")

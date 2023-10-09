@@ -4,10 +4,7 @@ import logging
 from django.core.management.base import BaseCommand
 from django.db import DEFAULT_DB_ALIAS
 
-from pgtrigger import core
-from pgtrigger import installation
-from pgtrigger import registry
-from pgtrigger import runtime
+from pgtrigger import core, installation, registry, runtime
 
 
 def _setup_logging():  # pragma: no cover

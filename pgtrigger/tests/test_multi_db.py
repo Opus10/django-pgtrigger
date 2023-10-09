@@ -3,10 +3,10 @@
 import contextlib
 
 import ddf
+import pytest
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.db import transaction
-import pytest
 
 import pgtrigger
 from pgtrigger import core

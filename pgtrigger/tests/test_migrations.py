@@ -3,17 +3,17 @@ import pathlib
 import shutil
 
 import ddf
-from django.apps import apps
 import django.contrib.auth.models as auth_models
+import pytest
+from django.apps import apps
 from django.core.management import call_command
 from django.db import models
 from django.db.utils import ProgrammingError
-import pytest
 
 import pgtrigger
+import pgtrigger.tests.models as test_models
 from pgtrigger import core
 from pgtrigger.tests import utils
-import pgtrigger.tests.models as test_models
 
 
 @pytest.fixture(autouse=True)
@@ -105,7 +105,7 @@ def test_makemigrations_existing_models(settings, request):
         call_command("makemigrations", verbosity=request.config.option.verbose)
         assert num_migration_files() == num_orig_migrations + 2
 
-        # Before migrating, I should be able to make a ``TestModel``
+        # Before migrating, I should be able to make a `TestModel`
         ddf.G("tests.TestModel")
 
         call_command("migrate", verbosity=request.config.option.verbose)

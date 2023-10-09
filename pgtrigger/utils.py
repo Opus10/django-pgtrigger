@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.db import connections, DEFAULT_DB_ALIAS
+from django.db import DEFAULT_DB_ALIAS, connections
 from django.utils.version import get_version_tuple
 
 
@@ -9,8 +9,8 @@ def _psycopg_version():
         import psycopg as Database
     except ImportError:
         import psycopg2 as Database
-    except ImportError:  # pragma: no cover
-        raise ImproperlyConfigured("Error loading psycopg2 or psycopg module")
+    except Exception as exc:  # pragma: no cover
+        raise ImproperlyConfigured("Error loading psycopg2 or psycopg module") from exc
 
     version_tuple = get_version_tuple(Database.__version__.split(" ", 1)[0])
 
