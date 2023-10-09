@@ -23,10 +23,10 @@ def install(*uris: str, database: Union[str, None] = None) -> None:
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            "pgtrigger: Installing {trigger} trigger for {db_table} table on {database} database.",
-            trigger=trigger,
-            db_table=model._meta.db_table,
-            database=database or DEFAULT_DB_ALIAS,
+            "pgtrigger: Installing %s trigger for %s table on %s database.",
+            trigger,
+            model._meta.db_table,
+            database or DEFAULT_DB_ALIAS,
         )
         trigger.install(model, database=database)
 
@@ -86,10 +86,10 @@ def prune(database: Union[str, None] = None) -> None:
     """
     for trigger in prunable(database=database):
         LOGGER.info(
-            "pgtrigger: Pruning trigger {name} for table {table} on {database} database.",
-            name=trigger[1],
-            table=trigger[0],
-            database=trigger[3],
+            "pgtrigger: Pruning trigger %s for table %s on %s database.",
+            trigger[1],
+            trigger[0],
+            trigger[3],
         )
 
         connection = connections[trigger[3]]
@@ -109,10 +109,10 @@ def enable(*uris: str, database: Union[str, None] = None) -> None:
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            "pgtrigger: Enabling {trigger} trigger for {db_table} table on {database} database.",
-            trigger=trigger,
-            db_table=model._meta.db_table,
-            database=database or DEFAULT_DB_ALIAS,
+            "pgtrigger: Enabling %s trigger for %s table on %s database.",
+            trigger,
+            model._meta.db_table,
+            database or DEFAULT_DB_ALIAS,
         )
         trigger.enable(model, database=database)
 
@@ -128,11 +128,10 @@ def uninstall(*uris: str, database: Union[str, None] = None) -> None:
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            "pgtrigger: Uninstalling {trigger} trigger for {db_table} table on"
-            " {database} database.",
-            trigger=trigger,
-            db_table=model._meta.db_table,
-            database=database or DEFAULT_DB_ALIAS,
+            "pgtrigger: Uninstalling %s trigger for %s table on %s database.",
+            trigger,
+            model._meta.db_table,
+            database or DEFAULT_DB_ALIAS,
         )
         trigger.uninstall(model, database=database)
 
@@ -151,9 +150,9 @@ def disable(*uris: str, database: Union[str, None] = None) -> None:
     """
     for model, trigger in registry.registered(*uris):
         LOGGER.info(
-            "pgtrigger: Disabling {trigger} trigger for {db_table} table on {database} database.",
-            trigger=trigger,
-            db_table=model._meta.db_table,
-            database=database or DEFAULT_DB_ALIAS,
+            "pgtrigger: Disabling %s trigger for %s table on %s database.",
+            trigger,
+            model._meta.db_table,
+            database or DEFAULT_DB_ALIAS,
         )
         trigger.disable(model, database=database)
