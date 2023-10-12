@@ -35,7 +35,7 @@ The [pgtrigger.Trigger][] object is the base class for all triggers in `django-p
 
     Conditionally execute the trigger based on the `OLD` or `NEW` rows.
 
-    [pgtrigger.Condition][] objects accept [pgtrigger.Q][] and [pgtrigger.F][] objects for constructing `WHERE` clauses with the `OLD` and `NEW` rows. Conditions can also be created from raw SQL. See the [Cookbook](cookbook.md) for  more examples.
+    Use [pgtrigger.Q][] and [pgtrigger.F][] objects for constructing `WHERE` clauses with the `OLD` and `NEW` rows. See [the conditional triggers section](conditional.md) for more details and other utilities.
 
     !!! note
 

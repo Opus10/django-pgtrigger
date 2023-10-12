@@ -70,6 +70,7 @@ We recommend everyone first read:
 After this, there are several usage guides:
 
 * [Cookbook](cookbook.md) for trigger examples.
+* [Conditional Triggers](conditional.md) for all the ways one can create conditional triggers.
 * [Ignoring Execution](ignoring_triggers.md) for dynamically ignoring triggers.
 * [Deferrable Triggers](deferrable.md) for deferring trigger execution.
 * [Advanced Installation](advanced_installation.md) for installing triggers on third-party models, many-to-many models, programmatic installation, and more.

@@ -37,6 +37,10 @@ Below are the core classes and functions of the `pgtrigger` module.
 ## Conditions
 
 :::pgtrigger.Condition
+:::pgtrigger.AnyChange
+:::pgtrigger.AnyDontChange
+:::pgtrigger.AllChange
+:::pgtrigger.AllDontChange
 :::pgtrigger.Q
 :::pgtrigger.F
 :::pgtrigger.IsDistinctFrom

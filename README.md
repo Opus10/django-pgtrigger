@@ -74,6 +74,7 @@ If triggers are new to you, don't worry. The [pgtrigger docs](https://django-pgt
 * Trigger basics and motivation for using triggers.
 * How to use the built-in triggers and how to build custom ones.
 * Installing triggers on third-party models, many-to-many fields, and other advanced scenarios.
+* Writing conditional triggers.
 * Ignoring triggers dynamically and deferring trigger execution.
 * Multiple database, schema, and partitioning support.
 * Frequently asked questions, common issues, and upgrading.

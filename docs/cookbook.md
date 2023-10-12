@@ -228,9 +228,7 @@ class RedundantUpdateModel(models.Model):
             pgtrigger.Protect(
                 name="protect_redundant_updates",
                 operation=pgtrigger.Update,
-                condition=pgtrigger.Condition(
-                    "OLD.* IS NOT DISTINCT FROM NEW.*"
-                )
+                condition=pgtrigger.AnyDontChange()
             )
         ]
 ```
@@ -297,7 +295,7 @@ class Versioned(models.Model):
             pgtrigger.Protect(
                 name="protect_updates",
                 operation=pgtrigger.Update,
-                condition=pgtrigger.Q(old__version__df=pgtrigger.F("new__version"))
+                condition=pgtrigger.AnyChange("version")
             ),
             # Increment the version field on changes
             pgtrigger.Trigger(
@@ -306,7 +304,7 @@ class Versioned(models.Model):
                 operation=pgtrigger.Update,
                 func="NEW.version = NEW.version + 1; RETURN NEW;",
                 # Don't increment version on redundant updates.
-                condition=pgtrigger.Condition("OLD.* IS DISTINCT FROM NEW.*")
+                condition=pgtrigger.AnyChange()
             )
         ]
 ```
