@@ -9,6 +9,10 @@ from pgtrigger.contrib import (
 )
 from pgtrigger.core import (
     After,
+    AllChange,
+    AllDontChange,
+    AnyChange,
+    AnyDontChange,
     Before,
     Condition,
     Deferred,
@@ -61,6 +65,10 @@ del django
 
 __all__ = [
     "After",
+    "AllChange",
+    "AllDontChange",
+    "AnyChange",
+    "AnyDontChange",
     "Before",
     "Condition",
     "constraints",

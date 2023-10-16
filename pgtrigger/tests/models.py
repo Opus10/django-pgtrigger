@@ -245,3 +245,17 @@ class FSM(models.Model):
     """Tests valid transitions of a field"""
 
     transition = models.CharField(max_length=32)
+
+
+class ChangedCondition(models.Model):
+    """
+    For testing changed conditions
+    """
+
+    field = models.CharField(max_length=16)
+    int_field = models.IntegerField(default=0)
+    dt_field = models.DateTimeField(auto_now=True)
+    nullable = models.CharField(null=True, default=None, max_length=16)
+    fk_field = models.ForeignKey("auth.User", null=True, on_delete=models.CASCADE)
+    char_pk_fk_field = models.ForeignKey(CharPk, null=True, on_delete=models.CASCADE)
+    m2m_field = models.ManyToManyField(User, related_name="+")

@@ -82,6 +82,7 @@ nav:
   - Usage Guides:
       - Basics: basics.md
       - Trigger Cookbook: cookbook.md
+      - Conditional Triggers: conditional.md
       - Ignoring Execution: ignoring_triggers.md
       - Deferrable Triggers: deferrable.md
       - Advanced Installation: advanced_installation.md

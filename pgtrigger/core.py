@@ -1,6 +1,8 @@
 import contextlib
 import copy
+import functools
 import hashlib
+import operator
 import re
 from typing import Any, List, Tuple, Union
 
@@ -185,9 +187,9 @@ For deferrable triggers that run at the end of the transaction by default
 class Condition:
     """For specifying free-form SQL in the condition of a trigger."""
 
-    sql = None
+    sql: str = None
 
-    def __init__(self, sql=None):
+    def __init__(self, sql: str = None):
         self.sql = sql or self.sql
 
         if not self.sql:
@@ -267,6 +269,7 @@ class F(models.F):
         )
 
 
+@models.ForeignKey.register_lookup
 @models.fields.Field.register_lookup
 class IsDistinctFrom(models.Lookup):
     """
@@ -283,6 +286,7 @@ class IsDistinctFrom(models.Lookup):
         return "%s IS DISTINCT FROM %s" % (lhs, rhs), params
 
 
+@models.ForeignKey.register_lookup
 @models.fields.Field.register_lookup
 class IsNotDistinctFrom(models.Lookup):
     """
@@ -301,8 +305,8 @@ class IsNotDistinctFrom(models.Lookup):
 
 class Q(models.Q, Condition):
     """
-    Similar to Django's `Q` object, allows referencing the old and new
-    rows in a trigger condition.
+    Similar to Django's `Q` object, allows building filter clauses based
+    on the old and new rows in a trigger condition.
     """
 
     def resolve(self, model: models.Model) -> str:
@@ -327,6 +331,163 @@ class Q(models.Q, Condition):
         args = tuple(_quote(arg).decode() for arg in args)
 
         return sql % args
+
+
+class _Change(Condition):
+    """For specifying a condition based on changes to fields.
+
+    See child classes for more documentation on arguments.
+    """
+
+    fields: Union[List[str], None] = None
+    exclude: Union[List[str], None] = None
+    exclude_auto: bool = False
+
+    def __init__(
+        self,
+        *fields: str,
+        exclude: Union[List[str], None] = None,
+        exclude_auto: Union[bool, None] = None,
+        all: bool = False,
+        comparison: str = "df",
+    ):
+        self.fields = list(fields) or self.fields or []
+        self.exclude = exclude or self.exclude or []
+        self.exclude_auto = self.exclude_auto if exclude_auto is None else exclude_auto
+        self._negated = False
+        self.all = all
+        self.comparison = comparison
+
+    def __invert__(self):
+        inverted = copy.copy(self)
+        inverted._negated = not inverted._negated
+        return inverted
+
+    def resolve(self, model):
+        model_fields = {f.name for f in model._meta.fields}
+        for field in self.fields + self.exclude:
+            if field not in model_fields:
+                raise ValueError(f'Field "{field}" not found on model "{model}"')
+
+        exclude = set(self.exclude)
+        if self.exclude_auto:
+            for f in model._meta.fields:
+                if getattr(f, "auto_now", False) or getattr(f, "auto_now_add", False):
+                    exclude.add(f.name)
+
+        fields = sorted(f for f in (self.fields or model_fields) if f not in exclude)
+
+        if set(fields) == model_fields and not self.all:
+            if self.comparison == "df":
+                expr = "OLD.* IS DISTINCT FROM NEW.*"
+            elif self.comparison == "ndf":
+                expr = "OLD.* IS NOT DISTINCT FROM NEW.*"
+            else:  # pragma: no cover
+                raise ValueError(f'Invalid comparison "{self.comparison}"')
+        else:
+            reduce_op = operator.and_ if self.all else operator.or_
+            q = functools.reduce(
+                reduce_op,
+                [
+                    Q(**{f"old__{field}__{self.comparison}": F(f"new__{field}")})
+                    for field in fields
+                ],
+            )
+            expr = q.resolve(model)
+
+        return f"NOT ({expr})" if self._negated else expr
+
+
+class AnyChange(_Change):
+    """If any supplied fields change, trigger the condition."""
+
+    def __init__(
+        self,
+        *fields: str,
+        exclude: Union[List[str], None] = None,
+        exclude_auto: Union[bool, None] = None,
+    ):
+        """
+        If any supplied fields change, trigger the condition.
+
+        Args:
+            *fields: If any supplied fields change, trigger the condition.
+                If no fields are supplied, defaults to all fields on the model.
+            exclude: Fields to exclude.
+            exclude_auto: Exclude all `auto_now` and `auto_now_add` fields automatically.
+        """
+        super().__init__(
+            *fields, exclude=exclude, exclude_auto=exclude_auto, all=False, comparison="df"
+        )
+
+
+class AnyDontChange(_Change):
+    """If any supplied fields don't change, trigger the condition."""
+
+    def __init__(
+        self,
+        *fields: str,
+        exclude: Union[List[str], None] = None,
+        exclude_auto: Union[bool, None] = None,
+    ):
+        """
+        If any supplied fields don't change, trigger the condition.
+
+        Args:
+            *fields: If any supplied fields don't change, trigger the condition.
+                If no fields are supplied, defaults to all fields on the model.
+            exclude: Fields to exclude.
+            exclude_auto: Exclude all `auto_now` and `auto_now_add` fields automatically.
+        """
+        super().__init__(
+            *fields, exclude=exclude, exclude_auto=exclude_auto, all=False, comparison="ndf"
+        )
+
+
+class AllChange(_Change):
+    """If all supplied fields change, trigger the condition."""
+
+    def __init__(
+        self,
+        *fields: str,
+        exclude: Union[List[str], None] = None,
+        exclude_auto: Union[bool, None] = None,
+    ):
+        """
+        If all supplied fields change, trigger the condition.
+
+        Args:
+            *fields: If all supplied fields change, trigger the condition.
+                If no fields are supplied, defaults to all fields on the model.
+            exclude: Fields to exclude.
+            exclude_auto: Exclude all `auto_now` and `auto_now_add` fields automatically.
+        """
+        super().__init__(
+            *fields, exclude=exclude, exclude_auto=exclude_auto, all=True, comparison="df"
+        )
+
+
+class AllDontChange(_Change):
+    """If all supplied don't fields change, trigger the condition."""
+
+    def __init__(
+        self,
+        *fields: str,
+        exclude: Union[List[str], None] = None,
+        exclude_auto: Union[bool, None] = None,
+    ):
+        """
+        If all supplied fields don't change, trigger the condition.
+
+        Args:
+            *fields: If all supplied fields don't change, trigger the condition.
+                If no fields are supplied, defaults to all fields on the model.
+            exclude: Fields to exclude.
+            exclude_auto: Exclude all `auto_now` and `auto_now_add` fields automatically.
+        """
+        super().__init__(
+            *fields, exclude=exclude, exclude_auto=exclude_auto, all=True, comparison="ndf"
+        )
 
 
 class Func:
