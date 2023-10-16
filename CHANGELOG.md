@@ -1,5 +1,21 @@
 # Changelog
 
+## 4.9.0 (2023-10-15)
+
+### Feature
+
+  - Utilities to build trigger conditions based on field changes. [Wesley Kendall, 1471a35]
+
+    The following utility classes have been added to help trigger authors construct
+    trigger conditions based on changes to underlying fields:
+
+    - `pgtrigger.AnyChange`: If any supplied fields change, trigger the condition.
+    - `pgtrigger.AnyDontChange`: If any supplied fields don't change, trigger the condition.
+    - `pgtrigger.AllChange`: If all supplied fields change, trigger the condition.
+    - `pgtrigger.AllDontChange`: If all supplied fields don't change, trigger the condition.
+
+    A section in the docs was added for more examples on their use.
+
 ## 4.8.0 (2023-10-09)
 
 ### Bug
