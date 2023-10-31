@@ -98,6 +98,19 @@ class TestModel(models.Model):
         unique_together = ("int_field", "char_field")
 
 
+class TestModelWithExtraCtx(models.Model):
+    int_field = models.IntegerField(null=True, unique=True)
+    char_field = models.CharField(max_length=128, null=True)
+    float_field = models.FloatField(null=True)
+
+    @classmethod
+    def get_extra_trigger_context_args(cls):
+        return {"extra_id": 55}
+
+    class Meta:
+        unique_together = ("int_field", "char_field")
+
+
 class LogEntry(models.Model):
     """Created when ToLogModel is updated"""
 

@@ -23,6 +23,22 @@ def test_func():
     assert trigger.render_func(models.TestModel) == "SELECT int_field FROM tests_testmodel"
 
 
+def test_func_extra_args():
+    """Tests using custom Func object"""
+    trigger = pgtrigger.Trigger(
+        name="example",
+        when=pgtrigger.After,
+        operation=pgtrigger.Delete,
+        func=pgtrigger.Func(
+            "SELECT {columns.int_field} FROM {meta.db_table} where id = {extra_id}"
+        ),
+    )
+    assert (
+        trigger.render_func(models.TestModelWithExtraCtx)
+        == "SELECT int_field FROM tests_testmodelwithextractx where id = 55"
+    )
+
+
 @pytest.mark.django_db
 def test_partition():
     p1 = ddf.G(models.PartitionModel, timestamp=dt.datetime(2019, 1, 3))

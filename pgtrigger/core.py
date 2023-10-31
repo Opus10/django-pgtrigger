@@ -497,6 +497,21 @@ class Func:
 
     For example, `func=Func("SELECT {columns.id} FROM {meta.db_table};")` makes it
     possible to do inline SQL in the `Meta` of a model and reference its properties.
+
+    You can also pass additional data to the render method by defining
+    'get_extra_trigger_context_args' on your model as a
+    [classmethod](https://docs.python.org/3/library/functions.html#classmethod).
+
+    For example :
+    ```python
+    class MyModel(models.Model) :
+        @classmethod
+        def get_extra_trigger_context_args(cls) :
+            return {'extra_id' : 55 }
+    ```
+
+    Will allow you to use the following SQL in your Func :
+     `func=Func("SELECT {columns.id} FROM {meta.db_table} where id = {extra_id};")`
     """
 
     def __init__(self, func):
@@ -514,7 +529,12 @@ class Func:
         """
         fields = utils.AttrDict({field.name: field for field in model._meta.fields})
         columns = utils.AttrDict({field.name: field.column for field in model._meta.fields})
-        return self.func.format(meta=model._meta, fields=fields, columns=columns)
+
+        extra_args = {}
+        if hasattr(model, "get_extra_trigger_context_args"):
+            extra_args = model.get_extra_trigger_context_args()
+        print(f"{extra_args=}")
+        return self.func.format(meta=model._meta, fields=fields, columns=columns, **extra_args)
 
 
 # Allows Trigger methods to be used as context managers, mostly for
