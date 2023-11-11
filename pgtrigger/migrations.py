@@ -1,10 +1,10 @@
 import contextlib
 import re
+import typing
 from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
-    Iterable,
     Iterator,
     List,
     Sequence,
@@ -13,25 +13,23 @@ from typing import (
     Type,
     Union,
 )
-import typing
 
 import django.db.backends.postgresql.schema as postgresql_schema
 from django.apps import apps
 from django.db import models, transaction
+from django.db.migrations import autodetector
+from django.db.migrations.operations.base import Operation
 from django.db.migrations.operations.fields import AddField
 from django.db.migrations.operations.models import CreateModel, IndexOperation
-from django.db.migrations import autodetector
-from pgtrigger import compiler, utils
-from pgtrigger.tests import migrations
-from django.db.migrations.operations.base import Operation
 from django.db.migrations.state import ModelState, ProjectState
 
+from pgtrigger import compiler, utils
 
 PostgresSchemaEditor = postgresql_schema.DatabaseSchemaEditor
 
 
 def _add_trigger(
-    schema_editor: postgresql_schema.DatabaseSchemaEditor,
+    schema_editor: PostgresSchemaEditor,
     model: Type[models.Model],
     trigger: compiler.Trigger | Any,
 ) -> None:

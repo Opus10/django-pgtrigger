@@ -9,6 +9,7 @@ _unset = object()
 if TYPE_CHECKING:
     from django.db import models
     from django.db.models import base as models_base
+
     from pgtrigger.core import Trigger
 
 
@@ -33,7 +34,7 @@ class _Registry(collections.UserDict[str, Tuple[Type[models.Model], Trigger]]):
         """
         return {(model._meta.db_table, trigger.name): trigger for model, trigger in self.values()}
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str):
         assert isinstance(key, str)
         if len(key.split(":")) == 1:
             raise ValueError(

@@ -23,8 +23,8 @@ def patch_migrations():
     Patch the autodetector and model state detection if migrations are turned on
     """
     if features.migrations():  # pragma: no branch
-        if "triggers" not in state.DEFAULT_NAMES:  # pragma: no branch
-            state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ("triggers",)
+        if "triggers" not in state.DEFAULT_NAMES:  # pragma: no branch # type: ignore
+            state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ("triggers",)  # type: ignore
 
         if not issubclass(  # pragma: no branch
             makemigrations.MigrationAutodetector, migrations.MigrationAutodetectorMixin

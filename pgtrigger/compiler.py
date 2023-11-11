@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import collections
 import hashlib
-from typing import Optional, Union
+from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 
+import pgtrigger
 from pgtrigger import utils
 
 _unset = object()
@@ -18,7 +19,7 @@ class UpsertTriggerSql(collections.UserString):
     for triggers.
     """
 
-    def get_template(self):
+    def get_template(self) -> str:
         """
         This is v1 of the installation template. Do NOT edit
         this template unless you are absolutely sure it is
@@ -83,7 +84,7 @@ class UpsertTriggerSql(collections.UserString):
             COMMENT ON TRIGGER {pgid} ON {table} IS '{hash}';
         """
 
-    def get_defaults(self, pgid):
+    def get_defaults(self, pgid: str) -> Dict[str, str]:
         """
         These are the default values for the installation
         template. Do NOT edit these default values. Keys
@@ -107,14 +108,14 @@ class UpsertTriggerSql(collections.UserString):
     def __init__(
         self,
         *,
-        ignore_func_name=_unset,
-        pgid,
-        declare=_unset,
-        func,
-        table,
-        constraint=_unset,
-        when,
-        operation,
+        ignore_func_name: str | object = _unset,
+        pgid: str,
+        declare: pgtrigger.Trigger | object = _unset,
+        func: str,
+        table: str,
+        constraint: str | object = _unset,
+        when: pgtrigger.When,
+        operation: pgtrigger.Operation,
         timing: Union[str, object] = _unset,
         referencing: Union[str, object] = _unset,
         level: Union[str, object] = _unset,
@@ -141,7 +142,7 @@ class UpsertTriggerSql(collections.UserString):
         self.pgid = pgid
         self.table = table
 
-    def deconstruct(self):
+    def deconstruct(self) -> Tuple[str, List[Any], Dict[str, Any]]:
         """
         Serialize the construction of this class so that it can be used in migrations.
         """
@@ -154,10 +155,10 @@ class UpsertTriggerSql(collections.UserString):
 
 
 class _TriggerDdlSql(collections.UserString):
-    def get_template(self):
+    def get_template(self) -> NoReturn:
         raise NotImplementedError
 
-    def __init__(self, *, pgid, table):
+    def __init__(self, *, pgid: str, table: str) -> None:
         """Initialize the SQL and store it in the `.data` attribute."""
         sql_args = {**locals(), **{"table": utils.quote(table)}}
 
@@ -173,7 +174,7 @@ class DropTriggerSql(_TriggerDdlSql):
     the SQL here
     """
 
-    def get_template(self):
+    def get_template(self) -> str:
         return "DROP TRIGGER IF EXISTS {pgid} ON {table};"
 
 
@@ -185,7 +186,7 @@ class EnableTriggerSql(_TriggerDdlSql):
     migrations.
     """
 
-    def get_template(self):
+    def get_template(self) -> str:
         return "ALTER TABLE {table} ENABLE TRIGGER {pgid};"
 
 
@@ -197,7 +198,7 @@ class DisableTriggerSql(_TriggerDdlSql):
     migrations.
     """
 
-    def get_template(self):
+    def get_template(self) -> str:
         return "ALTER TABLE {table} DISABLE TRIGGER {pgid};"
 
 
@@ -218,26 +219,26 @@ class Trigger:
         )
 
     @property
-    def install_sql(self):
+    def install_sql(self) -> str:
         return str(self.sql)
 
     @property
-    def uninstall_sql(self):
+    def uninstall_sql(self) -> str:
         return str(DropTriggerSql(pgid=self.sql.pgid, table=self.sql.table))
 
     @property
-    def enable_sql(self):
+    def enable_sql(self) -> str:
         return str(EnableTriggerSql(pgid=self.sql.pgid, table=self.sql.table))
 
     @property
-    def disable_sql(self):
+    def disable_sql(self) -> str:
         return str(DisableTriggerSql(pgid=self.sql.pgid, table=self.sql.table))
 
     @property
-    def hash(self):
+    def hash(self) -> str:
         return self.sql.hash
 
-    def deconstruct(self):
+    def deconstruct(self) -> Tuple[str, List[Any], Dict[str, Union[str, UpsertTriggerSql]]]:
         """
         Serialize the construction of this class so that it can be used in migrations.
         """

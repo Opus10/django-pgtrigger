@@ -97,6 +97,13 @@ target-version = "py38"
 [tool.pyright]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
+exclude = [
+  "**/node_modules",
+  "**/__pycache__",
+  "pgtrigger/typestubs",
+  "pgtrigger/tests",
+  "pgtrigger/management",
+]
 
 # We don't want to assume library users are type-checking their code,
 # so redundant checks are helpful for error handling.

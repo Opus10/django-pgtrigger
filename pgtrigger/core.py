@@ -131,7 +131,7 @@ For specifying `INSTEAD OF` in the when clause of a trigger.
 class Operation(_Primitive):
     values = ("UPDATE", "DELETE", "TRUNCATE", "INSERT")
 
-    def __or__(self, other: str) -> Operations:
+    def __or__(self, other: Operation) -> Operations:
         assert isinstance(other, Operation)
         return Operations(self, other)
 
@@ -565,7 +565,7 @@ class Trigger:
     name: str = None  # type: ignore - we check that the name is not None in __init__
     level: Level = Row
     when: When = None  # type: ignore - we check that the when is not None in __init__
-    operation: Optional[Operation] = None
+    operation: Operation = None  # type: ignore - we check that the operation is not None in __init__
     condition: Optional[Condition] = None
     referencing: Optional[Referencing] = None
     func: Union[Func, str, None] = None
@@ -793,7 +793,7 @@ class Trigger:
             The compiled trigger object.
         """
         return compiler.Trigger(
-            name=self.name,  # type: ignore
+            name=self.name,
             sql=compiler.UpsertTriggerSql(
                 ignore_func_name=_ignore_func_name(),
                 pgid=self.get_pgid(model),

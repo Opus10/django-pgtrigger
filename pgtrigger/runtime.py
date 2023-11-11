@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import contextlib
 import threading
+import typing
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -15,6 +16,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Set,
     Type,
     Union,
 )
@@ -26,7 +28,7 @@ from pgtrigger import registry, utils
 if utils.psycopg_maj_version == 2:
     import psycopg2.extensions
 elif utils.psycopg_maj_version == 3:
-    import psycopg.pq
+    import psycopg.pq  # type: ignore
 else:
     raise AssertionError
 
@@ -59,10 +61,10 @@ def _is_transaction_errored(cursor: CursorWrapper) -> bool:
     if utils.psycopg_maj_version == 2:
         return (
             cursor.connection.get_transaction_status()
-            == psycopg2.extensions.TRANSACTION_STATUS_INERROR
+            == psycopg2.extensions.TRANSACTION_STATUS_INERROR  # type: ignore
         )
     elif utils.psycopg_maj_version == 3:
-        return cursor.connection.info.transaction_status == psycopg.pq.TransactionStatus.INERROR
+        return cursor.connection.info.transaction_status == psycopg.pq.TransactionStatus.INERROR  # type: ignore
     else:
         raise AssertionError
 
@@ -88,7 +90,7 @@ def _can_inject_variable(cursor: CursorWrapper, sql: str) -> bool:
     )
 
 
-def _execute_wrapper(execute_result: CursorWrapper):
+def _execute_wrapper(execute_result: CursorWrapper) -> CursorWrapper:
     if utils.psycopg_maj_version == 3:
         while execute_result.nextset():
             pass
@@ -149,7 +151,7 @@ def _set_ignore_state(model: Type[models.Model], trigger: Trigger) -> Iterator[N
     Manage state to ignore a single URI
     """
     if not hasattr(_ignore, "value"):
-        _ignore.value = set()
+        _ignore.value = typing.cast(Set[str], set())
 
     pgid = trigger.get_pgid(model)
     if pgid not in _ignore.value:
@@ -215,7 +217,7 @@ def _inject_schema(
     params: Sequence[str],
     many: bool,
     context: Dict[str, Any],
-):
+) -> CursorWrapper:
     """
     A connection execution wrapper that sets the schema
     variable in the executed SQL.
@@ -229,7 +231,7 @@ def _inject_schema(
 
 
 @contextlib.contextmanager
-def _set_schema_session_state(database: Optional[str] = None):
+def _set_schema_session_state(database: Optional[str] = None) -> Iterator[None]:
     connection = utils.connection(database)
 
     if _inject_schema not in connection.execute_wrappers:
@@ -252,7 +254,8 @@ def _set_schema_session_state(database: Optional[str] = None):
                     # so flush the local variable
                     with connection.cursor() as cursor:
                         cursor.execute(
-                            "SELECT set_config('search_path', %s, false)", [initial_search_path]
+                            "SELECT set_config('search_path', %s, false)",
+                            [initial_search_path],  # type: ignore - TODO, stop this from being unbound
                         )
     else:
         yield
@@ -272,7 +275,7 @@ def _schema_session(databases: Optional[List[str]] = None) -> Iterator[None]:
 def _set_schema_state(*schemas: str) -> Iterator[None]:
     if not hasattr(_schema, "value"):
         # Use a list instead of a set because ordering is important to the search path
-        _schema.value = []
+        _schema.value = typing.cast(list[str], [])
 
     schemas_to_set = [s for s in schemas if s not in _schema.value]
     try:
