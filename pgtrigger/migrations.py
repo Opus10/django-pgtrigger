@@ -1,15 +1,40 @@
 import contextlib
 import re
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
+import typing
 
+import django.db.backends.postgresql.schema as postgresql_schema
 from django.apps import apps
-from django.db import transaction
+from django.db import models, transaction
 from django.db.migrations.operations.fields import AddField
 from django.db.migrations.operations.models import CreateModel, IndexOperation
-
+from django.db.migrations import autodetector
 from pgtrigger import compiler, utils
+from pgtrigger.tests import migrations
+from django.db.migrations.operations.base import Operation
+from django.db.migrations.state import ModelState, ProjectState
 
 
-def _add_trigger(schema_editor, model, trigger):
+PostgresSchemaEditor = postgresql_schema.DatabaseSchemaEditor
+
+
+def _add_trigger(
+    schema_editor: postgresql_schema.DatabaseSchemaEditor,
+    model: Type[models.Model],
+    trigger: compiler.Trigger | Any,
+) -> None:
     """Add a trigger to a model."""
     if not isinstance(trigger, compiler.Trigger):  # pragma: no cover
         trigger = trigger.compile(model)
@@ -20,7 +45,11 @@ def _add_trigger(schema_editor, model, trigger):
         schema_editor.execute(trigger.install_sql, params=None)
 
 
-def _remove_trigger(schema_editor, model, trigger):
+def _remove_trigger(
+    schema_editor: PostgresSchemaEditor,
+    model: Type[models.Model],
+    trigger: compiler.Trigger | Any,
+) -> None:
     """Remove a trigger from a model."""
     if not isinstance(trigger, compiler.Trigger):  # pragma: no cover
         trigger = trigger.compile(model)
@@ -30,8 +59,16 @@ def _remove_trigger(schema_editor, model, trigger):
     schema_editor.execute(trigger.uninstall_sql, params=None)
 
 
-class TriggerOperationMixin:
-    def allow_migrate_model_trigger(self, schema_editor, model):
+if TYPE_CHECKING:
+    TriggerOperationBase = Operation
+else:
+    TriggerOperationBase = object
+
+
+class TriggerOperationMixin(TriggerOperationBase):
+    def allow_migrate_model_trigger(
+        self, schema_editor: PostgresSchemaEditor, model: Type[models.Model]
+    ) -> bool:
         """
         The check for determinig if a trigger is migrated
         """
@@ -43,21 +80,33 @@ class TriggerOperationMixin:
 class AddTrigger(TriggerOperationMixin, IndexOperation):
     option_name = "triggers"
 
-    def __init__(self, model_name, trigger):
+    def __init__(self, model_name: str, trigger: compiler.Trigger) -> None:
         self.model_name = model_name
         self.trigger = trigger
 
-    def state_forwards(self, app_label, state):
+    def state_forwards(self, app_label: str, state: ProjectState) -> None:
         model_state = state.models[app_label, self.model_name]
         model_state.options["triggers"] = model_state.options.get("triggers", []) + [self.trigger]
         state.reload_model(app_label, self.model_name, delay=True)
 
-    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+    def database_forwards(
+        self,
+        app_label: str,
+        schema_editor: PostgresSchemaEditor,
+        from_state: ProjectState,
+        to_state: ProjectState,
+    ):
         model = to_state.apps.get_model(app_label, self.model_name)
         if self.allow_migrate_model_trigger(schema_editor, model):  # pragma: no branch
             _add_trigger(schema_editor, model, self.trigger)
 
-    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+    def database_backwards(
+        self,
+        app_label: str,
+        schema_editor: PostgresSchemaEditor,
+        from_state: ProjectState,
+        to_state: ProjectState,
+    ):
         model = to_state.apps.get_model(app_label, self.model_name)
         if self.allow_migrate_model_trigger(schema_editor, model):  # pragma: no branch
             _remove_trigger(schema_editor, model, self.trigger)
@@ -65,7 +114,7 @@ class AddTrigger(TriggerOperationMixin, IndexOperation):
     def describe(self):
         return f"Create trigger {self.trigger.name} on model {self.model_name}"
 
-    def deconstruct(self):
+    def deconstruct(self) -> Tuple[str, List[Any], Dict[str, Union[str, compiler.Trigger]]]:
         return (
             self.__class__.__name__,
             [],
@@ -76,12 +125,13 @@ class AddTrigger(TriggerOperationMixin, IndexOperation):
         )
 
     @property
-    def migration_name_fragment(self):
+    def migration_name_fragment(self) -> str:
         return f"{self.model_name_lower}_{self.trigger.name.lower()}"
 
 
-def _get_trigger_by_name(model_state, name):
+def _get_trigger_by_name(model_state: ModelState, name: str) -> compiler.Trigger:
     for trigger in model_state.options.get("triggers", []):  # pragma: no branch
+        trigger = typing.cast(compiler.Trigger, trigger)
         if trigger.name == name:
             return trigger
 
@@ -91,34 +141,46 @@ def _get_trigger_by_name(model_state, name):
 class RemoveTrigger(TriggerOperationMixin, IndexOperation):
     option_name = "triggers"
 
-    def __init__(self, model_name, name):
+    def __init__(self, model_name: str, name: str) -> None:
         self.model_name = model_name
         self.name = name
 
-    def state_forwards(self, app_label, state):
+    def state_forwards(self, app_label: str, state: ProjectState) -> None:
         model_state = state.models[app_label, self.model_name]
         objs = model_state.options.get("triggers", [])
         model_state.options["triggers"] = [obj for obj in objs if obj.name != self.name]
         state.reload_model(app_label, self.model_name, delay=True)
 
-    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+    def database_forwards(
+        self,
+        app_label: str,
+        schema_editor: PostgresSchemaEditor,
+        from_state: ProjectState,
+        to_state: ProjectState,
+    ):
         model = to_state.apps.get_model(app_label, self.model_name)
         if self.allow_migrate_model_trigger(schema_editor, model):  # pragma: no branch
             from_model_state = from_state.models[app_label, self.model_name_lower]
             trigger = _get_trigger_by_name(from_model_state, self.name)
             _remove_trigger(schema_editor, model, trigger)
 
-    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+    def database_backwards(
+        self,
+        app_label: str,
+        schema_editor: PostgresSchemaEditor,
+        from_state: ProjectState,
+        to_state: ProjectState,
+    ):
         model = to_state.apps.get_model(app_label, self.model_name)
         if self.allow_migrate_model_trigger(schema_editor, model):  # pragma: no branch
             to_model_state = to_state.models[app_label, self.model_name_lower]
             trigger = _get_trigger_by_name(to_model_state, self.name)
             _add_trigger(schema_editor, model, trigger)
 
-    def describe(self):
+    def describe(self) -> str:
         return f"Remove trigger {self.name} from model {self.model_name}"
 
-    def deconstruct(self):
+    def deconstruct(self) -> Tuple[str, List[Any], Dict[str, str]]:
         return (
             self.__class__.__name__,
             [],
@@ -129,39 +191,57 @@ class RemoveTrigger(TriggerOperationMixin, IndexOperation):
         )
 
     @property
-    def migration_name_fragment(self):
+    def migration_name_fragment(self) -> str:
         return f"remove_{self.model_name_lower}_{self.name.lower()}"
 
 
-def _inject_m2m_dependency_in_proxy(proxy_op):
+def _inject_m2m_dependency_in_proxy(proxy_op: CreateModel):
     """
     Django does not properly add dependencies to m2m fields that are base classes for
     proxy models. Inject the dependency here
     """
-    for base in proxy_op.bases:
+    for base in typing.cast(Sequence[str], proxy_op.bases):
         model = apps.get_model(base)
-        creator = model._meta.auto_created
+        creator = typing.cast(models.Model, model._meta.auto_created)
         if creator:
             for field in creator._meta.many_to_many:
-                if field.remote_field.through == model:
+                if field.remote_field.through == model:  # type: ignore - not present in stubs
                     app_label, model_name = creator._meta.label_lower.split(".")
-                    proxy_op._auto_deps.append((app_label, model_name, field.name, True))
+                    proxy_op._auto_deps.append((app_label, model_name, field.name, True))  # type: ignore  - not present in stubs
 
 
-class MigrationAutodetectorMixin:
+if TYPE_CHECKING:
+    MigrationAutodetectorBase = autodetector.MigrationAutodetector
+else:
+    MigrationAutodetectorBase = object
+
+
+class MigrationAutodetectorMixin(MigrationAutodetectorBase):
     """A mixin that can be subclassed with MigrationAutodetector and detects triggers"""
 
-    def _detect_changes(self, *args, **kwargs):
-        self.altered_triggers = {}
-        return super()._detect_changes(*args, **kwargs)
+    altered_triggers: Dict[Tuple[str, str], Dict[str, List[compiler.Trigger]]]
+    kept_model_keys: Set[Tuple[str, str]]
+    kept_proxy_keys: Set[Tuple[str, str]]
+    new_model_keys: Set[Tuple[str, str]]
+    old_model_keys: Set[Tuple[str, str]]
+    new_proxy_keys: Set[Tuple[str, str]]
+    old_proxy_keys: Set[Tuple[str, str]]
+    generated_operations: Dict[str, List[Operation]]
 
-    def _get_add_trigger_op(self, model, trigger):
+    def _detect_changes(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        self.altered_triggers = {}
+        return super()._detect_changes(*args, **kwargs)  # type: ignore - not present in stubs
+
+    def _get_add_trigger_op(
+        self, model: Type[models.Model], trigger: compiler.Trigger | Any
+    ) -> AddTrigger:
         if not isinstance(trigger, compiler.Trigger):
             trigger = trigger.compile(model)
 
-        return AddTrigger(model_name=model._meta.model_name, trigger=trigger)
+        model_name = typing.cast(str, model._meta.model_name)
+        return AddTrigger(model_name=model_name, trigger=trigger)
 
-    def create_altered_constraints(self):
+    def create_altered_constraints(self) -> None:
         """
         Piggyback off of constraint generation hooks to generate
         trigger migration operations
@@ -189,9 +269,9 @@ class MigrationAutodetectorMixin:
                 }
             )
 
-        return super().create_altered_constraints()
+        return super().create_altered_constraints()  # type: ignore - not present in stubs
 
-    def generate_added_constraints(self):
+    def generate_added_constraints(self) -> None:
         for (app_label, model_name), alt_triggers in self.altered_triggers.items():
             model = self.to_state.apps.get_model(app_label, model_name)
             for trigger in alt_triggers["added_triggers"]:
@@ -199,18 +279,18 @@ class MigrationAutodetectorMixin:
                     app_label, self._get_add_trigger_op(model=model, trigger=trigger)
                 )
 
-        return super().generate_added_constraints()
+        return super().generate_added_constraints()  # type: ignore - not present in stubs
 
-    def generate_removed_constraints(self):
+    def generate_removed_constraints(self) -> None:
         for (app_label, model_name), alt_triggers in self.altered_triggers.items():
             for trigger in alt_triggers["removed_triggers"]:
                 self.add_operation(
                     app_label, RemoveTrigger(model_name=model_name, name=trigger.name)
                 )
 
-        return super().generate_removed_constraints()
+        return super().generate_removed_constraints()  # type: ignore
 
-    def generate_created_models(self):
+    def generate_created_models(self) -> None:
         super().generate_created_models()
 
         added_models = self.new_model_keys - self.old_model_keys
@@ -229,7 +309,7 @@ class MigrationAutodetectorMixin:
                 if isinstance(op, AddField) and model_name == op.model_name
             }
 
-            related_dependencies = [
+            related_dependencies: List[Tuple[str, str, str | None, Union[bool, str]]] = [
                 (app_label, model_name, name, True) for name in sorted(related_fields)
             ]
             # Depend on the model being created
@@ -242,7 +322,7 @@ class MigrationAutodetectorMixin:
                     dependencies=related_dependencies,
                 )
 
-    def generate_created_proxies(self):
+    def generate_created_proxies(self) -> None:
         super().generate_created_proxies()
 
         added = self.new_proxy_keys - self.old_proxy_keys
@@ -268,7 +348,7 @@ class MigrationAutodetectorMixin:
                     dependencies=[(app_label, model_name, None, True)],
                 )
 
-    def generate_deleted_proxies(self):
+    def generate_deleted_proxies(self) -> None:
         deleted = self.old_proxy_keys - self.new_proxy_keys
         for app_label, model_name in sorted(deleted):
             model_state = self.from_state.models[app_label, model_name]
@@ -284,7 +364,13 @@ class MigrationAutodetectorMixin:
         super().generate_deleted_proxies()
 
 
-class DatabaseSchemaEditorMixin:
+if TYPE_CHECKING:
+    SchemaEditorBase = postgresql_schema.DatabaseSchemaEditor
+else:
+    SchemaEditorBase = object
+
+
+class DatabaseSchemaEditorMixin(SchemaEditorBase):
     """
     A schema editor mixin that can subclass a DatabaseSchemaEditor and
     handle altering column types of triggers.
@@ -300,13 +386,16 @@ class DatabaseSchemaEditorMixin:
        wrapped in a transaction
     """
 
-    def __init__(self, *args, **kwargs):
+    temporarily_dropped_triggers: Set[Tuple[str, str]]
+    is_altering_field_type: bool
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.temporarily_dropped_triggers = set()
         self.is_altering_field_type = False
 
     @contextlib.contextmanager
-    def alter_field_type(self):
+    def alter_field_type(self) -> Iterator[None]:
         """
         Temporarily sets state so that execute() knows we are trying to alter a column type
         """
@@ -318,22 +407,22 @@ class DatabaseSchemaEditorMixin:
 
     def _alter_field(
         self,
-        model,
-        old_field,
-        new_field,
-        old_type,
-        new_type,
-        old_db_params,
-        new_db_params,
-        strict=False,
-    ):
+        model: Type[models.Model],
+        old_field: models.Field[Any, Any],
+        new_field: models.Field[Any, Any],
+        old_type: Any,
+        new_type: Any,
+        old_db_params: Dict[str, Any],
+        new_db_params: Dict[str, Any],
+        strict: bool = False,
+    ) -> None:
         """
         Detects that a field type is being altered and sets the appropriate state
         """
         context = self.alter_field_type() if old_type != new_type else contextlib.nullcontext()
 
         with context:
-            return super()._alter_field(
+            return super()._alter_field(  # type: ignore - not present in stubs
                 model,
                 old_field,
                 new_field,
@@ -345,7 +434,7 @@ class DatabaseSchemaEditorMixin:
             )
 
     @contextlib.contextmanager
-    def temporarily_drop_trigger(self, trigger, table):
+    def temporarily_drop_trigger(self, trigger: str, table: str) -> Iterator[None]:
         """
         Given a table and trigger, temporarily drop the trigger and recreate it
         after the context manager yields.
@@ -369,7 +458,7 @@ class DatabaseSchemaEditorMixin:
         finally:
             self.temporarily_dropped_triggers.remove((trigger, table))
 
-    def execute(self, *args, **kwargs):
+    def execute(self, *args: Any, **kwargs: Any) -> None:
         """
         If we are altering a field type, catch the special error psycopg raises
         when a column on a trigger is altered. Temporarily drop and recreate
@@ -403,7 +492,7 @@ class DatabaseSchemaEditorMixin:
         else:
             return super().execute(*args, **kwargs)
 
-    def create_model(self, model):
+    def create_model(self, model: Type[models.Model]) -> None:
         """
         Create the model
 

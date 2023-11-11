@@ -2,7 +2,7 @@
 The primary functional API for pgtrigger
 """
 import logging
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple
 
 from django.db import DEFAULT_DB_ALIAS, connections
 
@@ -12,7 +12,7 @@ from pgtrigger import features, registry, utils
 LOGGER = logging.getLogger("pgtrigger")
 
 
-def install(*uris: str, database: Union[str, None] = None) -> None:
+def install(*uris: str, database: Optional[str] = None) -> None:
     """
     Install triggers.
 
@@ -34,7 +34,7 @@ def install(*uris: str, database: Union[str, None] = None) -> None:
         prune(database=database)
 
 
-def prunable(database: Union[str, None] = None) -> List[Tuple[str, str, bool, str]]:
+def prunable(database: Optional[str] = None) -> List[Tuple[str, str, bool, str]]:
     """Return triggers that are candidates for pruning
 
     Args:
@@ -75,7 +75,7 @@ def prunable(database: Union[str, None] = None) -> List[Tuple[str, str, bool, st
     ]
 
 
-def prune(database: Union[str, None] = None) -> None:
+def prune(database: Optional[str] = None) -> None:
     """
     Remove any pgtrigger triggers in the database that are not used by models.
     I.e. if a model or trigger definition is deleted from a model, ensure
@@ -98,7 +98,7 @@ def prune(database: Union[str, None] = None) -> None:
             cursor.execute(uninstall_sql)
 
 
-def enable(*uris: str, database: Union[str, None] = None) -> None:
+def enable(*uris: str, database: Optional[str] = None) -> None:
     """
     Enables registered triggers.
 
@@ -117,7 +117,7 @@ def enable(*uris: str, database: Union[str, None] = None) -> None:
         trigger.enable(model, database=database)
 
 
-def uninstall(*uris: str, database: Union[str, None] = None) -> None:
+def uninstall(*uris: str, database: Optional[str] = None) -> None:
     """
     Uninstalls triggers.
 
@@ -139,7 +139,7 @@ def uninstall(*uris: str, database: Union[str, None] = None) -> None:
         prune(database=database)
 
 
-def disable(*uris: str, database: Union[str, None] = None) -> None:
+def disable(*uris: str, database: Optional[str] = None) -> None:
     """
     Disables triggers.
 

@@ -1,9 +1,10 @@
 """Additional goodies"""
 import functools
 import operator
-from typing import Any, List, Tuple, Union
+from typing import Any, List, NoReturn, Optional, Tuple, Union, Type
 
-from pgtrigger import core, utils
+from pgtrigger import core, models, utils
+from django.db import models
 
 # A sentinel value to determine if a kwarg is unset
 _unset = object()
@@ -14,7 +15,7 @@ class Protect(core.Trigger):
 
     when: core.When = core.Before
 
-    def get_func(self, model):
+    def get_func(self, model: Type[models.Model]):
         sql = f"""
             RAISE EXCEPTION
                 'pgtrigger: Cannot {str(self.operation).lower()} rows from % table',
@@ -51,7 +52,7 @@ class ReadOnly(Protect):
 
         super().__init__(**kwargs)
 
-    def get_condition(self, model):
+    def get_condition(self, model: Type[models.Model]):
         if not self.fields and not self.exclude:
             return core.Condition("OLD.* IS DISTINCT FROM NEW.*")
         else:
@@ -144,16 +145,16 @@ class SoftDelete(core.Trigger):
 
     when: core.When = core.Before
     operation: core.Operation = core.Delete
-    field: str = None
+    field: str = None  # type: ignore  - we make sure this is set in __init__
     value: Union[bool, str, int, None] = False
 
     def __init__(
         self,
         *,
-        name: str = None,
+        name: Optional[str] = None,
         condition: Union[core.Condition, None] = None,
-        field: str = None,
-        value: Union[bool, str, int, None] = _unset,
+        field: Optional[str] = None,
+        value: Union[bool, str, int, object, None] = _unset,
     ):
         self.field = field or self.field
         self.value = value if value is not _unset else self.value
@@ -203,17 +204,17 @@ class UpdateSearchVector(core.Trigger):
     """  # noqa
 
     when: core.When = core.Before
-    vector_field: str = None
-    document_fields: List[str] = None
+    vector_field: str = None  # type: ignore  - we make sure this is set in __init__
+    document_fields: List[str] = None  # type: ignore  - we make sure this is set in __init__
     config_name: str = "pg_catalog.english"
 
     def __init__(
         self,
         *,
-        name: str = None,
-        vector_field: str = None,
+        name: Optional[str] = None,
+        vector_field: Optional[str] = None,
         document_fields: List[str] = None,
-        config_name: str = None,
+        config_name: Optional[str] = None,
     ):
         self.vector_field = vector_field or self.vector_field
         self.document_fields = document_fields or self.document_fields
@@ -230,13 +231,13 @@ class UpdateSearchVector(core.Trigger):
 
         super().__init__(name=name, operation=core.Insert | core.UpdateOf(*document_fields))
 
-    def ignore(self, model):
+    def ignore(self, model: Type[models.Model]) -> NoReturn:
         raise RuntimeError(f"Cannot ignore {self.__class__.__name__} triggers")
 
-    def get_func(self, model):
+    def get_func(self, model: Type[models.Model]) -> str:
         return ""
 
-    def render_execute(self, model):
+    def render_execute(self, model: Type[models.Model]) -> str:
         document_cols = [model._meta.get_field(field).column for field in self.document_fields]
         rendered_document_cols = ", ".join(utils.quote(col) for col in document_cols)
         vector_col = model._meta.get_field(self.vector_field).column

@@ -12,12 +12,12 @@ source = ["pgtrigger"]
 
 [tool.coverage.report]
 exclude_lines = [
-    "pragma: no cover",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "pass",
-    "pytest.mark.skip",
-    "if TYPE_CHECKING:"
+  "pragma: no cover",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "pass",
+  "pytest.mark.skip",
+  "if TYPE_CHECKING:",
 ]
 show_missing = true
 fail_under = 100
@@ -25,12 +25,8 @@ omit = ["pgtrigger/tests/migrations/*"]
 
 [tool.poetry]
 name = "django-pgtrigger"
-packages = [
-  { include = "pgtrigger" }
-]
-exclude = [
-  "*/tests/"
-]
+packages = [{ include = "pgtrigger" }]
+exclude = ["*/tests/"]
 version = "4.9.0"
 description = "Postgres trigger support integrated with Django models."
 authors = ["Wes Kendall"]
@@ -90,10 +86,19 @@ testpaths = "pgtrigger/tests"
 norecursedirs = ".venv"
 DJANGO_SETTINGS_MODULE = "test_settings"
 markers = [
-    "independent: marks tests that should run independently of normal suite"
+  "independent: marks tests that should run independently of normal suite",
 ]
 
 [tool.ruff]
 select = ["E", "F", "B", "I", "G", "C4"]
 line-length = 99
 target-version = "py38"
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+
+# We don't want to assume library users are type-checking their code,
+# so redundant checks are helpful for error handling.
+reportUnnecessaryIsInstance = "none"
+reportIncompatibleMethodOverride = "none"

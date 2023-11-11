@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import collections
 import hashlib
+from typing import Optional, Union
 
 from pgtrigger import utils
 
@@ -112,12 +115,12 @@ class UpsertTriggerSql(collections.UserString):
         constraint=_unset,
         when,
         operation,
-        timing=_unset,
-        referencing=_unset,
-        level=_unset,
-        condition=_unset,
-        execute=_unset,
-        hash=None,
+        timing: Union[str, object] = _unset,
+        referencing: Union[str, object] = _unset,
+        level: Union[str, object] = _unset,
+        condition: Union[str, object] = _unset,
+        execute: Union[str, object] = _unset,
+        hash: Optional[str] = None,
     ):
         """Initialize the SQL and store it in the `.data` attribute."""
         self.kwargs = {
@@ -204,12 +207,12 @@ class Trigger:
     of a name and the trigger SQL for migrations.
     """
 
-    def __init__(self, *, name, sql):
+    def __init__(self, *, name: str, sql: UpsertTriggerSql) -> None:
         self.name = name
         self.sql = sql
         assert isinstance(sql, UpsertTriggerSql)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Trigger) -> bool:
         return (
             self.__class__ == other.__class__ and self.name == other.name and self.sql == other.sql
         )

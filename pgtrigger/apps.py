@@ -1,3 +1,4 @@
+from typing import Any
 import django.apps
 import django.db.backends.postgresql.schema as postgresql_schema
 from django.conf import settings
@@ -83,7 +84,7 @@ def register_triggers_from_meta():
                 trigger.register(model)
 
 
-def install_on_migrate(using, **kwargs):
+def install_on_migrate(using: str, **kwargs: Any) -> None:
     if features.install_on_migrate():
         installation.install(database=using)
 

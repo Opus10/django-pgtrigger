@@ -1,14 +1,14 @@
 from django.conf import settings
 
 
-def model_meta():
+def model_meta() -> bool:
     """
     True if model meta support is enabled
     """
     return getattr(settings, "PGTRIGGER_MODEL_META", True)
 
 
-def schema_editor():
+def schema_editor() -> bool:
     """
     True if we are using the patched Postgres schema editor.
 
@@ -19,28 +19,28 @@ def schema_editor():
     return getattr(settings, "PGTRIGGER_SCHEMA_EDITOR", True)
 
 
-def migrations():
+def migrations() -> bool:
     """
     True if migrations are enabled
     """
     return model_meta() and getattr(settings, "PGTRIGGER_MIGRATIONS", True)
 
 
-def install_on_migrate():
+def install_on_migrate() -> bool:
     """
     True if triggers should be installed after migrations
     """
     return getattr(settings, "PGTRIGGER_INSTALL_ON_MIGRATE", False)
 
 
-def schema():
+def schema() -> str:
     """
     The default schema where special objects are installed
     """
     return getattr(settings, "PGTRIGGER_SCHEMA", "public")
 
 
-def prune_on_install():
+def prune_on_install() -> bool:
     """
     True if triggers should be pruned on a full install or uninstall
     """
