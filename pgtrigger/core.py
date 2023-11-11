@@ -205,13 +205,15 @@ For deferrable triggers that run at the end of the transaction by default
 class Condition:
     """For specifying free-form SQL in the condition of a trigger."""
 
-    sql: str = None  # type: ignore - we check that the sql is not None in __init__
+    sql: str
 
     def __init__(self, sql: Optional[str] = None):
-        self.sql = sql or self.sql
+        sql = sql or getattr(self, "sql", None)
 
-        if not self.sql:
+        if not sql:
             raise ValueError("Must provide SQL to condition")
+
+        self.sql = sql
 
     def resolve(self, model: Type[models.Model]) -> str:
         return self.sql
@@ -362,8 +364,8 @@ class _Change(Condition):
     See child classes for more documentation on arguments.
     """
 
-    fields: List[str] = None  # type: ignore - we make sure that the fields is not None in __init__
-    exclude: List[str] = None  # type: ignore - we make sure that the exclude is not None in __init__
+    fields: List[str]
+    exclude: List[str]
     exclude_auto: bool = False
 
     def __init__(
@@ -374,8 +376,8 @@ class _Change(Condition):
         all: bool = False,
         comparison: str = "df",
     ):
-        self.fields = list(fields) or self.fields or []
-        self.exclude = exclude or self.exclude or []
+        self.fields = list(fields) or getattr(self, "fields", [])
+        self.exclude = exclude or self.exclude or getattr(self, "exclude", [])
         self.exclude_auto = self.exclude_auto if exclude_auto is None else exclude_auto
         self._negated = False
         self.all = all
@@ -562,10 +564,10 @@ class Trigger:
     creating derived trigger classes.
     """
 
-    name: str = None  # type: ignore - we check that the name is not None in __init__
+    name: str
     level: Level = Row
-    when: When = None  # type: ignore - we check that the when is not None in __init__
-    operation: Operation = None  # type: ignore - we check that the operation is not None in __init__
+    when: When
+    operation: Operation
     condition: Optional[Condition] = None
     referencing: Optional[Referencing] = None
     func: Union[Func, str, None] = None
@@ -585,10 +587,23 @@ class Trigger:
         declare: Optional[List[Tuple[str, str]]] = None,
         timing: Optional[Timing] = None,
     ):
-        self.name = name or self.name
+        name = name or getattr(self, "name", None)
+        when = when or getattr(self, "when", None)
+        operation = operation or getattr(self, "operation", None)
+
+        if not name:
+            raise ValueError('Trigger must have "name" attribute')
+
+        if not when or not isinstance(when, When):
+            raise ValueError(f'Invalid "when" attribute: {self.when}')
+
+        if not operation or not isinstance(operation, Operation):
+            raise ValueError(f'Invalid "operation" attribute: {self.operation}')
+
+        self.name = name
+        self.when = when
+        self.operation = operation
         self.level = level or self.level
-        self.when = when or self.when
-        self.operation = operation or self.operation
         self.condition = condition or self.condition
         self.referencing = referencing or self.referencing
         self.func = func or self.func
@@ -597,9 +612,6 @@ class Trigger:
 
         if not self.level or not isinstance(self.level, Level):
             raise ValueError(f'Invalid "level" attribute: {self.level}')
-
-        if not self.when or not isinstance(self.when, When):
-            raise ValueError(f'Invalid "when" attribute: {self.when}')
 
         if not self.operation or not isinstance(self.operation, Operation):
             raise ValueError(f'Invalid "operation" attribute: {self.operation}')
@@ -615,9 +627,6 @@ class Trigger:
 
         if self.timing and self.when != After:
             raise ValueError('Deferrable triggers must have "when" attribute as "pgtrigger.After"')
-
-        if not self.name:
-            raise ValueError('Trigger must have "name" attribute')
 
         self.validate_name()
 

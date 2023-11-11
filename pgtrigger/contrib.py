@@ -87,8 +87,8 @@ class FSM(core.Trigger):
 
     when: core.When = core.Before
     operation: core.Operation = core.Update
-    field: str = None  # type: ignore - we make sure this is set in __init__
-    transitions: List[Tuple[str, str]] = None  # type: ignore - we make sure this is set in __init__
+    field: str
+    transitions: List[Tuple[str, str]]
 
     def __init__(
         self,
@@ -98,14 +98,17 @@ class FSM(core.Trigger):
         field: Optional[str] = None,
         transitions: Optional[List[Tuple[str, str]]] = None,
     ) -> None:
-        self.field = field or self.field
-        self.transitions = transitions or self.transitions
+        field = field or getattr(self, "field", None)
+        transitions = transitions or getattr(self, "transitions", None)
 
-        if not self.field:  # pragma: no cover
+        if not field:  # pragma: no cover
             raise ValueError('Must provide "field" for FSM')
 
-        if not self.transitions:  # pragma: no cover
+        if not transitions:  # pragma: no cover
             raise ValueError('Must provide "transitions" for FSM')
+
+        self.field = field
+        self.transitions = transitions
 
         super().__init__(name=name, condition=condition)
 
@@ -148,7 +151,7 @@ class SoftDelete(core.Trigger):
 
     when: core.When = core.Before
     operation: core.Operation = core.Delete
-    field: str = None  # type: ignore  - we make sure this is set in __init__
+    field: str
     value: Union[bool, str, int, object, None] = False
 
     def __init__(
@@ -157,13 +160,15 @@ class SoftDelete(core.Trigger):
         name: Optional[str] = None,
         condition: Optional[core.Condition] = None,
         field: Optional[str] = None,
-        value: Union[bool, str, int, object, None] = _unset,
+        value: Optional[Union[bool, str, int, object]] = _unset,
     ) -> None:
-        self.field = field or self.field
-        self.value = value if value is not _unset else self.value
+        field = field or getattr(self, "field", None)
+        self.value = value if value is not _unset else getattr(self, "value", None)
 
-        if not self.field:  # pragma: no cover
+        if not field:  # pragma: no cover
             raise ValueError('Must provide "field" for soft delete')
+
+        self.field = field
 
         super().__init__(name=name, condition=condition)
 
@@ -212,8 +217,8 @@ class UpdateSearchVector(core.Trigger):
     """  # noqa
 
     when: core.When = core.Before
-    vector_field: str = None  # type: ignore  - we make sure this is set in __init__
-    document_fields: List[str] = None  # type: ignore  - we make sure this is set in __init__
+    vector_field: str
+    document_fields: List[str]
     config_name: str = "pg_catalog.english"
 
     def __init__(
@@ -224,21 +229,22 @@ class UpdateSearchVector(core.Trigger):
         document_fields: Optional[List[str]] = None,
         config_name: Optional[str] = None,
     ) -> None:
-        self.vector_field = vector_field or self.vector_field
-        self.document_fields = document_fields or self.document_fields
-        self.config_name = config_name or self.config_name
+        vector_field = vector_field or getattr(self, "vector_field", None)
+        document_fields = document_fields or getattr(self, "document_fields", None)
+        config_name = config_name or getattr(self, "config_name", None)
 
-        if not self.vector_field:
+        if not vector_field:
             raise ValueError('Must provide "vector_field" to update search vector')
 
-        if not self.document_fields:
+        if not document_fields:
             raise ValueError('Must provide "document_fields" to update search vector')
 
-        if not self.config_name:  # pragma: no cover
+        if not config_name:  # pragma: no cover
             raise ValueError('Must provide "config_name" to update search vector')
 
-        if not self.document_fields:
-            raise ValueError('Must provide "document_fields" to update search vector')
+        self.vector_field = vector_field
+        self.document_fields = document_fields
+        self.config_name = config_name
 
         super().__init__(name=name, operation=core.Insert | core.UpdateOf(*self.document_fields))
 
