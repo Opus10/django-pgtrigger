@@ -16,7 +16,7 @@ class Protect(core.Trigger):
 
     when: core.When = core.Before
 
-    def get_func(self, model: Type[models.Model]):
+    def get_func(self, model: Type[models.Model]) -> str:
         sql = f"""
             RAISE EXCEPTION
                 'pgtrigger: Cannot {str(self.operation).lower()} rows from % table',
@@ -53,7 +53,7 @@ class ReadOnly(Protect):
 
         super().__init__(**kwargs)
 
-    def get_condition(self, model: Type[models.Model]):
+    def get_condition(self, model: Type[models.Model]) -> core.Condition:
         if not self.fields and not self.exclude:
             return core.Condition("OLD.* IS DISTINCT FROM NEW.*")
         else:
@@ -97,7 +97,7 @@ class FSM(core.Trigger):
         condition: Union[core.Condition, None] = None,
         field: Optional[str] = None,
         transitions: Optional[List[Tuple[str, str]]] = None,
-    ):
+    ) -> None:
         self.field = field or self.field
         self.transitions = transitions or self.transitions
 
@@ -109,10 +109,10 @@ class FSM(core.Trigger):
 
         super().__init__(name=name, condition=condition)
 
-    def get_declare(self, model: Type[models.Model]):
+    def get_declare(self, model: Type[models.Model]) -> List[Tuple[str, str]]:
         return [("_is_valid_transition", "BOOLEAN")]
 
-    def get_func(self, model: Type[models.Model]):
+    def get_func(self, model: Type[models.Model]) -> str:
         col = model._meta.get_field(self.field).column
         transition_uris = "{" + ",".join([f"{old}:{new}" for old, new in self.transitions]) + "}"
 
@@ -158,7 +158,7 @@ class SoftDelete(core.Trigger):
         condition: Optional[core.Condition] = None,
         field: Optional[str] = None,
         value: Union[bool, str, int, object, None] = _unset,
-    ):
+    ) -> None:
         self.field = field or self.field
         self.value = value if value is not _unset else self.value
 
@@ -167,7 +167,7 @@ class SoftDelete(core.Trigger):
 
         super().__init__(name=name, condition=condition)
 
-    def get_func(self, model: Type[models.Model]):
+    def get_func(self, model: Type[models.Model]) -> str:
         soft_field = model._meta.get_field(self.field).column
         pk = model._meta.pk
 
@@ -176,7 +176,7 @@ class SoftDelete(core.Trigger):
 
         pk_col = pk.column
 
-        def _render_value():
+        def _render_value() -> str:
             if self.value is None:
                 return "NULL"
             elif isinstance(self.value, str):
@@ -223,7 +223,7 @@ class UpdateSearchVector(core.Trigger):
         vector_field: Optional[str] = None,
         document_fields: Optional[List[str]] = None,
         config_name: Optional[str] = None,
-    ):
+    ) -> None:
         self.vector_field = vector_field or self.vector_field
         self.document_fields = document_fields or self.document_fields
         self.config_name = config_name or self.config_name

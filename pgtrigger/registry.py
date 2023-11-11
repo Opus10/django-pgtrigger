@@ -1,7 +1,9 @@
-import collections
-from typing import TYPE_CHECKING, Callable, List, Tuple, Type, TypeVar
+from __future__ import annotations
 
-from pgtrigger import features, models
+import collections
+from typing import TYPE_CHECKING, Callable, Dict, List, Set, Tuple, Type, TypeVar
+
+from pgtrigger import features
 
 _unset = object()
 
@@ -21,20 +23,20 @@ _B = TypeVar("_B", bound=models_base.ModelBase)
 
 class _Registry(collections.UserDict[str, Tuple[Type[models.Model], Trigger]]):
     @property
-    def pg_function_names(self):
+    def pg_function_names(self) -> Set[str]:
         """
         The postgres function names of all registered triggers
         """
         return {trigger.get_pgid(model) for model, trigger in self.values()}
 
     @property
-    def by_db_table(self):
+    def by_db_table(self) -> Dict[Tuple[str, str], Trigger]:
         """
         Return the registry keys by db_table, name
         """
         return {(model._meta.db_table, trigger.name): trigger for model, trigger in self.values()}
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, key: str) -> Tuple[Type[models.Model], Trigger]:
         assert isinstance(key, str)
         if len(key.split(":")) == 1:
             raise ValueError(
@@ -81,7 +83,7 @@ class _Registry(collections.UserDict[str, Tuple[Type[models.Model], Trigger]]):
 
         return super().__setitem__(key, value)
 
-    def __delitem__(self, key: str):
+    def __delitem__(self, key: str) -> None:
         model, trigger = self[key]
 
         super().__delitem__(key)

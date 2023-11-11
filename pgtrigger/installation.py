@@ -1,6 +1,8 @@
 """
 The primary functional API for pgtrigger
 """
+from __future__ import annotations
+
 import logging
 from typing import List, Optional, Tuple
 

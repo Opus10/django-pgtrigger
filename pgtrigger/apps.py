@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from typing import Any
+
 import django.apps
 import django.db.backends.postgresql.schema as postgresql_schema
 from django.conf import settings
@@ -18,7 +21,7 @@ if features.model_meta():  # pragma: no branch
         options.DEFAULT_NAMES = tuple(options.DEFAULT_NAMES) + ("triggers",)
 
 
-def patch_migrations():
+def patch_migrations() -> None:
     """
     Patch the autodetector and model state detection if migrations are turned on
     """
@@ -45,7 +48,7 @@ def patch_migrations():
             )
 
 
-def patch_schema_editor():
+def patch_schema_editor() -> None:
     """
     Patch the schema editor to allow for column types to be altered on
     trigger conditions
@@ -70,7 +73,7 @@ def patch_schema_editor():
                 )
 
 
-def register_triggers_from_meta():
+def register_triggers_from_meta() -> None:
     """
     Populate the trigger registry from model `Meta.triggers`
     """
@@ -92,7 +95,7 @@ def install_on_migrate(using: str, **kwargs: Any) -> None:
 class PGTriggerConfig(django.apps.AppConfig):
     name = "pgtrigger"
 
-    def ready(self):
+    def ready(self) -> None:
         """
         Do all necessary patching, trigger setup, and signal handler configuration
         """
