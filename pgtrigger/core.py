@@ -340,7 +340,7 @@ class Q(models.Q, Condition):
     on the old and new rows in a trigger condition.
     """
 
-    def resolve(self, model: type[models.Model]) -> str:
+    def resolve(self, model: Type[models.Model]) -> str:
         query = _OldNewQuery(model)
         connection = utils.connection()
         sql, args = self.resolve_expression(query).as_sql(
