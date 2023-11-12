@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from django.db.backends.utils import CursorWrapper
 
 
-def _psycopg_version():
+def _psycopg_version() -> Tuple[int, int, int]:
     try:
         import psycopg as Database  # type: ignore
     except ImportError:
@@ -59,7 +59,7 @@ def is_postgres(database: Optional[str]) -> bool:
     return connection(database).vendor == "postgresql"
 
 
-def postgres_databases(databases: Optional[List[str]] = None):
+def postgres_databases(databases: Optional[List[str]] = None) -> List[str]:
     """Return postgres databases from the provided list of databases.
 
     If no databases are provided, return all postgres databases
@@ -69,7 +69,9 @@ def postgres_databases(databases: Optional[List[str]] = None):
     return [database for database in databases if is_postgres(database)]
 
 
-def exec_sql(sql: str, database: Optional[str] = None, fetchall: bool = False):
+def exec_sql(
+    sql: str, database: Optional[str] = None, fetchall: bool = False
+) -> Optional[List[Tuple[Any, ...]]]:
     if is_postgres(database):  # pragma: no branch
         with connection(database).cursor() as cursor:
             cursor.execute(sql)

@@ -44,7 +44,7 @@ class ReadOnly(Protect):
         fields: Union[List[str], None] = None,
         exclude: Union[List[str], None] = None,
         **kwargs: Any,
-    ):
+    ) -> None:
         self.fields = fields or self.fields
         self.exclude = exclude or self.exclude
 

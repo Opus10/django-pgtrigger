@@ -26,6 +26,7 @@ from django.db.migrations.operations.fields import AddField
 from django.db.migrations.operations.models import CreateModel, IndexOperation
 from django.db.migrations.state import ModelState, ProjectState
 
+import pgtrigger
 from pgtrigger import compiler, utils
 
 PostgresSchemaEditor = postgresql_schema.DatabaseSchemaEditor
@@ -34,7 +35,7 @@ PostgresSchemaEditor = postgresql_schema.DatabaseSchemaEditor
 def _add_trigger(
     schema_editor: PostgresSchemaEditor,
     model: Type[models.Model],
-    trigger: Union[compiler.Trigger, Any],
+    trigger: Union[compiler.Trigger, pgtrigger.Trigger],
 ) -> None:
     """Add a trigger to a model."""
     if not isinstance(trigger, compiler.Trigger):  # pragma: no cover
@@ -49,10 +50,10 @@ def _add_trigger(
 def _remove_trigger(
     schema_editor: PostgresSchemaEditor,
     model: Type[models.Model],
-    trigger: Union[compiler.Trigger, Any],
+    trigger: Union[compiler.Trigger, pgtrigger.Trigger],
 ) -> None:
     """Remove a trigger from a model."""
-    if not isinstance(trigger, compiler.Trigger):  # pragma: no cover
+    if not isinstance(trigger, compiler.Trigger):
         trigger = trigger.compile(model)
 
     # Trigger uninstall SQL returns interpolated SQL which makes
@@ -96,7 +97,7 @@ class AddTrigger(TriggerOperationMixin, IndexOperation):
         schema_editor: PostgresSchemaEditor,
         from_state: ProjectState,
         to_state: ProjectState,
-    ):
+    ) -> None:
         model = to_state.apps.get_model(app_label, self.model_name)
         if self.allow_migrate_model_trigger(schema_editor, model):  # pragma: no branch
             _add_trigger(schema_editor, model, self.trigger)
@@ -107,12 +108,12 @@ class AddTrigger(TriggerOperationMixin, IndexOperation):
         schema_editor: PostgresSchemaEditor,
         from_state: ProjectState,
         to_state: ProjectState,
-    ):
+    ) -> None:
         model = to_state.apps.get_model(app_label, self.model_name)
         if self.allow_migrate_model_trigger(schema_editor, model):  # pragma: no branch
             _remove_trigger(schema_editor, model, self.trigger)
 
-    def describe(self):
+    def describe(self) -> str:
         return f"Create trigger {self.trigger.name} on model {self.model_name}"
 
     def deconstruct(self) -> Tuple[str, List[Any], Dict[str, Union[str, compiler.Trigger]]]:
@@ -158,7 +159,7 @@ class RemoveTrigger(TriggerOperationMixin, IndexOperation):
         schema_editor: PostgresSchemaEditor,
         from_state: ProjectState,
         to_state: ProjectState,
-    ):
+    ) -> None:
         model = to_state.apps.get_model(app_label, self.model_name)
         if self.allow_migrate_model_trigger(schema_editor, model):  # pragma: no branch
             from_model_state = from_state.models[app_label, self.model_name_lower]
@@ -171,7 +172,7 @@ class RemoveTrigger(TriggerOperationMixin, IndexOperation):
         schema_editor: PostgresSchemaEditor,
         from_state: ProjectState,
         to_state: ProjectState,
-    ):
+    ) -> None:
         model = to_state.apps.get_model(app_label, self.model_name)
         if self.allow_migrate_model_trigger(schema_editor, model):  # pragma: no branch
             to_model_state = to_state.models[app_label, self.model_name_lower]
@@ -196,7 +197,7 @@ class RemoveTrigger(TriggerOperationMixin, IndexOperation):
         return f"remove_{self.model_name_lower}_{self.name.lower()}"
 
 
-def _inject_m2m_dependency_in_proxy(proxy_op: CreateModel):
+def _inject_m2m_dependency_in_proxy(proxy_op: CreateModel) -> None:
     """
     Django does not properly add dependencies to m2m fields that are base classes for
     proxy models. Inject the dependency here
@@ -234,7 +235,7 @@ class MigrationAutodetectorMixin(MigrationAutodetectorBase):
         return super()._detect_changes(*args, **kwargs)  # type: ignore - not present in stubs
 
     def _get_add_trigger_op(
-        self, model: Type[models.Model], trigger: Union[compiler.Trigger, Any]
+        self, model: Type[models.Model], trigger: Union[compiler.Trigger, pgtrigger.Trigger]
     ) -> AddTrigger:
         if not isinstance(trigger, compiler.Trigger):
             trigger = trigger.compile(model)

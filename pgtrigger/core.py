@@ -7,6 +7,7 @@ import hashlib
 import operator
 import re
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     ClassVar,
@@ -15,6 +16,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Type,
     Union,
@@ -28,8 +30,8 @@ from django.db.models.query_utils import RegisterLookupMixin
 from django.db.models.sql import Query
 from django.db.models.sql.compiler import SQLCompiler
 from django.db.models.sql.datastructures import BaseTable
+from django.db.models.sql.where import WhereNode
 from django.db.utils import ProgrammingError
-from typing import TYPE_CHECKING
 
 from pgtrigger import compiler, features, registry, utils
 
@@ -209,7 +211,7 @@ class Condition:
 
     sql: str
 
-    def __init__(self, sql: Optional[str] = None):
+    def __init__(self, sql: Optional[str] = None) -> None:
         sql = sql or getattr(self, "sql", None)
 
         if not sql:
@@ -242,9 +244,14 @@ class _OldNewQuery(Query):
 
         return super().build_lookup(lookups, lhs, rhs)
 
-    def build_filter(self, filter_expr: Any, *args: Any, **kwargs: Any):
+    def build_filter(
+        self,
+        filter_expr: Union[Q, Tuple[str, Tuple[int, int]]],
+        *args: Any,
+        **kwargs: Any,
+    ) -> Union[Tuple[WhereNode, List[Any]], Tuple[WhereNode, Set[str]]]:
         if isinstance(filter_expr, Q):
-            return super().build_filter(filter_expr, *args, **kwargs)  # type: ignore
+            return super().build_filter(filter_expr, *args, **kwargs)  # type: ignore - TODO look into this
 
         if filter_expr[0].startswith("old__"):
             alias = "OLD"
@@ -451,7 +458,7 @@ class AnyChange(_Change):
         *fields: str,
         exclude: Union[List[str], None] = None,
         exclude_auto: Union[bool, None] = None,
-    ):
+    ) -> None:
         """
         If any supplied fields change, trigger the condition.
 
@@ -474,7 +481,7 @@ class AnyDontChange(_Change):
         *fields: str,
         exclude: Union[List[str], None] = None,
         exclude_auto: Union[bool, None] = None,
-    ):
+    ) -> None:
         """
         If any supplied fields don't change, trigger the condition.
 
@@ -497,7 +504,7 @@ class AllChange(_Change):
         *fields: str,
         exclude: Union[List[str], None] = None,
         exclude_auto: Union[bool, None] = None,
-    ):
+    ) -> None:
         """
         If all supplied fields change, trigger the condition.
 
@@ -520,7 +527,7 @@ class AllDontChange(_Change):
         *fields: str,
         exclude: Union[List[str], None] = None,
         exclude_auto: Union[bool, None] = None,
-    ):
+    ) -> None:
         """
         If all supplied fields don't change, trigger the condition.
 
@@ -874,7 +881,7 @@ class Trigger:
         model: Type[models.Model],
         database: Optional[str] = None,
         fetchall: bool = False,
-    ) -> Any:
+    ) -> Optional[List[Tuple[Any, ...]]]:
         """Conditionally execute SQL if migrations are allowed.
 
         Args:

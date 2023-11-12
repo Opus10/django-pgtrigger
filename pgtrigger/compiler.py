@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import collections
 import hashlib
-from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union, NewType
+from typing import Any, Dict, List, NewType, NoReturn, Optional, Tuple, Union
 
 import pgtrigger
 from pgtrigger import utils
-
 
 Unset = NewType("Unset", object)
 
@@ -125,7 +124,7 @@ class UpsertTriggerSql(collections.UserString):
         condition: Union[str, Unset] = _unset,
         execute: Union[str, Unset] = _unset,
         hash: Optional[str] = None,
-    ):
+    ) -> None:
         """Initialize the SQL and store it in the `.data` attribute."""
         self.kwargs = {
             key: str(val)

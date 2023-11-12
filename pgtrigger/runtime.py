@@ -118,7 +118,7 @@ def _inject_pgtrigger_ignore(
 
 
 @contextlib.contextmanager
-def _set_ignore_session_state(database: Optional[str] = None):
+def _set_ignore_session_state(database: Optional[str] = None) -> Iterator[None]:
     """Starts a session where triggers can be ignored"""
     connection = utils.connection(database)
     if _inject_pgtrigger_ignore not in connection.execute_wrappers:
