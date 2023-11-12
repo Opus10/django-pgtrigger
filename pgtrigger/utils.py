@@ -20,7 +20,7 @@ def _psycopg_version():
     except Exception as exc:  # pragma: no cover
         raise ImproperlyConfigured("Error loading psycopg2 or psycopg module") from exc
 
-    version_tuple = get_version_tuple(Database.__version__.split(" ", 1)[0])  # type: ignore - ignore due as we prefer psycopg2-binary
+    version_tuple = get_version_tuple(Database.__version__.split(" ", 1)[0])  # type: ignore
 
     if version_tuple[0] not in (2, 3):  # pragma: no cover
         raise ImproperlyConfigured(f"Pysocpg version {version_tuple[0]} not supported")

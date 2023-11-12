@@ -9,6 +9,7 @@ from typing import (
     Dict,
     Iterator,
     List,
+    Optional,
     Sequence,
     Set,
     Tuple,
@@ -33,7 +34,7 @@ PostgresSchemaEditor = postgresql_schema.DatabaseSchemaEditor
 def _add_trigger(
     schema_editor: PostgresSchemaEditor,
     model: Type[models.Model],
-    trigger: compiler.Trigger | Any,
+    trigger: Union[compiler.Trigger, Any],
 ) -> None:
     """Add a trigger to a model."""
     if not isinstance(trigger, compiler.Trigger):  # pragma: no cover
@@ -48,7 +49,7 @@ def _add_trigger(
 def _remove_trigger(
     schema_editor: PostgresSchemaEditor,
     model: Type[models.Model],
-    trigger: compiler.Trigger | Any,
+    trigger: Union[compiler.Trigger, Any],
 ) -> None:
     """Remove a trigger from a model."""
     if not isinstance(trigger, compiler.Trigger):  # pragma: no cover
@@ -233,7 +234,7 @@ class MigrationAutodetectorMixin(MigrationAutodetectorBase):
         return super()._detect_changes(*args, **kwargs)  # type: ignore - not present in stubs
 
     def _get_add_trigger_op(
-        self, model: Type[models.Model], trigger: compiler.Trigger | Any
+        self, model: Type[models.Model], trigger: Union[compiler.Trigger, Any]
     ) -> AddTrigger:
         if not isinstance(trigger, compiler.Trigger):
             trigger = trigger.compile(model)
@@ -309,7 +310,7 @@ class MigrationAutodetectorMixin(MigrationAutodetectorBase):
                 if isinstance(op, AddField) and model_name == op.model_name
             }
 
-            related_dependencies: List[Tuple[str, str, str | None, Union[bool, str]]] = [
+            related_dependencies: List[Tuple[str, str, Optional[str], Union[bool, str]]] = [
                 (app_label, model_name, name, True) for name in sorted(related_fields)
             ]
             # Depend on the model being created

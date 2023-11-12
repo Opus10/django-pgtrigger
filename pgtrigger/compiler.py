@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import collections
 import hashlib
-from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
+from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union, NewType
 
 import pgtrigger
 from pgtrigger import utils
 
-_unset = object()
+
+Unset = NewType("Unset", object)
+
+_unset = Unset(object())
 
 
 class UpsertTriggerSql(collections.UserString):
@@ -108,19 +111,19 @@ class UpsertTriggerSql(collections.UserString):
     def __init__(
         self,
         *,
-        ignore_func_name: str | object = _unset,
+        ignore_func_name: Union[str, Unset] = _unset,
         pgid: str,
-        declare: pgtrigger.Trigger | object = _unset,
+        declare: Union[str, Unset] = _unset,
         func: str,
         table: str,
-        constraint: str | object = _unset,
+        constraint: Union[str, Unset] = _unset,
         when: pgtrigger.When,
         operation: pgtrigger.Operation,
-        timing: Union[str, object] = _unset,
-        referencing: Union[str, object] = _unset,
-        level: Union[str, object] = _unset,
-        condition: Union[str, object] = _unset,
-        execute: Union[str, object] = _unset,
+        timing: Union[str, Unset] = _unset,
+        referencing: Union[pgtrigger.Referencing, str, Unset] = _unset,
+        level: Union[pgtrigger.Level, Unset] = _unset,
+        condition: Union[str, Unset] = _unset,
+        execute: Union[str, Unset] = _unset,
         hash: Optional[str] = None,
     ):
         """Initialize the SQL and store it in the `.data` attribute."""
