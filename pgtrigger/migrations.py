@@ -20,11 +20,8 @@ from typing import (
 import django.db.backends.postgresql.schema as postgresql_schema
 from django.apps import apps
 from django.db import models, transaction
-from django.db.migrations import autodetector
-from django.db.migrations.operations.base import Operation
 from django.db.migrations.operations.fields import AddField
 from django.db.migrations.operations.models import CreateModel, IndexOperation
-from django.db.migrations.state import ModelState, ProjectState
 
 import pgtrigger
 from pgtrigger import compiler, utils
@@ -62,6 +59,9 @@ def _remove_trigger(
 
 
 if TYPE_CHECKING:
+    from django.db.migrations import autodetector
+    from django.db.migrations.operations.base import Operation
+    from django.db.migrations.state import ModelState, ProjectState
     TriggerOperationBase = Operation
 else:
     TriggerOperationBase = object

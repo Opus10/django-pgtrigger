@@ -1,19 +1,13 @@
 from __future__ import annotations
 
 import collections
-from typing import TYPE_CHECKING, Callable, Dict, List, Set, Tuple, Type, TypeVar
+from typing import Callable, Dict, List, Set, Tuple, Type, TypeVar
+
+from django.db import models
+from django.db.models import base as models_base
 
 from pgtrigger import features
-
-_unset = object()
-
-
-if TYPE_CHECKING:
-    from django.db import models
-    from django.db.models import base as models_base
-
-    from pgtrigger.core import Trigger
-
+from pgtrigger.core import Trigger
 
 _B = TypeVar("_B", bound=models_base.ModelBase)
 
@@ -100,7 +94,7 @@ class _Registry(collections.UserDict[str, Tuple[Type[models.Model], Trigger]]):
 _registry = _Registry()
 
 
-def set(uri: str, *, model: Type[models.Model], trigger: "Trigger") -> None:
+def set(uri: str, *, model: Type[models.Model], trigger: Trigger) -> None:
     """Set a trigger in the registry
 
     Args:
@@ -120,7 +114,7 @@ def delete(uri: str) -> None:
     del _registry[uri]
 
 
-def registered(*uris: str) -> List[Tuple[Type[models.Model], "Trigger"]]:
+def registered(*uris: str) -> List[Tuple[Type[models.Model], Trigger]]:
     """
     Get registered trigger objects.
 

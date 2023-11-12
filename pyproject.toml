@@ -92,7 +92,7 @@ markers = [
 ]
 
 [tool.ruff]
-select = ["E", "F", "B", "I", "G", "C4"]
+select = ["E", "F", "B", "I", "G", "TCH", "C4", "UP037"]
 line-length = 99
 target-version = "py38"
 

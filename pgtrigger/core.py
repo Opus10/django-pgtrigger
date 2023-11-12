@@ -23,17 +23,19 @@ from typing import (
 )
 
 from django.db import DEFAULT_DB_ALIAS, models, router, transaction
-from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.models.expressions import Col
 from django.db.models.fields.related import RelatedField
-from django.db.models.query_utils import RegisterLookupMixin
 from django.db.models.sql import Query
-from django.db.models.sql.compiler import SQLCompiler
 from django.db.models.sql.datastructures import BaseTable
-from django.db.models.sql.where import WhereNode
 from django.db.utils import ProgrammingError
 
 from pgtrigger import compiler, features, registry, utils
+
+if TYPE_CHECKING:
+    from django.db.backends.base.base import BaseDatabaseWrapper
+    from django.db.models.query_utils import RegisterLookupMixin
+    from django.db.models.sql.compiler import SQLCompiler
+    from django.db.models.sql.where import WhereNode
 
 if utils.psycopg_maj_version == 2:
     import psycopg2.extensions  # type: ignore
