@@ -29,6 +29,7 @@ from django.db.models.sql import Query
 from django.db.models.sql.compiler import SQLCompiler
 from django.db.models.sql.datastructures import BaseTable
 from django.db.utils import ProgrammingError
+from typing import TYPE_CHECKING
 
 from pgtrigger import compiler, features, registry, utils
 
@@ -362,6 +363,20 @@ class Q(models.Q, Condition):
 
         return sql % args
 
+    # We need to manually stub out operations that are not stubed
+    # in a generic manner by Django.
+
+    if TYPE_CHECKING:
+
+        def __or__(self, other: Q) -> Q:
+            ...
+
+        def __and__(self, other: Q) -> Q:
+            ...
+
+        def __xor__(self, other: Q) -> Q:
+            ...
+
 
 class _Change(Condition):
     """For specifying a condition based on changes to fields.
@@ -393,7 +408,7 @@ class _Change(Condition):
         inverted._negated = not inverted._negated
         return inverted
 
-    def resolve(self, model: models.Model) -> str:
+    def resolve(self, model: Type[models.Model]) -> str:
         model_fields = {f.name for f in model._meta.fields}
         for field in self.fields + self.exclude:
             if field not in model_fields:
@@ -676,7 +691,7 @@ class Trigger:
         # and pruning tasks.
         return pgid.lower()
 
-    def get_condition(self, model: Type[models.Model]) -> Optional[Condition]:
+    def get_condition(self, model: Optional[Type[models.Model]]) -> Optional[Condition]:
         """Get the condition of the trigger.
 
         Args:
@@ -687,7 +702,7 @@ class Trigger:
         """
         return self.condition
 
-    def get_declare(self, model: Type[models.Model]) -> List[Tuple[str, str]]:
+    def get_declare(self, model: Optional[Type[models.Model]]) -> List[Tuple[str, str]]:
         """
         Gets the DECLARE part of the trigger function if any variables
         are used.
@@ -701,7 +716,7 @@ class Trigger:
         """
         return self.declare or []
 
-    def get_func(self, model: Type[models.Model]) -> Union[str, Func]:
+    def get_func(self, model: Optional[Type[models.Model]]) -> Union[str, Func]:
         """
         Returns the trigger function that comes between the BEGIN and END
         clause.
@@ -747,7 +762,7 @@ class Trigger:
 
         return resolved
 
-    def render_declare(self, model: Type[models.Model]) -> str:
+    def render_declare(self, model: Optional[Type[models.Model]]) -> str:
         """Renders the DECLARE of the trigger function, if any.
 
         Args:

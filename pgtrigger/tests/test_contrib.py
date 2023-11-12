@@ -1,3 +1,4 @@
+# pyright: basic
 import ddf
 import pytest
 from django.core.exceptions import FieldDoesNotExist
@@ -95,7 +96,7 @@ def test_update_search_vector_ignore():
         name="hi", vector_field="vector_field", document_fields=["hi"]
     )
     with pytest.raises(RuntimeError, match="Cannot ignore UpdateSearchVector"):
-        with trigger.ignore(models.SearchModel):
+        with trigger.ignore(models.SearchModel):  # type: ignore
             pass
 
 

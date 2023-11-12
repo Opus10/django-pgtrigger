@@ -1,3 +1,4 @@
+# pyright: basic
 """Tests multi-database support"""
 
 # flake8: noqa
@@ -59,8 +60,8 @@ def test_multi_schema_triggers_work():
     call_command("pgtrigger", "install", "-d", "order")
     call_command("pgtrigger", "install", "-d", "receipt")
 
-    order = ddf.G("tests.OrderSchema")
-    receipt = ddf.G("tests.ReceiptSchema")
+    order = ddf.G(models.OrderSchema)
+    receipt = ddf.G(models.ReceiptSchema)
 
     with utils.raises_trigger_error(match="Cannot delete", database="order"):
         order.delete()
@@ -71,7 +72,7 @@ def test_multi_schema_triggers_work():
 
     receipt.delete()
 
-    order = ddf.G("tests.OrderSchema")
+    order = ddf.G(models.OrderSchema)
     with pgtrigger.ignore("tests.OrderSchema:protect_deletes"):
         order.delete()
 

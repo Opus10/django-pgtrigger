@@ -1,3 +1,4 @@
+# pyright: basic
 import pytest
 from django.db import connection
 

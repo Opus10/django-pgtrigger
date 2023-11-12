@@ -1,3 +1,4 @@
+# pyright: basic
 # flake8: noqa
 from unittest import mock
 

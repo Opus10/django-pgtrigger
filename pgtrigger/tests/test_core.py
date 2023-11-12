@@ -1,3 +1,4 @@
+# pyright: basic
 import datetime as dt
 
 import ddf
@@ -55,7 +56,7 @@ def test_through_model():
     Tests the "ThroughTrigger" model to verify that triggers execute on M2M through models
     """
     test_trigger = ddf.G(models.TestTrigger)
-    test_trigger.m2m_field.add(ddf.G("auth.User"))
+    test_trigger.m2m_field.add(ddf.G("auth.User"))  # type: ignore
 
     with utils.raises_trigger_error(match="Cannot delete"):
         test_trigger.m2m_field.clear()
@@ -90,6 +91,8 @@ def test_statement_row_level_logging():
     # The row-level trigger should have produced five entries
     assert models.LogEntry.objects.filter(level="ROW").count() == 5
     obj = models.ToLogModel.objects.first()
+    if not obj:
+        pytest.fail()
     obj.save()
 
     # A duplicate update shouldn't fire any more row-level log entries
@@ -249,7 +252,7 @@ def test_is_distinct_from_condition_fk_field():
     )
     with trigger.install(models.TestTrigger):
         with utils.raises_trigger_error(match="Cannot update rows"):
-            test_int_fk_model.fk_field = User(id=1)
+            test_int_fk_model.fk_field = User(id=1)  # type: ignore
             test_int_fk_model.save()
 
         # Saving the same values should work fine
@@ -424,16 +427,16 @@ def test_arg_checks():
         pgtrigger.Trigger(when=pgtrigger.Before, operation=pgtrigger.Update)
 
     with pytest.raises(ValueError, match='Invalid "level"'):
-        pgtrigger.Trigger(level="invalid")
+        pgtrigger.Trigger(level="invalid")  # type: ignore
 
     with pytest.raises(ValueError, match='Invalid "when"'):
-        pgtrigger.Trigger(when="invalid")
+        pgtrigger.Trigger(when="invalid")  # type: ignore
 
     with pytest.raises(ValueError, match='Invalid "operation"'):
-        pgtrigger.Trigger(when=pgtrigger.Before, operation="invalid")
+        pgtrigger.Trigger(when=pgtrigger.Before, operation="invalid")  # type: ignore
 
     with pytest.raises(ValueError, match='Invalid "timing"'):
-        pgtrigger.Trigger(when=pgtrigger.Before, operation=pgtrigger.Update, timing="timing")
+        pgtrigger.Trigger(when=pgtrigger.Before, operation=pgtrigger.Update, timing="timing")  # type: ignore
 
     with pytest.raises(ValueError, match="Row-level triggers cannot have"):
         pgtrigger.Trigger(
@@ -466,7 +469,7 @@ def test_arg_checks():
     with pytest.raises(ValueError, match="> 47"):
         pgtrigger.Trigger(  # noqa
             when=pgtrigger.Before, operation=pgtrigger.Update, name="1" * 48
-        ).pgid
+        ).pgid  # type: ignore
 
 
 def test_operations():
@@ -496,7 +499,7 @@ def test_custom_trigger_definitions():
         operation=pgtrigger.Insert | pgtrigger.Update,
         func="RAISE EXCEPTION 'no no no!';",
     )
-    with trigger.install(test_model):
+    with trigger.install(models.TestTrigger):
         # Inserts and updates are no longer available
         with utils.raises_trigger_error(match="no no no!"):
             models.TestTrigger.objects.create()
@@ -548,7 +551,7 @@ def test_trigger_conditions():
         func="RAISE EXCEPTION 'no no no!';",
         condition=pgtrigger.Q(new__field="hello"),
     )
-    with trigger.install(test_model):
+    with trigger.install(models.TestTrigger):
         ddf.G(models.TestTrigger, field="hi!")
         with utils.raises_trigger_error(match="no no no!"):
             models.TestTrigger.objects.create(field="hello")
@@ -561,7 +564,7 @@ def test_trigger_conditions():
         func="RAISE EXCEPTION 'no no no!';",
         condition=pgtrigger.Condition("OLD.* IS NOT DISTINCT FROM NEW.*"),
     )
-    with trigger.install(test_model):
+    with trigger.install(models.TestTrigger):
         test_model.int_field = test_model.int_field + 1
         test_model.save()
 

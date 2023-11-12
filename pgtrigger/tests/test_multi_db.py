@@ -1,4 +1,5 @@
 """Tests multi-database support"""
+# pyright: basic
 
 import contextlib
 

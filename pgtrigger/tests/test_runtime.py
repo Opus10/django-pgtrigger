@@ -1,3 +1,4 @@
+# pyright: basic
 import ddf
 import pytest
 from django.db import IntegrityError, connection, transaction
