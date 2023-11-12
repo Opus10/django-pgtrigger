@@ -1,9 +1,6 @@
 import copy
-import os
 
-import django
 import dj_database_url
-
 
 SECRET_KEY = "django-pgtrigger"
 # Install the tests as an app so that we can make test models

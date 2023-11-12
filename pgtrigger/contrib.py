@@ -1,7 +1,9 @@
 """Additional goodies"""
 import functools
 import operator
-from typing import Any, List, Tuple, Union
+from typing import Any, List, NoReturn, Optional, Tuple, Type, Union
+
+from django.db import models
 
 from pgtrigger import core, utils
 
@@ -14,7 +16,7 @@ class Protect(core.Trigger):
 
     when: core.When = core.Before
 
-    def get_func(self, model):
+    def get_func(self, model: Type[models.Model]) -> str:
         sql = f"""
             RAISE EXCEPTION
                 'pgtrigger: Cannot {str(self.operation).lower()} rows from % table',
@@ -42,7 +44,7 @@ class ReadOnly(Protect):
         fields: Union[List[str], None] = None,
         exclude: Union[List[str], None] = None,
         **kwargs: Any,
-    ):
+    ) -> None:
         self.fields = fields or self.fields
         self.exclude = exclude or self.exclude
 
@@ -51,7 +53,7 @@ class ReadOnly(Protect):
 
         super().__init__(**kwargs)
 
-    def get_condition(self, model):
+    def get_condition(self, model: Type[models.Model]) -> core.Condition:
         if not self.fields and not self.exclude:
             return core.Condition("OLD.* IS DISTINCT FROM NEW.*")
         else:
@@ -61,8 +63,10 @@ class ReadOnly(Protect):
                     model._meta.get_field(field)
 
                 fields = [f.name for f in model._meta.fields if f.name not in self.exclude]
-            else:
+            elif self.fields:
                 fields = [model._meta.get_field(field).name for field in self.fields]
+            else:  # pragma: no cover
+                raise ValueError("Must provide either fields or exclude must have been provided")
 
             return functools.reduce(
                 operator.or_,
@@ -83,32 +87,35 @@ class FSM(core.Trigger):
 
     when: core.When = core.Before
     operation: core.Operation = core.Update
-    field: str = None
-    transitions: List[Tuple[str, str]] = None
+    field: str
+    transitions: List[Tuple[str, str]]
 
     def __init__(
         self,
         *,
-        name: str = None,
+        name: Optional[str] = None,
         condition: Union[core.Condition, None] = None,
-        field: str = None,
-        transitions: List[Tuple[str, str]] = None,
-    ):
-        self.field = field or self.field
-        self.transitions = transitions or self.transitions
+        field: Optional[str] = None,
+        transitions: Optional[List[Tuple[str, str]]] = None,
+    ) -> None:
+        field = field or getattr(self, "field", None)
+        transitions = transitions or getattr(self, "transitions", None)
 
-        if not self.field:  # pragma: no cover
+        if not field:  # pragma: no cover
             raise ValueError('Must provide "field" for FSM')
 
-        if not self.transitions:  # pragma: no cover
+        if not transitions:  # pragma: no cover
             raise ValueError('Must provide "transitions" for FSM')
+
+        self.field = field
+        self.transitions = transitions
 
         super().__init__(name=name, condition=condition)
 
-    def get_declare(self, model):
+    def get_declare(self, model: Type[models.Model]) -> List[Tuple[str, str]]:
         return [("_is_valid_transition", "BOOLEAN")]
 
-    def get_func(self, model):
+    def get_func(self, model: Type[models.Model]) -> str:
         col = model._meta.get_field(self.field).column
         transition_uris = "{" + ",".join([f"{old}:{new}" for old, new in self.transitions]) + "}"
 
@@ -144,30 +151,37 @@ class SoftDelete(core.Trigger):
 
     when: core.When = core.Before
     operation: core.Operation = core.Delete
-    field: str = None
-    value: Union[bool, str, int, None] = False
+    field: str
+    value: Union[bool, str, int, object, None] = False
 
     def __init__(
         self,
         *,
-        name: str = None,
-        condition: Union[core.Condition, None] = None,
-        field: str = None,
-        value: Union[bool, str, int, None] = _unset,
-    ):
-        self.field = field or self.field
-        self.value = value if value is not _unset else self.value
+        name: Optional[str] = None,
+        condition: Optional[core.Condition] = None,
+        field: Optional[str] = None,
+        value: Optional[Union[bool, str, int, object]] = _unset,
+    ) -> None:
+        field = field or getattr(self, "field", None)
+        self.value = value if value is not _unset else getattr(self, "value", None)
 
-        if not self.field:  # pragma: no cover
+        if not field:  # pragma: no cover
             raise ValueError('Must provide "field" for soft delete')
+
+        self.field = field
 
         super().__init__(name=name, condition=condition)
 
-    def get_func(self, model):
+    def get_func(self, model: Type[models.Model]) -> str:
         soft_field = model._meta.get_field(self.field).column
-        pk_col = model._meta.pk.column
+        pk = model._meta.pk
 
-        def _render_value():
+        if pk is None:  # pragma: no cover - we should never get here
+            raise ValueError("Cannot use SoftDelete on a model without a primary key.")
+
+        pk_col = pk.column
+
+        def _render_value() -> str:
             if self.value is None:
                 return "NULL"
             elif isinstance(self.value, str):
@@ -203,40 +217,44 @@ class UpdateSearchVector(core.Trigger):
     """  # noqa
 
     when: core.When = core.Before
-    vector_field: str = None
-    document_fields: List[str] = None
+    vector_field: str
+    document_fields: List[str]
     config_name: str = "pg_catalog.english"
 
     def __init__(
         self,
         *,
-        name: str = None,
-        vector_field: str = None,
-        document_fields: List[str] = None,
-        config_name: str = None,
-    ):
-        self.vector_field = vector_field or self.vector_field
-        self.document_fields = document_fields or self.document_fields
-        self.config_name = config_name or self.config_name
+        name: Optional[str] = None,
+        vector_field: Optional[str] = None,
+        document_fields: Optional[List[str]] = None,
+        config_name: Optional[str] = None,
+    ) -> None:
+        vector_field = vector_field or getattr(self, "vector_field", None)
+        document_fields = document_fields or getattr(self, "document_fields", None)
+        config_name = config_name or getattr(self, "config_name", None)
 
-        if not self.vector_field:
+        if not vector_field:
             raise ValueError('Must provide "vector_field" to update search vector')
 
-        if not self.document_fields:
+        if not document_fields:
             raise ValueError('Must provide "document_fields" to update search vector')
 
-        if not self.config_name:  # pragma: no cover
+        if not config_name:  # pragma: no cover
             raise ValueError('Must provide "config_name" to update search vector')
 
-        super().__init__(name=name, operation=core.Insert | core.UpdateOf(*document_fields))
+        self.vector_field = vector_field
+        self.document_fields = document_fields
+        self.config_name = config_name
 
-    def ignore(self, model):
+        super().__init__(name=name, operation=core.Insert | core.UpdateOf(*self.document_fields))
+
+    def ignore(self, model: Type[models.Model]) -> NoReturn:
         raise RuntimeError(f"Cannot ignore {self.__class__.__name__} triggers")
 
-    def get_func(self, model):
+    def get_func(self, model: Type[models.Model]) -> str:
         return ""
 
-    def render_execute(self, model):
+    def render_execute(self, model: Type[models.Model]) -> str:
         document_cols = [model._meta.get_field(field).column for field in self.document_fields]
         rendered_document_cols = ", ".join(utils.quote(col) for col in document_cols)
         vector_col = model._meta.get_field(self.vector_field).column

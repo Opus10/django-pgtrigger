@@ -2,9 +2,24 @@
 Functions for runtime-configuration of triggers, such as ignoring
 them or dynamically setting the search path.
 """
+from __future__ import annotations
+
 import contextlib
 import threading
-from typing import TYPE_CHECKING, List, Union
+import typing
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Type,
+    Union,
+)
 
 from django.db import connections
 
@@ -13,12 +28,15 @@ from pgtrigger import registry, utils
 if utils.psycopg_maj_version == 2:
     import psycopg2.extensions
 elif utils.psycopg_maj_version == 3:
-    import psycopg.pq
+    import psycopg.pq  # type: ignore
 else:
     raise AssertionError
 
 if TYPE_CHECKING:
-    from pgtrigger import Timing
+    from django.db import models
+    from django.db.backends.utils import CursorWrapper
+
+    from pgtrigger import Timing, Trigger
 
 
 # All triggers currently being ignored
@@ -28,7 +46,7 @@ _ignore = threading.local()
 _schema = threading.local()
 
 
-def _is_concurrent_statement(sql):
+def _is_concurrent_statement(sql: str) -> bool:
     """
     True if the sql statement is concurrent and cannot be ran in a transaction
     """
@@ -36,22 +54,22 @@ def _is_concurrent_statement(sql):
     return sql.startswith("create") and "concurrently" in sql
 
 
-def _is_transaction_errored(cursor):
+def _is_transaction_errored(cursor: CursorWrapper) -> bool:
     """
     True if the current transaction is in an errored state
     """
     if utils.psycopg_maj_version == 2:
         return (
             cursor.connection.get_transaction_status()
-            == psycopg2.extensions.TRANSACTION_STATUS_INERROR
+            == psycopg2.extensions.TRANSACTION_STATUS_INERROR  # type: ignore
         )
     elif utils.psycopg_maj_version == 3:
-        return cursor.connection.info.transaction_status == psycopg.pq.TransactionStatus.INERROR
+        return cursor.connection.info.transaction_status == psycopg.pq.TransactionStatus.INERROR  # type: ignore
     else:
         raise AssertionError
 
 
-def _can_inject_variable(cursor, sql):
+def _can_inject_variable(cursor: CursorWrapper, sql: str) -> bool:
     """True if we can inject a SQL variable into a statement.
 
     A named cursor automatically prepends
@@ -72,14 +90,20 @@ def _can_inject_variable(cursor, sql):
     )
 
 
-def _execute_wrapper(execute_result):
+def _execute_wrapper(execute_result: CursorWrapper) -> CursorWrapper:
     if utils.psycopg_maj_version == 3:
         while execute_result.nextset():
             pass
     return execute_result
 
 
-def _inject_pgtrigger_ignore(execute, sql, params, many, context):
+def _inject_pgtrigger_ignore(
+    execute: Callable[..., CursorWrapper],
+    sql: str,
+    params: Sequence[str],
+    many: bool,
+    context: Dict[str, Any],
+) -> CursorWrapper:
     """
     A connection execution wrapper that sets a pgtrigger.ignore
     variable in the executed SQL. This lets other triggers know when
@@ -94,7 +118,7 @@ def _inject_pgtrigger_ignore(execute, sql, params, many, context):
 
 
 @contextlib.contextmanager
-def _set_ignore_session_state(database=None):
+def _set_ignore_session_state(database: Optional[str] = None) -> Iterator[None]:
     """Starts a session where triggers can be ignored"""
     connection = utils.connection(database)
     if _inject_pgtrigger_ignore not in connection.execute_wrappers:
@@ -112,7 +136,7 @@ def _set_ignore_session_state(database=None):
 
 
 @contextlib.contextmanager
-def _ignore_session(databases=None):
+def _ignore_session(databases: Optional[List[str]] = None) -> Iterator[None]:
     """Starts a session where triggers can be ignored"""
     with contextlib.ExitStack() as stack:
         for database in utils.postgres_databases(databases):
@@ -122,12 +146,12 @@ def _ignore_session(databases=None):
 
 
 @contextlib.contextmanager
-def _set_ignore_state(model, trigger):
+def _set_ignore_state(model: Type[models.Model], trigger: Trigger) -> Iterator[None]:
     """
     Manage state to ignore a single URI
     """
     if not hasattr(_ignore, "value"):
-        _ignore.value = set()
+        _ignore.value = typing.cast(Set[str], set())
 
     pgid = trigger.get_pgid(model)
     if pgid not in _ignore.value:
@@ -149,7 +173,7 @@ def _set_ignore_state(model, trigger):
 
 
 @contextlib.contextmanager
-def ignore(*uris: str, databases: Union[List[str], None] = None):
+def ignore(*uris: str, databases: Optional[List[str]] = None) -> Iterator[None]:
     """
     Dynamically ignore registered triggers matching URIs from executing in
     an individual thread.
@@ -184,10 +208,16 @@ def ignore(*uris: str, databases: Union[List[str], None] = None):
         yield
 
 
-ignore.session = _ignore_session
+ignore.session = _ignore_session  # type: ignore
 
 
-def _inject_schema(execute, sql, params, many, context):
+def _inject_schema(
+    execute: Callable[..., Any],
+    sql: str,
+    params: Sequence[str],
+    many: bool,
+    context: Dict[str, Any],
+) -> CursorWrapper:
     """
     A connection execution wrapper that sets the schema
     variable in the executed SQL.
@@ -201,7 +231,7 @@ def _inject_schema(execute, sql, params, many, context):
 
 
 @contextlib.contextmanager
-def _set_schema_session_state(database=None):
+def _set_schema_session_state(database: Optional[str] = None) -> Iterator[None]:
     connection = utils.connection(database)
 
     if _inject_schema not in connection.execute_wrappers:
@@ -224,14 +254,15 @@ def _set_schema_session_state(database=None):
                     # so flush the local variable
                     with connection.cursor() as cursor:
                         cursor.execute(
-                            "SELECT set_config('search_path', %s, false)", [initial_search_path]
+                            "SELECT set_config('search_path', %s, false)",
+                            [initial_search_path],  # type: ignore - TODO, stop this from being unbound
                         )
     else:
         yield
 
 
 @contextlib.contextmanager
-def _schema_session(databases=None):
+def _schema_session(databases: Optional[List[str]] = None) -> Iterator[None]:
     """Starts a session where the search path can be modified"""
     with contextlib.ExitStack() as stack:
         for database in utils.postgres_databases(databases):
@@ -241,14 +272,14 @@ def _schema_session(databases=None):
 
 
 @contextlib.contextmanager
-def _set_schema_state(*schemas):
+def _set_schema_state(*schemas: str) -> Iterator[None]:
     if not hasattr(_schema, "value"):
         # Use a list instead of a set because ordering is important to the search path
-        _schema.value = []
+        _schema.value = typing.cast(List[str], [])
 
-    schemas = [s for s in schemas if s not in _schema.value]
+    schemas_to_set = [s for s in schemas if s not in _schema.value]
     try:
-        _schema.value.extend(schemas)
+        _schema.value.extend(schemas_to_set)
         yield
     finally:
         for s in schemas:
@@ -256,7 +287,7 @@ def _set_schema_state(*schemas):
 
 
 @contextlib.contextmanager
-def schema(*schemas: str, databases: Union[List[str], None] = None):
+def schema(*schemas: str, databases: Union[List[str], None] = None) -> Iterator[None]:
     """
     Sets the search path to the provided schemas.
 
@@ -276,10 +307,10 @@ def schema(*schemas: str, databases: Union[List[str], None] = None):
         yield
 
 
-schema.session = _schema_session
+schema.session = _schema_session  # type: ignore
 
 
-def constraints(timing: "Timing", *uris: str, databases: Union[List[str], None] = None) -> None:
+def constraints(timing: Timing, *uris: str, databases: Optional[List[str]] = None) -> None:
     """
     Set deferrable constraint timing for the given triggers, which
     will persist until overridden or until end of transaction.

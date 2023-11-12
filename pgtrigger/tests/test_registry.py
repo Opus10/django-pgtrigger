@@ -1,3 +1,4 @@
+# pyright: basic
 import pytest
 
 import pgtrigger

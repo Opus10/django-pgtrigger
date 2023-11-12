@@ -1,34 +1,36 @@
+from __future__ import annotations
+
 import collections
-from typing import TYPE_CHECKING, Callable, List, Tuple
+from typing import Callable, Dict, List, Set, Tuple, Type, TypeVar
+
+from django.db import models
+from django.db.models import base as models_base
 
 from pgtrigger import features
+from pgtrigger.core import Trigger
 
-_unset = object()
-
-
-if TYPE_CHECKING:
-    from django.db.models import Model
-
-    from pgtrigger.core import Trigger
+_B = TypeVar("_B", bound=models_base.ModelBase)
 
 
 # All registered triggers for each model
-class _Registry(collections.UserDict):
+
+
+class _Registry(collections.UserDict[str, Tuple[Type[models.Model], Trigger]]):
     @property
-    def pg_function_names(self):
+    def pg_function_names(self) -> Set[str]:
         """
         The postgres function names of all registered triggers
         """
         return {trigger.get_pgid(model) for model, trigger in self.values()}
 
     @property
-    def by_db_table(self):
+    def by_db_table(self) -> Dict[Tuple[str, str], Trigger]:
         """
         Return the registry keys by db_table, name
         """
         return {(model._meta.db_table, trigger.name): trigger for model, trigger in self.values()}
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Tuple[Type[models.Model], Trigger]:
         assert isinstance(key, str)
         if len(key.split(":")) == 1:
             raise ValueError(
@@ -39,7 +41,7 @@ class _Registry(collections.UserDict):
 
         return super().__getitem__(key)
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: Tuple[Type[models.Model], Trigger]) -> None:
         assert isinstance(key, str)
         model, trigger = value
         assert f"{model._meta.label}:{trigger.name}" == key
@@ -66,7 +68,7 @@ class _Registry(collections.UserDict):
         # triggers in Meta already, meaning the trigger may already exist. If so, ignore it
         if features.migrations():  # pragma: no branch
             if trigger not in getattr(model._meta, "triggers", []):
-                model._meta.triggers = list(getattr(model._meta, "triggers", [])) + [trigger]
+                model._meta.triggers = list(getattr(model._meta, "triggers", [])) + [trigger]  # type: ignore
 
             if trigger not in model._meta.original_attrs.get("triggers", []):
                 model._meta.original_attrs["triggers"] = list(
@@ -75,14 +77,14 @@ class _Registry(collections.UserDict):
 
         return super().__setitem__(key, value)
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: str) -> None:
         model, trigger = self[key]
 
         super().__delitem__(key)
 
         # If we support migration integration, remove from Meta triggers
         if features.migrations():  # pragma: no branch
-            model._meta.triggers.remove(trigger)
+            model._meta.triggers.remove(trigger)  # type: ignore
             # If model._meta.triggers and the original_attrs triggers are the same,
             # we don't need to remove it from the original_attrs
             if trigger in model._meta.original_attrs["triggers"]:  # pragma: no branch
@@ -92,7 +94,7 @@ class _Registry(collections.UserDict):
 _registry = _Registry()
 
 
-def set(uri: str, *, model: "Model", trigger: "Trigger") -> None:
+def set(uri: str, *, model: Type[models.Model], trigger: Trigger) -> None:
     """Set a trigger in the registry
 
     Args:
@@ -112,7 +114,7 @@ def delete(uri: str) -> None:
     del _registry[uri]
 
 
-def registered(*uris: str) -> List[Tuple["Model", "Trigger"]]:
+def registered(*uris: str) -> List[Tuple[Type[models.Model], Trigger]]:
     """
     Get registered trigger objects.
 
@@ -124,11 +126,10 @@ def registered(*uris: str) -> List[Tuple["Model", "Trigger"]]:
     Returns:
         Matching trigger objects.
     """
-    uris = uris or _registry.keys()
-    return [_registry[uri] for uri in uris]
+    return [_registry[uri] for uri in uris or _registry.keys()]
 
 
-def register(*triggers: "Trigger") -> Callable:
+def register(*triggers: Trigger) -> Callable[[_B], _B]:
     """
     Register the given triggers with wrapped Model class.
 
@@ -153,7 +154,7 @@ def register(*triggers: "Trigger") -> Callable:
             pgtrigger.register(trigger_object)(MyModel)
     """
 
-    def _model_wrapper(model_class):
+    def _model_wrapper(model_class: _B) -> _B:
         for trigger in triggers:
             trigger.register(model_class)
 

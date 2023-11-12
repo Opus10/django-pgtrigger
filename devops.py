@@ -17,7 +17,6 @@ import tempfile
 
 from packaging import version
 
-
 CIRCLECI_ENV_VAR = "CIRCLECI"
 
 
