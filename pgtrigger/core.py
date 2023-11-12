@@ -10,6 +10,7 @@ from typing import (
     Any,
     Callable,
     ClassVar,
+    ContextManager,
     Iterator,
     List,
     Optional,
@@ -304,7 +305,9 @@ class IsDistinctFrom(models.Lookup[Any]):
 
     lookup_name = "df"
 
-    def as_sql(self, compiler: SQLCompiler, connection: BaseDatabaseWrapper):
+    def as_sql(
+        self, compiler: SQLCompiler, connection: BaseDatabaseWrapper
+    ) -> Tuple[str, List[Union[int, str]]]:
         lhs, lhs_params = self.process_lhs(compiler, connection)  # type: ignore - stubs are wrong
         rhs, rhs_params = self.process_rhs(compiler, connection)  # type: ignore - stubs are wrong
         params = lhs_params + rhs_params
@@ -321,7 +324,9 @@ class IsNotDistinctFrom(models.Lookup[Any]):
 
     lookup_name = "ndf"
 
-    def as_sql(self, compiler: SQLCompiler, connection: BaseDatabaseWrapper):
+    def as_sql(
+        self, compiler: SQLCompiler, connection: BaseDatabaseWrapper
+    ) -> Tuple[str, List[Union[int, str]]]:
         lhs, lhs_params = self.process_lhs(compiler, connection)  # type: ignore - stubs are wrong
         rhs, rhs_params = self.process_rhs(compiler, connection)  # type: ignore - stubs are wrong
         params = lhs_params + rhs_params
@@ -375,7 +380,7 @@ class _Change(Condition):
         exclude_auto: Union[bool, None] = None,
         all: bool = False,
         comparison: str = "df",
-    ):
+    ) -> None:
         self.fields = list(fields) or getattr(self, "fields", [])
         self.exclude = exclude or self.exclude or getattr(self, "exclude", [])
         self.exclude_auto = self.exclude_auto if exclude_auto is None else exclude_auto
@@ -383,7 +388,7 @@ class _Change(Condition):
         self.all = all
         self.comparison = comparison
 
-    def __invert__(self):
+    def __invert__(self) -> _Change:
         inverted = copy.copy(self)
         inverted._negated = not inverted._negated
         return inverted
@@ -550,7 +555,7 @@ def _cleanup_on_exit(cleanup: Callable[[], Any]) -> Iterator[None]:
     cleanup()
 
 
-def _ignore_func_name():
+def _ignore_func_name() -> str:
     ignore_func = "_pgtrigger_should_ignore"
     if features.schema():  # pragma: no branch
         ignore_func = f"{utils.quote(features.schema())}.{ignore_func}"
@@ -586,7 +591,7 @@ class Trigger:
         func: Union[Func, str, None] = None,
         declare: Optional[List[Tuple[str, str]]] = None,
         timing: Optional[Timing] = None,
-    ):
+    ) -> None:
         name = name or getattr(self, "name", None)
         when = when or getattr(self, "when", None)
         operation = operation or getattr(self, "operation", None)
@@ -921,7 +926,7 @@ class Trigger:
             else:
                 return (INSTALLED, results[0][2] == "O")
 
-    def register(self, *models: Type[models.Model]) -> Any:
+    def register(self, *models: Type[models.Model]) -> ContextManager[None]:
         """Register model classes with the trigger
 
         Args:
@@ -932,7 +937,7 @@ class Trigger:
 
         return _cleanup_on_exit(lambda: self.unregister(*models))
 
-    def unregister(self, *models: Type[models.Model]) -> Any:
+    def unregister(self, *models: Type[models.Model]) -> ContextManager[None]:
         """Unregister model classes with the trigger.
 
         Args:
@@ -943,7 +948,9 @@ class Trigger:
 
         return _cleanup_on_exit(lambda: self.register(*models))
 
-    def install(self, model: Type[models.Model], database: Optional[str] = None):
+    def install(
+        self, model: Type[models.Model], database: Optional[str] = None
+    ) -> ContextManager[None]:
         """Installs the trigger for a model.
 
         Args:
@@ -955,7 +962,9 @@ class Trigger:
             self.exec_sql(install_sql, model, database=database)
         return _cleanup_on_exit(lambda: self.uninstall(model, database=database))
 
-    def uninstall(self, model: Type[models.Model], database: Optional[str] = None):
+    def uninstall(
+        self, model: Type[models.Model], database: Optional[str] = None
+    ) -> ContextManager[None]:
         """Uninstalls the trigger for a model.
 
         Args:
@@ -968,7 +977,9 @@ class Trigger:
             lambda: self.install(model, database=database)
         )
 
-    def enable(self, model: Type[models.Model], database: Optional[str] = None):
+    def enable(
+        self, model: Type[models.Model], database: Optional[str] = None
+    ) -> ContextManager[None]:
         """Enables the trigger for a model.
 
         Args:
@@ -981,7 +992,9 @@ class Trigger:
             lambda: self.disable(model, database=database)
         )
 
-    def disable(self, model: Type[models.Model], database: Optional[str] = None):
+    def disable(
+        self, model: Type[models.Model], database: Optional[str] = None
+    ) -> ContextManager[None]:
         """Disables the trigger for a model.
 
         Args:
