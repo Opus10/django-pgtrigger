@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -32,7 +32,7 @@ psycopg_version = _psycopg_version()
 psycopg_maj_version = psycopg_version[0]
 
 
-class AttrDict(dict[str, Any]):
+class AttrDict(Dict[str, Any]):
     """A dictionary where keys can be accessed as attributes"""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

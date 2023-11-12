@@ -275,7 +275,7 @@ def _schema_session(databases: Optional[List[str]] = None) -> Iterator[None]:
 def _set_schema_state(*schemas: str) -> Iterator[None]:
     if not hasattr(_schema, "value"):
         # Use a list instead of a set because ordering is important to the search path
-        _schema.value = typing.cast(list[str], [])
+        _schema.value = typing.cast(List[str], [])
 
     schemas_to_set = [s for s in schemas if s not in _schema.value]
     try:

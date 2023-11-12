@@ -58,6 +58,8 @@ python = ">=3.8.0,<4"
 django = ">=3"
 
 [tool.poetry.dev-dependencies]
+pyright = "^1.1.335"
+django-types = "^0.19.1"
 black = "23.9.1"
 dj-database-url = "2.1.0"
 git-tidy = "1.2.0"
@@ -95,10 +97,14 @@ line-length = 99
 target-version = "py38"
 
 [tool.pyright]
-pythonVersion = "3.11"
+pythonVersion = "3.8"
 typeCheckingMode = "strict"
+include = ["pgtrigger"]
 exclude = [
   "**/node_modules",
+  "**/venv",
+  "**/.venv",
+  "**/.cache",
   "**/__pycache__",
   "pgtrigger/typestubs",
   "pgtrigger/tests",
@@ -108,4 +114,5 @@ exclude = [
 # We don't want to assume library users are type-checking their code,
 # so redundant checks are helpful for error handling.
 reportUnnecessaryIsInstance = "none"
+# In some cases we're fine with a method being overridden with a different signature.
 reportIncompatibleMethodOverride = "none"
