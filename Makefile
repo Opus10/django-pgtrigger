@@ -49,6 +49,7 @@ ifndef run
 	      "    dependencies: Install dependencies\n"\
 	      "    shell: Start a shell\n"\
 	      "    test: Run tests\n"\
+		  "    test-independent: Run tests marked as independent\n"\
 	      "    tox: Run tests against all versions of Python\n"\
 	      "    lint: Run code linting and static checks\n"\
 	      "    lint-fix: Fix common linting errors\n"\
@@ -141,6 +142,12 @@ shell:
 .PHONY: test
 test:
 	$(EXEC_WRAPPER) pytest
+
+
+# Run pytest
+.PHONY: test-independent
+test-independent:
+	$(EXEC_WRAPPER) pytest -m independent
 
 
 # Run full test suite

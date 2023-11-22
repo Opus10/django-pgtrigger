@@ -305,6 +305,10 @@ class DatabaseSchemaEditorMixin:
         self.temporarily_dropped_triggers = set()
         self.is_altering_field_type = False
 
+    def __enter__(self):
+        self.atomic = contextlib.nullcontext()
+        return super().__enter__()
+
     @contextlib.contextmanager
     def alter_field_type(self):
         """
@@ -351,6 +355,7 @@ class DatabaseSchemaEditorMixin:
         after the context manager yields.
         """
         self.temporarily_dropped_triggers.add((trigger, table))
+        is_trigger_dropped = False
 
         try:
             with self.atomic, self.connection.cursor() as cursor:
@@ -362,12 +367,19 @@ class DatabaseSchemaEditorMixin:
                 )
                 trigger_create_sql = cursor.fetchall()[0][0]
                 cursor.execute(f"DROP TRIGGER {trigger} on {utils.quote(table)};")
+                is_trigger_dropped = True
 
                 yield
 
                 cursor.execute(trigger_create_sql)
+                is_trigger_dropped = False
         finally:
             self.temporarily_dropped_triggers.remove((trigger, table))
+
+            # if migration is not atomic, we should "rollback" a trigger manually
+            if is_trigger_dropped and not self.atomic_migration:
+                with self.connection.cursor() as cursor:
+                    cursor.execute(trigger_create_sql)
 
     def execute(self, *args, **kwargs):
         """

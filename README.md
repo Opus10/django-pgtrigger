@@ -61,6 +61,8 @@ class ProtectedModel(models.Model):
 
 Triggers are installed like other database objects. Run `python manage.py makemigrations` and `python manage.py migrate` to install triggers.
 
+**Note** that if a migration is altering field type, by design django-pgtriggers drops trigger before the operations start and recreate it afterwards. Be aware of that if you create a non-atomic migration.
+
 If triggers are new to you, don't worry. The [pgtrigger docs](https://django-pgtrigger.readthedocs.io/) cover triggers in more detail and provide many examples.
 
 ## Compatibility

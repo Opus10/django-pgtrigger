@@ -1,14 +1,15 @@
 """Tests behavior related to migrations"""
 import pathlib
 import shutil
+from importlib import import_module
 
 import ddf
 import django.contrib.auth.models as auth_models
 import pytest
 from django.apps import apps
 from django.core.management import call_command
-from django.db import models
-from django.db.utils import ProgrammingError
+from django.db import migrations, models
+from django.db.utils import ProgrammingError, IntegrityError
 
 import pgtrigger
 import pgtrigger.tests.models as test_models
@@ -27,6 +28,10 @@ def migration_dir():
 
 def num_migration_files():
     return len(list(migration_dir().glob("0*.py")))
+
+
+def last_created_migration():
+    return max(map(str, migration_dir().glob("0*.py")))
 
 
 @pytest.fixture
@@ -258,6 +263,38 @@ def test_makemigrations_create_remove_models(settings):
     call_command("migrate")
     assert_all_triggers_installed()
 
+    ###
+    # Alter the column type again, break the migration and make it non-atomic.
+    # The trigger is expected to be recreated in case of failure
+    ###
+    class DynamicTestModel(BaseDynamicTestModel):
+        field = models.CharField(max_length=120)
+
+    test_models.DynamicTestModel = DynamicTestModel
+
+    call_command("makemigrations")
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
+
+    last_migration_name = last_created_migration().replace(".py", "").split("/")[-1]
+    migration_to_break = import_module(f"pgtrigger.tests.migrations.{last_migration_name}")
+    old_migration = migration_to_break.Migration
+    migration_to_break.Migration.operations = [
+        migrations.RunPython(
+            lambda apps, schema_editor: apps.get_model("tests", "DynamicTestModel").objects.create(
+                field=123,
+                user_id=123,
+            ),
+            migrations.RunPython.noop,
+        ),
+    ]
+    migration_to_break.Migration.atomic = False
+
+    with pytest.raises(IntegrityError):
+        call_command("migrate")
+    assert_all_triggers_installed()
+    migration_to_break.Migration = old_migration
+
     # Sanity check that we cannot delete or update a DynamicTestModel
     protected_model = ddf.G(test_models.DynamicTestModel)
 
@@ -448,4 +485,4 @@ def test_makemigrations_create_remove_models(settings):
     # Django has a known issue with using a default through model as a base in
     # migrations. We revert the migrations we just made up until the through model
     # so that the test doesn't pass when it cleans up all migrations
-    call_command("migrate", "tests", str(num_orig_migrations + 8).rjust(4, "0"))
+    call_command("migrate", "tests", str(num_orig_migrations + 9).rjust(4, "0"))
