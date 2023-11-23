@@ -1,6 +1,14 @@
 # Changelog
 
-## 4.9.0 (2023-10-15)
+## 4.10.0 (2023-11-22)
+
+### Bug
+
+  - Fix issues updating triggers in non-atomic migrations [Artem Streltsov, 888c4cf]
+
+    Fields of trigger conditions can now have their types updated in non-atomic migrations.
+
+## 4.9.0 (2023-10-16)
 
 ### Feature
 
