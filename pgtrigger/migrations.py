@@ -353,7 +353,7 @@ class DatabaseSchemaEditorMixin:
         self.temporarily_dropped_triggers.add((trigger, table))
 
         try:
-            with self.atomic, self.connection.cursor() as cursor:
+            with transaction.atomic(self.connection.alias), self.connection.cursor() as cursor:
                 cursor.execute(
                     f"""
                     SELECT pg_get_triggerdef(oid) FROM pg_trigger
@@ -377,7 +377,7 @@ class DatabaseSchemaEditorMixin:
         """
         if self.is_altering_field_type:
             try:
-                with self.atomic:
+                with transaction.atomic(self.connection.alias):
                     return super().execute(*args, **kwargs)
             except Exception as exc:
                 match = re.search(

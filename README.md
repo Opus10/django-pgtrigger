@@ -109,3 +109,4 @@ For information on setting up django-pgtrigger for development and contributing 
 - @ralokt
 - @adamchainz
 - @danifus
+- @kekekekule
