@@ -1,6 +1,7 @@
 """Tests behavior related to migrations"""
 import pathlib
 import shutil
+import time
 
 import ddf
 import django.contrib.auth.models as auth_models
@@ -171,6 +172,22 @@ def test_makemigrations_existing_models(settings, request):
             tm.save()
 
 
+def make_migrations(atomic: bool):
+    """Call makemigrations. Set atomic property of last migration if it is specified"""
+    call_command("makemigrations", name=f"a{time.time()}".replace(".", ""))
+
+    last_migration = sorted(pathlib.Path(migration_dir()).glob("[0-9]*.py"))[-1]
+    with open(last_migration, "r") as f:
+        contents = f.read()
+
+    contents = contents.replace(
+        "class Migration(migrations.Migration):\n",
+        f"class Migration(migrations.Migration):\n    atomic = {atomic}\n",
+    )
+    with open(last_migration, "w") as f:
+        f.write(contents)
+
+
 @pytest.mark.django_db(
     databases=["default", "other", "receipt", "order", "sqlite"], transaction=True
 )
@@ -178,7 +195,8 @@ def test_makemigrations_existing_models(settings, request):
 @pytest.mark.order(-1)  # This is a possibly leaky test if it fails midway. Always run last
 # Run independently of core test suite since since this creates/removes models
 @pytest.mark.independent
-def test_makemigrations_create_remove_models(settings):
+@pytest.mark.parametrize("atomic", [True, False])
+def test_makemigrations_create_remove_models(settings, atomic):
     """
     Tests migration scenarios where models are dynamically added and
     removed.
@@ -192,10 +210,9 @@ def test_makemigrations_create_remove_models(settings):
     ###
     # Make the initial trigger migrations
     ###
-    call_command("makemigrations")
+    make_migrations(atomic)
     num_expected_migrations += 1
     assert num_migration_files() == num_expected_migrations
-
     call_command("migrate")
     assert_all_triggers_installed()
 
@@ -226,7 +243,7 @@ def test_makemigrations_create_remove_models(settings):
 
     test_models.DynamicTestModel = DynamicTestModel
 
-    call_command("makemigrations")
+    make_migrations(atomic)
     num_expected_migrations += 1
     assert num_migration_files() == num_expected_migrations
     call_command("migrate")
@@ -252,7 +269,7 @@ def test_makemigrations_create_remove_models(settings):
 
     test_models.DynamicTestModel = DynamicTestModel
 
-    call_command("makemigrations")
+    make_migrations(atomic)
     num_expected_migrations += 1
     assert num_migration_files() == num_expected_migrations
     call_command("migrate")
@@ -276,7 +293,7 @@ def test_makemigrations_create_remove_models(settings):
     ]
     DynamicTestModel._meta.original_attrs["triggers"] = DynamicTestModel._meta.triggers
 
-    call_command("makemigrations")
+    make_migrations(atomic)
     num_expected_migrations += 1
     assert num_migration_files() == num_expected_migrations
     call_command("migrate")
@@ -296,7 +313,7 @@ def test_makemigrations_create_remove_models(settings):
     del apps.app_configs["tests"].models["dynamictestmodel"]
     apps.clear_cache()
 
-    call_command("makemigrations")
+    make_migrations(atomic)
     num_expected_migrations += 1
     assert num_migration_files() == num_expected_migrations
     call_command("migrate")
@@ -330,7 +347,7 @@ def test_makemigrations_create_remove_models(settings):
 
     test_models.DynamicProxyModel = DynamicProxyModel
 
-    call_command("makemigrations")
+    make_migrations(atomic)
     num_expected_migrations += 1
     assert num_migration_files() == num_expected_migrations
     call_command("migrate")
@@ -354,7 +371,7 @@ def test_makemigrations_create_remove_models(settings):
     ]
     DynamicProxyModel._meta.original_attrs["triggers"] = DynamicProxyModel._meta.triggers
 
-    call_command("makemigrations")
+    make_migrations(atomic)
     num_expected_migrations += 1
     assert num_migration_files() == num_expected_migrations
     call_command("migrate")
@@ -374,7 +391,7 @@ def test_makemigrations_create_remove_models(settings):
     del apps.app_configs["tests"].models["dynamicproxymodel"]
     apps.clear_cache()
 
-    call_command("makemigrations")
+    make_migrations(atomic)
     num_expected_migrations += 1
     assert num_migration_files() == num_expected_migrations
     call_command("migrate")
@@ -399,7 +416,7 @@ def test_makemigrations_create_remove_models(settings):
     protected_model = ddf.G(auth_models.User)
     protected_model.groups.add(ddf.G(auth_models.Group))
 
-    call_command("makemigrations")
+    make_migrations(atomic)
     num_expected_migrations += 1
     assert num_migration_files() == num_expected_migrations
     call_command("migrate")
@@ -419,7 +436,7 @@ def test_makemigrations_create_remove_models(settings):
     ]
     DynamicThroughModel._meta.original_attrs["triggers"] = DynamicThroughModel._meta.triggers
 
-    call_command("makemigrations")
+    make_migrations(atomic)
     num_expected_migrations += 1
     assert num_migration_files() == num_expected_migrations
     call_command("migrate")
@@ -436,7 +453,7 @@ def test_makemigrations_create_remove_models(settings):
     del apps.app_configs["tests"].models["dynamicthroughmodel"]
     apps.clear_cache()
 
-    call_command("makemigrations")
+    make_migrations(atomic)
     num_expected_migrations += 1
     assert num_migration_files() == num_expected_migrations
     call_command("migrate")
