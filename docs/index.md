@@ -35,7 +35,7 @@ class ProtectedModel(models.Model):
 
 When migrations are created and executed, `ProtectedModel` will raise an exception anytime a deletion is attempted.
 
-Let's extend this example further and only protect deletions on inactive objects. In this example, the trigger conditionally runs when the row being deleted (the `OLD` row in trigger terminology) is still active:
+Let's extend this example further and only protect deletions on active objects. In this example, the trigger conditionally runs when the row being deleted (the `OLD` row in trigger terminology) is still active:
 
 ```python
 class ProtectedModel(models.Model):
