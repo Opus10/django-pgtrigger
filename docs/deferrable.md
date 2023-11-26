@@ -21,7 +21,7 @@ class UserProxy(User):
                     IF NOT EXISTS (SELECT FROM {Profile._meta.db_table} WHERE user_id = NEW.id) THEN
                         RAISE EXCEPTION 'Profile does not exist for user %', NEW.id;
                     END IF;
-                    RETURN NEW;
+                    RETURN NULL;
                 """
             )
         ]
