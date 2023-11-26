@@ -1,6 +1,15 @@
 # Changelog
 
-## 4.10.0 (2023-11-22)
+## 4.10.1 (2023-11-26)
+
+### Trivial
+
+  - Change docs so that deferred (AFTER) triggers return NULL [Peter Thomassen, 59be2e9]
+  - Fix typo in cookbook (`exclude` instead of `filter`) [Peter Thomassen, 3714c08]
+  - Fix typo in docs model protection example [Peter Thomassen, 00b86af]
+  - Do additional error checking for arguments supplied to `FSM` trigger. [Wesley Kendall, e203834]
+
+## 4.10.0 (2023-11-23)
 
 ### Bug
 
