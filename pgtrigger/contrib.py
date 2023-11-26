@@ -1,5 +1,6 @@
 """Additional goodies"""
 import functools
+import itertools
 import operator
 from typing import Any, List, Tuple, Union
 
@@ -78,13 +79,16 @@ class FSM(core.Trigger):
 
     !!! note
 
-        Only non-null `CharField` fields are currently supported.
+        Only non-null `CharField` fields without quotes are currently supported.
+        If your strings have a colon symbol in them, you must override the
+        "separator" argument to be a value other than a colon.
     """
 
     when: core.When = core.Before
     operation: core.Operation = core.Update
     field: str = None
     transitions: List[Tuple[str, str]] = None
+    separator: str = ":"
 
     def __init__(
         self,
@@ -93,15 +97,34 @@ class FSM(core.Trigger):
         condition: Union[core.Condition, None] = None,
         field: str = None,
         transitions: List[Tuple[str, str]] = None,
+        separator: str = None,
     ):
         self.field = field or self.field
         self.transitions = transitions or self.transitions
+        self.separator = separator or self.separator
 
         if not self.field:  # pragma: no cover
             raise ValueError('Must provide "field" for FSM')
 
         if not self.transitions:  # pragma: no cover
             raise ValueError('Must provide "transitions" for FSM')
+
+        # This trigger doesn't accept quoted values or values that
+        # contain the configured separator
+        for value in itertools.chain(*self.transitions):
+            if "'" in value or '"' in value:
+                raise ValueError(f'FSM transition value "{value}" contains quotes')
+            elif self.separator in value:
+                raise ValueError(
+                    f'FSM value "{value}" contains separator "{self.separator}".'
+                    ' Configure your trigger with a different "separator" attribute'
+                )
+
+        # The separator must be a single character that isn't a quote
+        if len(self.separator) != 1:
+            raise ValueError(f'Separator "{self.separator}" must be a single character')
+        elif self.separator in ('"', "'"):
+            raise ValueError("Separator must not have quotes")
 
         super().__init__(name=name, condition=condition)
 
@@ -110,10 +133,12 @@ class FSM(core.Trigger):
 
     def get_func(self, model):
         col = model._meta.get_field(self.field).column
-        transition_uris = "{" + ",".join([f"{old}:{new}" for old, new in self.transitions]) + "}"
+        transition_uris = (
+            "{" + ",".join([f"{old}{self.separator}{new}" for old, new in self.transitions]) + "}"
+        )
 
         sql = f"""
-            SELECT CONCAT(OLD.{utils.quote(col)}, ':', NEW.{utils.quote(col)}) = ANY('{transition_uris}'::text[])
+            SELECT CONCAT(OLD.{utils.quote(col)}, '{self.separator}', NEW.{utils.quote(col)}) = ANY('{transition_uris}'::text[])
                 INTO _is_valid_transition;
 
             IF (_is_valid_transition IS FALSE AND OLD.{utils.quote(col)} IS DISTINCT FROM NEW.{utils.quote(col)}) THEN
