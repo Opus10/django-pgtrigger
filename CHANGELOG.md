@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.11.0 (2023-11-26)
+
+### Feature
+
+  - Django 5.0 compatibility [Wesley Kendall, 2e1366e]
+
+    Support and test against Django 5 with psycopg2 and psycopg3.
+
 ## 4.10.1 (2023-11-26)
 
 ### Trivial
