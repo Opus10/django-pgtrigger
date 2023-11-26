@@ -118,11 +118,7 @@ class NotDeletedManager(models.Manager):
 """Automatically filters out soft deleted objects from QuerySets"""
 
     def get_queryset(self):
-        return (
-            super(NotDeletedManager, self)
-            .get_queryset()
-            .filter(is_active=False)
-        )
+        return super().get_queryset().exclude(is_active=False)
 
 class SoftDeleteModel(models.Model):
     # This field is set to false when the model is deleted
