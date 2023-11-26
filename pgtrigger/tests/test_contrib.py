@@ -171,6 +171,33 @@ def test_fsm():
     fsm.save()
 
 
+def test_fsm_args():
+    """Verifies arg checking for FSM"""
+    with pytest.raises(ValueError, match='provide "field"'):
+        pgtrigger.FSM()
+
+    with pytest.raises(ValueError, match='provide "transitions"'):
+        pgtrigger.FSM(field="hello")
+
+    with pytest.raises(ValueError, match='contains separator ":"'):
+        pgtrigger.FSM(field="hello", transitions=[("a", ":")])
+
+    with pytest.raises(ValueError, match='contains separator ","'):
+        pgtrigger.FSM(field="hello", separator=",", transitions=[("a", ",")])
+
+    with pytest.raises(ValueError, match="contains quotes"):
+        pgtrigger.FSM(field="hello", transitions=[("a", "b'")])
+
+    with pytest.raises(ValueError, match="contains quotes"):
+        pgtrigger.FSM(field="hello", transitions=[("a", 'b"')])
+
+    with pytest.raises(ValueError, match="single character"):
+        pgtrigger.FSM(field="hello", separator="aa", transitions=[("a", "b")])
+
+    with pytest.raises(ValueError, match="must not have quotes"):
+        pgtrigger.FSM(field="hello", separator="'", transitions=[("a", "b")])
+
+
 @pytest.mark.django_db
 def test_protect():
     """Verify deletion protect trigger works on test model"""
