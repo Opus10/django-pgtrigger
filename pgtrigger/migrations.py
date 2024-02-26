@@ -133,13 +133,13 @@ class RemoveTrigger(TriggerOperationMixin, IndexOperation):
         return f"remove_{self.model_name_lower}_{self.name.lower()}"
 
 
-def _inject_m2m_dependency_in_proxy(proxy_op):
+def _inject_m2m_dependency_in_proxy(proxy_op, app_label, model_name):
     """
     Django does not properly add dependencies to m2m fields that are base classes for
     proxy models. Inject the dependency here
     """
     for base in proxy_op.bases:
-        model = apps.get_model(base)
+        model = apps.get_model(app_label, model_name)
         creator = model._meta.auto_created
         if creator:
             for field in creator._meta.many_to_many:
@@ -255,7 +255,7 @@ class MigrationAutodetectorMixin:
                 if isinstance(op, CreateModel) and op.options.get(  # pragma: no branch
                     "proxy", False
                 ):
-                    _inject_m2m_dependency_in_proxy(op)
+                    _inject_m2m_dependency_in_proxy(op, app_label, model_name)
 
             model = self.to_state.apps.get_model(app_label, model_name)
             model_state = self.to_state.models[app_label, model_name]
