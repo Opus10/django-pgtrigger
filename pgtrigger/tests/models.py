@@ -98,6 +98,11 @@ class TestModel(models.Model):
         unique_together = ("int_field", "char_field")
 
 
+class RelatedTestModel(models.Model):
+    char_field = models.CharField(max_length=128, null=True)
+    test_model = models.ForeignKey(TestModel, on_delete=models.CASCADE)
+
+
 class LogEntry(models.Model):
     """Created when ToLogModel is updated"""
 
