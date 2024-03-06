@@ -4,7 +4,7 @@ import functools
 import hashlib
 import operator
 import re
-from typing import Any, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from django.db import DEFAULT_DB_ALIAS, models, router, transaction
 from django.db.models.expressions import Col
@@ -499,8 +499,9 @@ class Func:
     possible to do inline SQL in the `Meta` of a model and reference its properties.
     """
 
-    def __init__(self, func):
+    def __init__(self, func, additionnal_models: Optional[Dict[str, Type[models.Model]]] = None):
         self.func = func
+        self.additionnal_models = additionnal_models or {}
 
     def render(self, model: models.Model) -> str:
         """
@@ -514,7 +515,20 @@ class Func:
         """
         fields = utils.AttrDict({field.name: field for field in model._meta.fields})
         columns = utils.AttrDict({field.name: field.column for field in model._meta.fields})
-        return self.func.format(meta=model._meta, fields=fields, columns=columns)
+        format_parameters = {"meta": model._meta, "fields": fields, "columns": columns}
+        for prefix, additionnal_model in self.additionnal_models.items():
+            format_parameters.update(
+                {
+                    f"{prefix}_meta": additionnal_model._meta,
+                    f"{prefix}_fields": utils.AttrDict(
+                        {field.name: field for field in additionnal_model._meta.fields}
+                    ),
+                    f"{prefix}_columns": utils.AttrDict(
+                        {field.name: field.column for field in additionnal_model._meta.fields}
+                    ),
+                }
+            )
+        return self.func.format(**format_parameters)
 
 
 # Allows Trigger methods to be used as context managers, mostly for

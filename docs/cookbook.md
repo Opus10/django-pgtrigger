@@ -123,7 +123,7 @@ class NotDeletedManager(models.Manager):
 class SoftDeleteModel(models.Model):
     # This field is set to false when the model is deleted
     is_active = models.BooleanField(default=True)
-    
+
     all_objects = models.ModelManager()  # access deleted objects too
     objects = NotDeletedManager()  # filter out soft deleted objects
 
@@ -337,7 +337,7 @@ class DocumentModel(models.Model):
 
 ## Statement-level triggers and transition tables
 
-So far most of the examples have been for triggers that fire once per row. Statement-level triggers are fired once per statement and allow more flexibility and performance tuning for some scenarios. 
+So far most of the examples have been for triggers that fire once per row. Statement-level triggers are fired once per statement and allow more flexibility and performance tuning for some scenarios.
 
 Instead of `OLD` and `NEW` rows, statement-level triggers can use "transition tables" to access temporary tables of old and new rows. One can use the [pgtrigger.Referencing][] construct to configure this. See [this StackExchange example](https://dba.stackexchange.com/a/177468) for more explanations about transition tables.
 
@@ -441,6 +441,37 @@ class MyModel(models.Model):
                     SELECT {columns.text_field} FROM {meta.db_table};
                     """
                 )
+            )
+        ]
+```
+
+[pgtrigger.Func][] also offers the possibility to expose meta, columns and fields of arbitrary models, using a prefix, in the template string. It will then expose the following additionnal variables:
+
+* **{prefix}_meta**: The `._meta` of the model.
+* **{prefix}_fields**: The fields of the model, accessible as attributes.
+* **{prefix}_columns**: The field columns. `{prefix}_columns.field_name` will return the database column of the `field_name` field.
+
+Pass the additionnal models and the prefix in a dictionnary like so:
+
+```python
+class AnotherModel(models.Model):
+    text_field = models.TextField()
+
+class MyModel(models.Model):
+    text_field = models.TextField()
+    other_model = models.ForeignKey(AnotherModel)
+
+    class Meta:
+        triggers = [
+            pgtrigger.Trigger(
+                func=pgtrigger.Func(
+                    """
+                    # This is only pseudocode
+                    SELECT {columns.text_field} FROM {meta.db_table}
+                    INNER JOIN {another_model_meta.db_name} ON {another_model_meta.pk.column} = {columns.other_model};
+                    """
+                ),
+                additionnal_models={"another_model": AnotherModel}
             )
         ]
 ```
