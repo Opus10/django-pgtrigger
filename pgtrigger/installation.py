@@ -1,6 +1,7 @@
 """
 The primary functional API for pgtrigger
 """
+
 import logging
 from typing import List, Tuple, Union
 

@@ -45,3 +45,5 @@ PGTRIGGER_MIGRATIONS = False
 
 # Ensure that we always install triggers if running locally
 PGTRIGGER_INSTALL_ON_MIGRATE = True
+
+USE_TZ = False

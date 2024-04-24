@@ -10,7 +10,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
   app:
-    image: opus10/circleci-public-django-app
+    image: opus10/circleci-python-library
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/postgres
     depends_on:

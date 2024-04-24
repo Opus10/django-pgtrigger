@@ -85,7 +85,6 @@ If triggers are new to you, don't worry. The [pgtrigger docs](https://django-pgt
 Install `django-pgtrigger` with:
 
     pip3 install django-pgtrigger
-
 After this, add `pgtrigger` to the `INSTALLED_APPS` setting of your Django project.
 
 ## Other Material
@@ -98,7 +97,7 @@ The [DjangoCon 2021 talk](https://www.youtube.com/watch?v=Tte3d4JjxCk) also brea
 
 For information on setting up django-pgtrigger for development and contributing changes, view [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Primary Authors
+## Creators
 
 - [Wes Kendall](https://github.com/wesleykendall)
 

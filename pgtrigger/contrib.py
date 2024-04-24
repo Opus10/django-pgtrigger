@@ -1,4 +1,5 @@
 """Additional goodies"""
+
 import functools
 import itertools
 import operator
