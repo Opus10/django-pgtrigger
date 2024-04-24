@@ -32,6 +32,10 @@ If your code fails the linter checks, fix common errors with:
 
     make lint-fix
 
+Run type checking with:
+
+    make type-check
+
 ## Committing
 
 This project uses [git-tidy](https://github.com/Opus10/git-tidy) to produce structured commits with git trailers. Information from commit messages is used to generate release notes and bump the version properly.
@@ -48,7 +52,7 @@ To check if your commits pass linting, do:
 
     make tidy-lint
 
-Note, the above command lints every commit since branching from master. You can also run `make shell` and run `git tidy` commands inside the docker environment to do other flavors of `git tidy` commands.
+Note, the above command lints every commit since branching from main. You can also run `make shell` and run `git tidy` commands inside the docker environment to do other flavors of `git tidy` commands.
 
 ## Documentation
 
@@ -62,7 +66,7 @@ A shortcut for serving them is:
 
 ## Releases and Versioning
 
-Anything that is merged into the master branch will be automatically deployed to PyPI. Documentation will be published to a ReadTheDocs at `https://django-pgtrigger.readthedocs.io/`.
+Anything that is merged into the main branch will be automatically deployed to PyPI. Documentation will be published to a ReadTheDocs at `https://django-pgtrigger.readthedocs.io/`.
 
 The following files will be generated and should *not* be edited by a user:
 

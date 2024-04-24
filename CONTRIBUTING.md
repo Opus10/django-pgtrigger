@@ -12,7 +12,7 @@ Set up your development environment with:
 
 `make docker-setup` will set up a development environment managed by Docker. Install docker [here](https://www.docker.com/get-started) and be sure it is running when executing any of the commands below.
 
-If you prefer a native development environment, `make conda-setup` will set up a development environment managed by [Conda](https://conda.io). The database must be ran manually.
+If you prefer a native development environment, `make conda-setup` will set up a development environment managed by [Conda](https://conda.io). Dependent services, such as databases, must be ran manually.
 
 ## Testing and Validation
 
@@ -48,7 +48,7 @@ To check if your commits pass linting, do:
 
     make tidy-lint
 
-Note, the above command lints every commit since branching from master. You can also run `make shell` and run `git tidy` commands inside the docker environment to do other flavors of `git tidy` commands.
+Note, the above command lints every commit since branching from main. You can also run `make shell` and run `git tidy` commands inside the docker environment to do other flavors of `git tidy` commands.
 
 ## Documentation
 
@@ -62,7 +62,7 @@ A shortcut for serving them is:
 
 ## Releases and Versioning
 
-Anything that is merged into the master branch will be automatically deployed to PyPI. Documentation will be published to a ReadTheDocs at `https://django-pgtrigger.readthedocs.io/`.
+Anything that is merged into the main branch will be automatically deployed to PyPI. Documentation will be published to a ReadTheDocs at `https://django-pgtrigger.readthedocs.io/`.
 
 The following files will be generated and should *not* be edited by a user:
 

@@ -1,4 +1,5 @@
 """Tests behavior related to migrations"""
+
 import pathlib
 import shutil
 import time

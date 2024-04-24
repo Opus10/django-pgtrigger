@@ -2,6 +2,7 @@
 Functions for runtime-configuration of triggers, such as ignoring
 them or dynamically setting the search path.
 """
+
 import contextlib
 import threading
 from typing import TYPE_CHECKING, List, Union
