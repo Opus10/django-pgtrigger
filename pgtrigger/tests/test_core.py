@@ -1,4 +1,5 @@
 import datetime as dt
+from textwrap import dedent
 
 import ddf
 import django
@@ -10,6 +11,7 @@ from django.db.utils import NotSupportedError
 import pgtrigger
 from pgtrigger import core
 from pgtrigger.tests import models, utils
+from pgtrigger.tests.models import RelatedTestModel
 
 
 def test_func():
@@ -18,9 +20,29 @@ def test_func():
         name="example",
         when=pgtrigger.After,
         operation=pgtrigger.Delete,
-        func=pgtrigger.Func("SELECT {columns.int_field} FROM {meta.db_table}"),
+        func=pgtrigger.Func(
+            dedent(
+                """
+                SELECT {columns.int_field}, {related_columns.char_field}
+                FROM {meta.db_table}
+                INNER JOIN {related_meta.db_table}
+                ON {meta.pk.column} = {related_columns.test_model};
+                """
+            ).strip(),
+            additionnal_models={"related": RelatedTestModel},
+        ),
     )
-    assert trigger.render_func(models.TestModel) == "SELECT int_field FROM tests_testmodel"
+    assert (
+        trigger.render_func(models.TestModel)
+        == dedent(
+            """
+            SELECT int_field, char_field
+            FROM tests_testmodel
+            INNER JOIN tests_relatedtestmodel
+            ON id = test_model_id;
+            """
+        ).strip()
+    )
 
 
 @pytest.mark.django_db
