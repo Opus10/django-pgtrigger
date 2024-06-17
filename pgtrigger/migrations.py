@@ -139,6 +139,10 @@ def _inject_m2m_dependency_in_proxy(proxy_op):
     proxy models. Inject the dependency here
     """
     for base in proxy_op.bases:
+        # Skip abstract models
+        if not (isinstance(base, str) and "." in base):
+            continue
+
         model = apps.get_model(base)
         creator = model._meta.auto_created
         if creator:
