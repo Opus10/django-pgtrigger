@@ -18,6 +18,12 @@ from pgtrigger import core
 from pgtrigger.tests import utils
 
 
+class SomeMixin:
+    """For testing proxy model inheritance"""
+
+    pass
+
+
 @pytest.fixture(autouse=True)
 def disble_install_on_migrate(settings):
     settings.PGTRIGGER_INSTALL_ON_MIGRATE = False
@@ -428,6 +434,60 @@ def test_makemigrations_create_remove_models(settings, atomic):
 
     with utils.raises_trigger_error(match="Cannot delete"):
         protected_model.groups.clear()
+
+    ###
+    # Proxy model inheritance
+    # https://github.com/Opus10/django-pgtrigger/issues/126
+    ###
+
+    # Set up multiple inheritance for a proxy model with a mixin
+    class SomeBaseModel(models.Model):
+        pass
+
+    class SomeProxyModel(SomeMixin, SomeBaseModel):
+        class Meta:
+            proxy = True
+
+    test_models.SomeBaseModel = SomeBaseModel
+    test_models.SomeProxyModel = SomeProxyModel
+
+    make_migrations(atomic)
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
+    call_command("migrate")
+    assert_all_triggers_installed()
+
+    class SomeAbstractModel(models.Model):
+        class Meta:
+            abstract = True
+
+    class SomeAbstractProxyModel(SomeAbstractModel, SomeBaseModel):
+        class Meta:
+            proxy = True
+
+    test_models.SomeAbstractModel = SomeAbstractModel
+    test_models.SomeAbstractProxyModel = SomeAbstractProxyModel
+
+    make_migrations(atomic)
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
+    call_command("migrate")
+    assert_all_triggers_installed()
+
+    del test_models.SomeAbstractModel
+    del test_models.SomeBaseModel
+    del test_models.SomeProxyModel
+    del test_models.SomeAbstractProxyModel
+    del apps.app_configs["tests"].models["somebasemodel"]
+    del apps.app_configs["tests"].models["someproxymodel"]
+    del apps.app_configs["tests"].models["someabstractproxymodel"]
+    apps.clear_cache()
+
+    make_migrations(atomic)
+    num_expected_migrations += 1
+    assert num_migration_files() == num_expected_migrations
+    call_command("migrate")
+    assert_all_triggers_installed()
 
     ###
     # Keep only deletion protection for a dynamic through model and migrate

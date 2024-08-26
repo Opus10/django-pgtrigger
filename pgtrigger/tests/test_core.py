@@ -1,7 +1,6 @@
 import datetime as dt
 
 import ddf
-import django
 import pytest
 from django.contrib.auth.models import User
 from django.db import transaction
