@@ -4,12 +4,12 @@
 
 #### Fixes
 
-  - Support proxy models with non-model or abstract inheritance by [@g-nie](https://github.com/g-nie) and [@SafaAlfulaij](https://github.com/SafaAlfulaij) in [#158](https://github.com/Opus10/django-pgtrigger/pull/158) and [#154](https://github.com/Opus10/django-pgtrigger/pull/154)
-  - Fix makemigrations issues with Django 5.1 by [@pfouque](https://github.com/pfouque) in [#165](https://github.com/Opus10/django-pgtrigger/pull/156)
+  - Support proxy models with non-model or abstract inheritance by [@g-nie](https://github.com/g-nie) and [@SafaAlfulaij](https://github.com/SafaAlfulaij) in [#158](https://github.com/Opus10/django-pgtrigger/pull/158) and [#154](https://github.com/Opus10/django-pgtrigger/pull/154).
+  - Fix makemigrations issues with Django 5.1 by [@pfouque](https://github.com/pfouque) in [#165](https://github.com/Opus10/django-pgtrigger/pull/156).
 
 #### Changes
 
-    - Django 5.1 testing, dropped Django 3.2 / Postgres 12 support by [@wesleykendall](https://github.com/wesleykendall) in [#157](https://github.com/Opus10/django-pgtrigger/pull/157).
+  - Django 5.1 testing, dropped Django 3.2 / Postgres 12 support by [@wesleykendall](https://github.com/wesleykendall) in [#157](https://github.com/Opus10/django-pgtrigger/pull/157).
 
 ## 4.11.1 (2024-04-06)
 
