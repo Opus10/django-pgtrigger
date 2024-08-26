@@ -148,7 +148,8 @@ def _inject_m2m_dependency_in_proxy(proxy_op):
     proxy models. Inject the dependency here
     """
     for base in proxy_op.bases:
-        # Skip abstract models
+        # Ignore inherited bases that are not models or abstract
+        # https://github.com/Opus10/django-pgtrigger/issues/126
         if not (isinstance(base, str) and "." in base):
             continue
 
