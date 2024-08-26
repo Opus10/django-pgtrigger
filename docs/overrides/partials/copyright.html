@@ -1,0 +1,16 @@
+<div class="md-copyright">
+  {% if config.copyright %}
+    <div class="md-copyright__highlight">
+      {{ config.copyright }}
+    </div>
+  {% endif %}
+  {% if not config.extra.generator == false %}
+    Created by
+    <a
+      href="https://github.com/sponsors/wesleykendall"
+      target="_blank" rel="noopener"
+    >
+      @wesleykendall
+    </a>
+  {% endif %}
+</div>

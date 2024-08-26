@@ -53,6 +53,12 @@ Use [pgtrigger.ignore][] if you need to temporarily ignore triggers in your appl
 
 When writing a trigger in `Meta`, it's not possible to access other model meta properties like `db_table`. Use [pgtrigger.Func][] to get around this. See [this example from the cookbook](cookbook.md#func_model_properties).
 
-## How can I contact the author?
+## How can I report issues or request features
 
-The primary author, Wes Kendall, loves to talk to users. Message him at [wesleykendall@protonmail.com](mailto:wesleykendall@protonmail.com) for any feedback. Any questions, feature requests, or bugs should be reported as [issues here](https://github.com/Opus10/django-pgtrigger/issues).
+Open a [discussion](https://github.com/Opus10/django-pgtrigger/discussions) for a feature request. You're welcome to pair this with a pull request, but it's best to open a discussion first if the feature request is not trivial.
+
+For bugs, open an [issue](https://github.com/Opus10/django-pgtrigger/issues).
+
+## How can I support the author?
+
+By sponsoring [Wes Kendall](https://github.com/sponsors/wesleykendall). Even the smallest sponsorships are a nice motivation to maintain and enhance Opus10 libraries like django-pgtrigger.

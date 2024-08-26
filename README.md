@@ -65,7 +65,7 @@ If triggers are new to you, don't worry. The [pgtrigger docs](https://django-pgt
 
 ## Compatibility
 
-`django-pgtrigger` is compatible with Python 3.8 - 3.12, Django 3.2 - 5.0, Psycopg 2 - 3, and Postgres 12 - 16.
+`django-pgtrigger` is compatible with Python 3.8 - 3.12, Django 4.2 - 5.1, Psycopg 2 - 3, and Postgres 13 - 16.
 
 ## Documentation
 

@@ -8,9 +8,8 @@ orbs:
         docker:
           - image: opus10/circleci-python-library:2024-04-17
             environment:
-              # Ensure makefile commands are not wrapped in "docker-compose run"
+              # Ensure makefile commands are not wrapped in "docker compose run"
               EXEC_WRAPPER: ''
-              TOX_PARALLEL_NO_SPINNER: 1
               DATABASE_URL: postgres://root@localhost/circle_test?sslmode=disable
           - image: cimg/postgres:<<parameters.pg_version>>
             environment:
@@ -40,14 +39,14 @@ jobs:
   test_pg_min:
     executor:
       name: opus10/python
-      pg_version: "13.11"
+      pg_version: "13.16"
     steps:
       - opus10/test
 
   test_pg_max:
     executor:
       name: opus10/python
-      pg_version: "16.0"
+      pg_version: "16.4"
     steps:
       - opus10/test
 
@@ -69,16 +68,6 @@ jobs:
       - run: make dependencies
       - run: make type-check || true
 
-  check_changelog:
-    executor: opus10/python
-    steps:
-      - checkout
-      - restore_cache:
-          key: v4-{{ checksum "poetry.lock" }} 
-      - run: make dependencies
-      - run: git tidy-log origin/main..
-      - run: make tidy-lint
-
   deploy:
     executor: opus10/python
     steps:
@@ -94,14 +83,22 @@ workflows:
   version: 2
   on_commit:
     jobs:
-      - test_pg_min
-      - test_pg_max
-      - lint
-      - type_check
-      - check_changelog:
+      - test_pg_min:
           filters:
-            branches:
-              ignore: main
+            tags:
+              only: /.*/
+      - test_pg_max:
+          filters:
+            tags:
+              only: /.*/
+      - lint:
+          filters:
+            tags:
+              only: /.*/
+      - type_check:
+          filters:
+            tags:
+              only: /.*/
       - deploy:
           context: python-library
           requires:
@@ -111,4 +108,6 @@ workflows:
             - type_check
           filters:
             branches:
-              only: main
+              ignore: /.*/
+            tags:
+              only: /.*/

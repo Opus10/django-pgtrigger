@@ -32,24 +32,6 @@ If your code fails the linter checks, fix common errors with:
 
     make lint-fix
 
-## Committing
-
-This project uses [git-tidy](https://github.com/Opus10/git-tidy) to produce structured commits with git trailers. Information from commit messages is used to generate release notes and bump the version properly.
-
-To do a structured commit with `git-tidy`, do:
-
-    make tidy-commit
-
-All commits in a pull request must be tidy commits that encapsulate a change. Ideally entire features or bug fixes are encapsulated in a single commit. Squash all of your commits into a tidy commit with:
-
-    make tidy-squash
-
-To check if your commits pass linting, do:
-
-    make tidy-lint
-
-Note, the above command lints every commit since branching from main. You can also run `make shell` and run `git tidy` commands inside the docker environment to do other flavors of `git tidy` commands.
-
 ## Documentation
 
 [Mkdocs Material](https://squidfunk.github.io/mkdocs-material/) documentation can be built with:
@@ -62,10 +44,4 @@ A shortcut for serving them is:
 
 ## Releases and Versioning
 
-Anything that is merged into the main branch will be automatically deployed to PyPI. Documentation will be published to a ReadTheDocs at `https://django-pgtrigger.readthedocs.io/`.
-
-The following files will be generated and should *not* be edited by a user:
-
-- `CHANGELOG.md` - Contains an automatically-generated change log for each release.
-
-This project uses [Semantic Versioning](http://semver.org) by analyzing `Type:` trailers on git commit messages (trailers are added when using `git tidy-commit`). In order to bump the minor version, use "feature" or "bug" as the type. In order to bump the major version, use "api-break". The patch version will be updated automatically if none of these tags are present.
+The version number and release notes are manually updated by the maintainer during the release process. Do not edit these.

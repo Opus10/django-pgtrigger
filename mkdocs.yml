@@ -48,8 +48,10 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
 
 theme:
+  custom_dir: docs/overrides
   name: material
-  logo: static/logo.svg
+  logo: static/logo.png
+  favicon: static/logo.png
   features:
     - navigation.footer
     - navigation.path
@@ -61,13 +63,13 @@ theme:
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: #6658ea
+      primary: custom
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: #6658ea
+      primary: custom
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
