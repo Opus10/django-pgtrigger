@@ -8,6 +8,7 @@
 # docs-serve - Serve documentation
 # lint - Run code linting and static checks
 # lint-fix - Fix common linting errors
+# type-check - Run Pyright type-checking
 # test - Run tests using pytest
 # full-test-suite - Run full test suite using tox
 # shell - Run a shell in a virtualenv
@@ -35,8 +36,7 @@ else ifeq (${OS}, Darwin)
 endif
 
 # Docker run mounts the local code directory, SSH (for git), and global git config information
-DOCKER_RUN_CMD?=$(DOCKER_CMD)-compose run --name $(PACKAGE_NAME) $(DOCKER_RUN_ARGS) -d app
-
+DOCKER_RUN_CMD?=$(DOCKER_CMD) compose run --name $(PACKAGE_NAME) $(DOCKER_RUN_ARGS) -d app
 
 # Print usage of main targets when user types "make" or "make help"
 .PHONY: help
@@ -52,6 +52,7 @@ ifndef run
 	      "    tox: Run tests against all versions of Python\n"\
 	      "    lint: Run code linting and static checks\n"\
 	      "    lint-fix: Fix common linting errors\n"\
+	      "    type-check: Run Pyright type-checking\n"\
 	      "    docs: Build documentation\n"\
 	      "    docs-serve: Serve documentation\n"\
 	      "    docker-teardown: Spin down docker resources\n"\
@@ -66,7 +67,7 @@ endif
 # Pull the latest container and start a detached run
 .PHONY: docker-start
 docker-start:
-	$(DOCKER_CMD)-compose pull
+	$(DOCKER_CMD) compose pull
 	$(DOCKER_RUN_CMD)
 
 
@@ -74,6 +75,7 @@ docker-start:
 .PHONY: lock
 lock:
 	$(EXEC_WRAPPER) poetry lock --no-update
+	$(EXEC_WRAPPER) poetry export --with dev --without-hashes -f requirements.txt > docs/requirements.txt
 
 
 # Install dependencies
@@ -88,13 +90,6 @@ multi-db-setup:
 	-$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE DATABASE ${MODULE_NAME}_local_other WITH TEMPLATE ${MODULE_NAME}_local"
 	$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE SCHEMA IF NOT EXISTS \"order\""
 	$(DOCKER_EXEC_WRAPPER) psql $(DATABASE_URL) -c "CREATE SCHEMA IF NOT EXISTS receipt;"
-
-
-# Set up git configuration
-.PHONY: git-setup
-git-setup:
-	$(EXEC_WRAPPER) git tidy --template -o .gitcommit.tpl
-	$(EXEC_WRAPPER) git config --local commit.template .gitcommit.tpl
 
 
 # Sets up the local database
@@ -117,18 +112,18 @@ conda-create:
 # Sets up a Conda development environment
 .PHONY: conda-setup
 conda-setup: EXEC_WRAPPER=conda run -n ${PACKAGE_NAME} --no-capture-output
-conda-setup: conda-create lock dependencies git-setup db-setup
+conda-setup: conda-create lock dependencies db-setup
 
 
 # Sets up a Docker development environment
 .PHONY: docker-setup
-docker-setup: docker-teardown docker-start lock dependencies git-setup
+docker-setup: docker-teardown docker-start lock dependencies
 
 
 # Spin down docker resources
 .PHONY: docker-teardown
 docker-teardown:
-	$(DOCKER_CMD)-compose down --remove-orphans
+	$(DOCKER_CMD) compose down --remove-orphans
 
 
 # Run a shell
@@ -152,7 +147,7 @@ full-test-suite:
 # Build documentation
 .PHONY: docs
 docs:
-	$(EXEC_WRAPPER) mkdocs build
+	$(EXEC_WRAPPER) mkdocs build -s
 
 
 # Serve documentation
@@ -164,32 +159,20 @@ docs-serve:
 # Run code linting and static analysis. Ensure docs can be built
 .PHONY: lint
 lint:
-	$(EXEC_WRAPPER) black . --check
+	$(EXEC_WRAPPER) ruff format . --check
 	$(EXEC_WRAPPER) ruff check ${MODULE_NAME}
-	$(EXEC_WRAPPER) footing update --check
 	$(EXEC_WRAPPER) bash -c 'make docs'
+	$(EXEC_WRAPPER) diff <(poetry export --with dev --without-hashes -f requirements.txt) docs/requirements.txt >/dev/null 2>&1 || exit 1
 
 
 # Fix common linting errors
 .PHONY: lint-fix
 lint-fix:
-	$(EXEC_WRAPPER) black .
+	$(EXEC_WRAPPER) ruff format .
 	$(EXEC_WRAPPER) ruff check ${MODULE_NAME} --fix
 
 
-# Lint commit messages
-.PHONY: tidy-lint
-tidy-lint:
-	$(EXEC_WRAPPER) git tidy-lint origin/master..
-
-
-# Perform a tidy commit
-.PHONY: tidy-commit
-tidy-commit:
-	$(EXEC_WRAPPER) git tidy-commit
-
-
-# Perform a tidy squash
-.PHONY: tidy-squash
-tidy-squash:
-	$(EXEC_WRAPPER) git tidy-squash origin/master
+# Run Pyright type-checking
+.PHONY: type-check
+type-check:
+	$(EXEC_WRAPPER) pyright $(MODULE_NAME)

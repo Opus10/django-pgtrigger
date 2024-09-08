@@ -1,8 +1,25 @@
 # Changelog
 
+## 4.12.0 (2024-08-26)
+
+#### Fixes
+
+  - Support proxy models with non-model or abstract inheritance by [@g-nie](https://github.com/g-nie) and [@SafaAlfulaij](https://github.com/SafaAlfulaij) in [#158](https://github.com/Opus10/django-pgtrigger/pull/158) and [#154](https://github.com/Opus10/django-pgtrigger/pull/154).
+  - Fix makemigrations issues with Django 5.1 by [@pfouque](https://github.com/pfouque) in [#165](https://github.com/Opus10/django-pgtrigger/pull/156).
+
+#### Changes
+
+  - Django 5.1 testing, dropped Django 3.2 / Postgres 12 support by [@wesleykendall](https://github.com/wesleykendall) in [#157](https://github.com/Opus10/django-pgtrigger/pull/157).
+
+## 4.11.1 (2024-04-06)
+
+#### Trivial
+
+  - Fix ReadTheDocs builds. [Wesley Kendall, 9c7f377]
+
 ## 4.11.0 (2023-11-26)
 
-### Feature
+#### Feature
 
   - Django 5.0 compatibility [Wesley Kendall, 2e1366e]
 
@@ -10,7 +27,7 @@
 
 ## 4.10.1 (2023-11-26)
 
-### Trivial
+#### Trivial
 
   - Change docs so that deferred (AFTER) triggers return NULL [Peter Thomassen, 59be2e9]
   - Fix typo in cookbook (`exclude` instead of `filter`) [Peter Thomassen, 3714c08]
@@ -19,7 +36,7 @@
 
 ## 4.10.0 (2023-11-23)
 
-### Bug
+#### Bug
 
   - Fix issues updating triggers in non-atomic migrations [Artem Streltsov, 888c4cf]
 
@@ -27,7 +44,7 @@
 
 ## 4.9.0 (2023-10-16)
 
-### Feature
+#### Feature
 
   - Utilities to build trigger conditions based on field changes. [Wesley Kendall, 1471a35]
 
@@ -43,7 +60,7 @@
 
 ## 4.8.0 (2023-10-09)
 
-### Bug
+#### Bug
 
   - Create triggers in unmigrated apps when `--run-syncdb` is specified [Daniel Hillier, b762f9d]
 
@@ -54,7 +71,7 @@
     Reverting a migration of dropped models will now successfully recreate
     triggers.
 
-### Feature
+#### Feature
 
   - Add Python 3.12 support and use Mkdocs for documentation [Wesley Kendall, c2b389f]
 
@@ -62,13 +79,13 @@
 
     Python 3.7 support was dropped.
 
-### Trivial
+#### Trivial
 
   - Fix minor log formatting issues [Wesley Kendall, 76ab946]
 
 ## 4.7.0 (2023-06-08)
 
-### Feature
+#### Feature
 
   - Added Python 3.11, Django 4.2, and Psycopg 3 support [Wesley Kendall, 27dc243]
 
@@ -77,7 +94,7 @@
 
 ## 4.6.0 (2022-10-07)
 
-### Feature
+#### Feature
 
   - Added ``pgtrigger.Func`` for accessing model properties in function declarations. [Wesley Kendall, 4bd6abf]
 
@@ -92,13 +109,13 @@
     an optional ``fields`` or ``exclude`` argument to specify which fields are
     read only. If no arguments are provided, the entire model is read only.
 
-### Trivial
+#### Trivial
 
   - Updated with latest Django template [Wesley Kendall, 84b46f1]
 
 ## 4.5.3 (2022-09-19)
 
-### Trivial
+#### Trivial
 
   - Fix typo in documentation [Francisco Couzo, def5432]
   - Fix issues when using Django's dummy database. [Wesley Kendall, cc1cb95]
@@ -106,20 +123,20 @@
 
 ## 4.5.2 (2022-09-06)
 
-### Trivial
+#### Trivial
 
   - Add Soft-Delete Model Manager example to docs [Jason Oppel, 3a46ae7]
 
 ## 4.5.1 (2022-09-01)
 
-### Trivial
+#### Trivial
 
   - Remove unused migration code and restructure docs [Wes Kendall, a8793fc]
   - Optimize test suite [Wes Kendall, 863fa93]
 
 ## 4.5.0 (2022-08-31)
 
-### Bug
+#### Bug
 
   - Migrations properly serialize dynamic triggers and add better support for reverse migrations [Wes Kendall, 2eb3014]
 
@@ -133,44 +150,44 @@
 
 ## 4.4.0 (2022-08-27)
 
-### Bug
+#### Bug
 
   - Pruning/installations fixed for Postgres versions 12 and under. [Wes Kendall, 22d60e9]
 
     Paritioned table support introduced a bug in using trigger management
     commands for Postgres 12 and under. This has been fixed.
 
-### Trivial
+#### Trivial
 
   - Local development enhancements [Wes Kendall, a4d3c9c]
 
 ## 4.3.4 (2022-08-26)
 
-### Trivial
+#### Trivial
 
   - Test against Django 4.1 and other CI improvements [Wes Kendall, 813f67e]
 
 ## 4.3.3 (2022-08-24)
 
-### Trivial
+#### Trivial
 
   - Fix ReadTheDocs builds [Wes Kendall, 3870643]
 
 ## 4.3.2 (2022-08-20)
 
-### Trivial
+#### Trivial
 
   - Fix release note rendering and code formatting changes [Wes Kendall, c834606]
 
 ## 4.3.1 (2022-08-19)
 
-### Trivial
+#### Trivial
 
   - Fixed ReadTheDocs builds [Wes Kendall, 2cd0c9e]
 
 ## 4.3.0 (2022-08-18)
 
-### Feature
+#### Feature
 
   - Support for partitioned tables [Wes Kendall, 863b8cb]
 
@@ -185,13 +202,13 @@
 
 ## 4.2.1 (2022-08-18)
 
-### Trivial
+#### Trivial
 
   - Do schema editor patching in ``App.ready()`` instead of module load [Wes Kendall, cce99ce]
 
 ## 4.2.0 (2022-08-18)
 
-### Bug
+#### Bug
 
   - Ensure interoperability with other Postgres backends [Wes Kendall, 1c4f480]
 
@@ -200,7 +217,7 @@
 
 ## 4.1.0 (2022-08-17)
 
-### Bug
+#### Bug
 
   - Allow altering columns from trigger conditions [Wes Kendall, 1178457]
 
@@ -212,13 +229,13 @@
 
 ## 4.0.1 (2022-08-15)
 
-### Trivial
+#### Trivial
 
   - Fixed minor issue in settings preventing docs from being built [Wes Kendall, 5ad18f8]
 
 ## 4.0.0 (2022-08-15)
 
-### Api-Break
+#### Api-Break
 
   - Multi-database and registry behavior changed [Wes Kendall, 0663807]
 
@@ -254,14 +271,14 @@
 
     type: api-break
 
-### Bug
+#### Bug
 
   - Reference ``UpdateSearchVector`` trigger columns correctly [Wes Kendall, 7d40894]
 
     Columns configured in the ``UpdateSearchVector`` trigger were previously
     referenced in SQL by their model field name and not their column name.
 
-### Feature
+#### Feature
 
   - Added multi-schema support [Wes Kendall, 98342f2]
 
@@ -274,21 +291,21 @@
 
     Docs were added that overview multi-schema support.
 
-### Trivial
+#### Trivial
 
   - Added docs for using triggers in abstract models [Wes Kendall, cd215ac]
   - Refactored project structure [Wes Kendall, 4d53eef]
 
 ## 3.4.0 (2022-08-11)
 
-### Bug
+#### Bug
 
   - Fixed issues using ``pgtrigger.ignore`` with multiple databases [Wes Kendall, 557f0e1]
 
     ``pgtrigger.ignore`` now uses the connection of the database router
     when ignoring triggers.
 
-### Feature
+#### Feature
 
   - Add ``pgtrigger.UpdateSearchVector`` to keep search vectors updated [Wes Kendall, 671e8be]
 
@@ -318,7 +335,7 @@
 
 ## 3.3.0 (2022-08-10)
 
-### Bug
+#### Bug
 
   - Fixes ignoring triggers with nested transactions [Wes Kendall, d32113d]
 
@@ -332,7 +349,7 @@
 
 ## 3.2.0 (2022-08-08)
 
-### Feature
+#### Feature
 
   - Support proxy models on default many-to-many "through" relationships. [Wes Kendall, 4cb0f65]
 
@@ -344,7 +361,7 @@
 
 ## 3.1.0 (2022-08-08)
 
-### Api-Break
+#### Api-Break
 
   - Integration with Django's migration system. [Wes Kendall, 6916c14]
 
@@ -358,14 +375,14 @@
     For instructions on upgrading or preserving legacy behavior, see the frequently
     asked questions of the docs.
 
-### Bug
+#### Bug
 
   - Fixed issues with proxy models and M2M "through" models. [Wes Kendall, 52aa81f]
 
     Proxy models weren't creating migrations, and M2M "through" models are
     handled by making an unmanaged model that points to the right DB table.
 
-### Feature
+#### Feature
 
   - Remove dependency on ``django-pgconnection``. [Wes Kendall, af0c908]
 
@@ -375,13 +392,13 @@
 
 ## 2.5.1 (2022-07-31)
 
-### Trivial
+#### Trivial
 
   - Updated with latest Django template, fixing doc builds [Wes Kendall, 4b175a4]
 
 ## 2.5.0 (2022-07-30)
 
-### Bug
+#### Bug
 
   - Ignore non-postgres databases in global operations [Wes Kendall, a1aff5d]
 
@@ -401,7 +418,7 @@
     Prevents models/tables with names like Order from causing Syntax errors
     and add PyCharm .idea/ folder to .gitignore
 
-### Feature
+#### Feature
 
   - Triggers can be specified in model Meta options [Wes Kendall, 5c1cfec]
 
@@ -410,13 +427,13 @@
 
 ## 2.4.1 (2022-02-24)
 
-### Trivial
+#### Trivial
 
   - Updated with the latest template, dropped 3.6 supported, added Docker-based development [Wes Kendall, 25e0f0d]
 
 ## 2.4.0 (2021-08-15)
 
-### Bug
+#### Bug
 
   - Ensure that generated postgres IDs are lowercase [Wes Kendall, 5c12f66]
 
@@ -424,7 +441,7 @@
     lowercase. Postgres IDs are case insensitive, and it django-pgtrigger
     had issues dealing with names that had a mix of cases.
 
-### Feature
+#### Feature
 
   - Add the "declare" portion of a trigger as a top-level attribute [Wes Kendall, cd18512]
 
@@ -434,13 +451,13 @@
 
     The documentation was updated to reflect this change.
 
-### Trivial
+#### Trivial
 
   - Fix broken code examples in docs [Wes Kendall, 372719c]
 
 ## 2.3.3 (2021-08-15)
 
-### Trivial
+#### Trivial
 
   - Adjusted max length of trigger names to 47 characters [Wes Kendall, 528140f]
   - Updated to the latest Django app template [Wes Kendall, d2d5328]
@@ -448,13 +465,13 @@
 
 ## 2.3.2 (2021-05-30)
 
-### Trivial
+#### Trivial
 
   - Fixing tags after organization migration [Wes Kendall, 0ba84d2]
 
 ## 2.3.1 (2021-05-29)
 
-### Bug
+#### Bug
 
   - Throw errors on invalid trigger definitions. [Wes Kendall, 28f1329]
 
@@ -467,20 +484,20 @@
     added.
   - Fix for wrong argument supplied at _get_database fn call [arpit o.O, 2f7cea1]
 
-### Trivial
+#### Trivial
 
   - Updated with the latest django app template [Wes Kendall, 9a71227]
   - Fix incorrect name in example [Simon Willison, 069e05a]
 
 ## 2.2.1 (2021-02-23)
 
-### Trivial
+#### Trivial
 
   - Optionally change "other" DB name if set at all [Tómas Árni Jónasson, 5b24058]
 
 ## 2.2.0 (2021-02-09)
 
-### Feature
+#### Feature
 
   - Multiple database support [Wes Kendall, b09ba73]
 
@@ -494,7 +511,7 @@
 
 ## 2.1.0 (2020-10-20)
 
-### Bug
+#### Bug
 
   - Fixed possibility of duplicate trigger function names [Wes Kendall, b9b1552]
 
@@ -512,7 +529,7 @@
 
 ## 2.0.0 (2020-10-12)
 
-### Api-Break
+#### Api-Break
 
   - Trigger management commands [Wes Kendall, be26d33]
 
@@ -537,7 +554,7 @@
 
 ## 1.3.0 (2020-07-23)
 
-### Feature
+#### Feature
 
   - Extend the ``pgtrigger.SoftDelete`` trigger to support more field types. [Wes Kendall, 4dd8cf8]
 
@@ -554,7 +571,7 @@
 
     The docs were updated with an example of how to use ``pgtrigger.FSM``.
 
-### Trivial
+#### Trivial
 
   - Added trigger cookbook example for how to track history and model changes. [Wes Kendall, 114a70a]
   - Add "versioning" example to trigger cookbook. [Wes Kendall, 842ad5b]
@@ -562,7 +579,7 @@
 
 ## 1.2.0 (2020-07-23)
 
-### Feature
+#### Feature
 
   - Added ``pgtrigger.ignore`` for dynamically ignoring triggers. [Wes Kendall, b3557bb]
 
@@ -580,7 +597,7 @@
 
 ## 1.1.0 (2020-07-21)
 
-### Feature
+#### Feature
 
   - Added "Referencing" construct for statement-level triggers. [Wes Kendall, 20d958e]
 
@@ -592,20 +609,20 @@
     row and statement-level triggers. All triggers default to being
     row-level triggers.
 
-### Trivial
+#### Trivial
 
   - Support the "INSTEAD OF" construct for views on SQL triggers. [Wes Kendall, 79f9d54]
   - Updated docs and added a quick start section [Wes Kendall, 9ce7b29]
 
 ## 1.0.1 (2020-06-29)
 
-### Trivial
+#### Trivial
 
   - Updated README and updated with the latest public django app template. [Wes Kendall, 001ef68]
 
 ## 1.0.0 (2020-06-27)
 
-### Api-Break
+#### Api-Break
 
   - Initial release of django-pgtrigger. [Wes Kendall, 1f737f0]
 

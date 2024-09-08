@@ -137,8 +137,6 @@ pgtrigger.Condition("OLD.* IS DISTINCT FROM NEW.*")
 
 ## Conditions across multiple models
 
-Remember, trigger conditions can only be expressed based on the rows of the current model. One can't, for example, reference a joined foreign key's value. This isn't a limitation in `django-pgtrigger` but rather a limitation in the database.
+Remember, trigger conditions can only be expressed based on the rows of the current model. One can't, for example, reference a joined foreign key's value. This isn't a limitation in `django-pgtrigger` but rather a limitation in Postgres.
 
 Custom conditional logic than spans multiple tables must happen inside the function as an `if/else` type of statement. [See this resource](https://www.postgresqltutorial.com/postgresql-plpgsql/plpgsql-if-else-statements/) for an example of what this looks like.
-
-Currently `django-pgtrigger` doesn't handle this case out of the box; one must write raw SQL to express `if/else` logic. Reach out [to the author](mailto:wesleykendall@protonmail.com) if you have a need for this to be more easily expressed in `django-pgtrigger`.
