@@ -28,12 +28,15 @@ _ignore = threading.local()
 _schema = threading.local()
 
 
-def _is_concurrent_statement(sql):
+def _is_concurrent_statement(sql: str | bytes) -> bool:
     """
     True if the sql statement is concurrent and cannot be ran in a transaction
     """
     sql = sql.strip().lower() if sql else ""
-    return sql.startswith("create") and "concurrently" in sql
+    if isinstance(sql, bytes):
+        return sql.startswith(b"create") and b"concurrently" in sql
+    else:
+        return sql.startswith("create") and "concurrently" in sql
 
 
 def _is_transaction_errored(cursor):
@@ -74,7 +77,7 @@ def _can_inject_variable(cursor, sql):
 
 def _execute_wrapper(execute_result):
     if utils.psycopg_maj_version == 3:
-        while execute_result.nextset():
+        while execute_result is not None and execute_result.nextset():
             pass
     return execute_result
 
