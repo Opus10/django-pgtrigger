@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import contextlib
 import copy
 import functools
 import hashlib
 import operator
 import re
-from typing import Any, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Tuple, Union
 
 from django.db import DEFAULT_DB_ALIAS, models, router, transaction
 from django.db.models.expressions import Col
@@ -12,6 +14,7 @@ from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
 from django.db.models.sql.datastructures import BaseTable
 from django.db.utils import ProgrammingError
+from typing_extensions import Self
 
 from pgtrigger import compiler, features, registry, utils
 
@@ -187,9 +190,9 @@ For deferrable triggers that run at the end of the transaction by default
 class Condition:
     """For specifying free-form SQL in the condition of a trigger."""
 
-    sql: str = None
+    sql: str | None = None
 
-    def __init__(self, sql: str = None):
+    def __init__(self, sql: str | None = None):
         self.sql = sql or self.sql
 
         if not self.sql:
@@ -246,7 +249,7 @@ class F(models.F):
     rows in a trigger condition.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         if self.name.startswith("old__"):
@@ -259,10 +262,10 @@ class F(models.F):
         self.col_name = self.name[5:]
 
     @property
-    def resolved_name(self):
+    def resolved_name(self) -> str:
         return f"{self.row_alias}.{utils.quote(self.col_name)}"
 
-    def resolve_expression(self, query=None, *args, **kwargs):
+    def resolve_expression(self, query=None, *args, **kwargs) -> Col:
         return Col(
             alias=self.row_alias,
             target=query.model._meta.get_field(self.col_name),
@@ -309,7 +312,7 @@ class Q(models.Q, Condition):
     on the old and new rows in a trigger condition.
     """
 
-    def resolve(self, model: models.Model) -> str:
+    def resolve(self, model: type[models.Model]) -> str:
         query = _OldNewQuery(model)
         connection = utils.connection()
         sql, args = self.resolve_expression(query).as_sql(
@@ -331,6 +334,11 @@ class Q(models.Q, Condition):
         args = tuple(_quote(arg).decode() for arg in args)
 
         return sql % args
+
+    if TYPE_CHECKING:
+
+        def __or__(self, other: Self) -> Self: ...
+        def __and__(self, other: Self) -> Self: ...
 
 
 class _Change(Condition):
@@ -363,7 +371,7 @@ class _Change(Condition):
         inverted._negated = not inverted._negated
         return inverted
 
-    def resolve(self, model):
+    def resolve(self, model: type[models.Model]) -> str:
         model_fields = {f.name for f in model._meta.fields}
         for field in self.fields + self.exclude:
             if field not in model_fields:
@@ -539,29 +547,29 @@ class Trigger:
     creating derived trigger classes.
     """
 
-    name: str = None
+    name: str | None = None
     level: Level = Row
-    when: When = None
-    operation: Operation = None
-    condition: Union[Condition, None] = None
+    when: When | None = None
+    operation: Operation | None = None
+    condition: Condition | None = None
     referencing: Union[Referencing, None] = None
-    func: Union[Func, str] = None
-    declare: Union[List[Tuple[str, str]], None] = None
+    func: Union[Func, str] | None = None
+    declare: list[tuple[str, str]] | None = None
     timing: Union[Timing, None] = None
 
     def __init__(
         self,
         *,
-        name: str = None,
-        level: Level = None,
-        when: When = None,
-        operation: Operation = None,
-        condition: Union[Condition, None] = None,
-        referencing: Union[Referencing, None] = None,
-        func: Union[Func, str] = None,
-        declare: Union[List[Tuple[str, str]], None] = None,
-        timing: Union[Timing, None] = None,
-    ):
+        name: str | None = None,
+        level: Level | None = None,
+        when: When | None = None,
+        operation: Operation | None = None,
+        condition: Condition | None = None,
+        referencing: Referencing | None = None,
+        func: Func | str | None = None,
+        declare: List[Tuple[str, str]] | None = None,
+        timing: Timing | None = None,
+    ) -> None:
         self.name = name or self.name
         self.level = level or self.level
         self.when = when or self.when
