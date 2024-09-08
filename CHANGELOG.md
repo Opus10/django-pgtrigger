@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.12.1 (2024-09-08)
+
+#### Fixes
+
+  - Account for `psycopg.exec` results being `None` by [@maxmuoto](https://github.com/maxmuoto) in [#170](https://github.com/Opus10/django-pgtrigger/pull/170).
+  - Account for `bytes` SQL strings by [@maxmuoto](https://github.com/maxmuoto) in [#171](https://github.com/Opus10/django-pgtrigger/pull/171).
+
+#### Changes
+
+  - Improve public interface type annotations by [@maxmuoto](https://github.com/maxmuoto) in [#172](https://github.com/Opus10/django-pgtrigger/pull/172).
+
 ## 4.12.0 (2024-08-26)
 
 #### Fixes
