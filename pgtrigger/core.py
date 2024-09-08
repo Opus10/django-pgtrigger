@@ -552,10 +552,10 @@ class Trigger:
     when: When | None = None
     operation: Operation | None = None
     condition: Condition | None = None
-    referencing: Union[Referencing, None] = None
-    func: Union[Func, str] | None = None
+    referencing: Referencing | None = None
+    func: Func | str | None = None
     declare: list[tuple[str, str]] | None = None
-    timing: Union[Timing, None] = None
+    timing: Timing | None = None
 
     def __init__(
         self,
