@@ -3,8 +3,11 @@ Functions for runtime-configuration of triggers, such as ignoring
 them or dynamically setting the search path.
 """
 
+from __future__ import annotations
+
 import contextlib
 import threading
+from collections.abc import Generator
 from typing import TYPE_CHECKING, List, Union
 
 from django.db import connections
@@ -150,7 +153,7 @@ def _set_ignore_state(model, trigger):
 
 
 @contextlib.contextmanager
-def ignore(*uris: str, databases: Union[List[str], None] = None):
+def ignore(*uris: str, databases: Union[List[str], None] = None) -> Generator[None]:
     """
     Dynamically ignore registered triggers matching URIs from executing in
     an individual thread.
@@ -257,7 +260,7 @@ def _set_schema_state(*schemas):
 
 
 @contextlib.contextmanager
-def schema(*schemas: str, databases: Union[List[str], None] = None):
+def schema(*schemas: str, databases: Union[List[str], None] = None) -> Generator[None]:
     """
     Sets the search path to the provided schemas.
 
