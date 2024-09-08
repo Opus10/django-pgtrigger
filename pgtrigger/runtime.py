@@ -3,6 +3,8 @@ Functions for runtime-configuration of triggers, such as ignoring
 them or dynamically setting the search path.
 """
 
+from __future__ import annotations
+
 import contextlib
 import threading
 from collections.abc import Generator
