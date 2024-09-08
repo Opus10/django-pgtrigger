@@ -91,6 +91,7 @@ def _inject_pgtrigger_ignore(execute, sql, params, many, context):
     """
     if _can_inject_variable(context["cursor"], sql):
         serialized_ignore = "{" + ",".join(_ignore.value) + "}"
+        sql = sql.decode() if isinstance(sql, bytes) else sql
         sql = f"SELECT set_config('pgtrigger.ignore', %s, true); {sql}"
         params = [serialized_ignore, *(params or ())]
 
