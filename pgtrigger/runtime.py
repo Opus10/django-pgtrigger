@@ -34,10 +34,8 @@ def _is_concurrent_statement(sql: str | bytes) -> bool:
     True if the sql statement is concurrent and cannot be ran in a transaction
     """
     sql = sql.strip().lower() if sql else ""
-    if isinstance(sql, bytes):
-        return sql.startswith(b"create") and b"concurrently" in sql
-    else:
-        return sql.startswith("create") and "concurrently" in sql
+    sql = sql.decode() if isinstance(sql, bytes) else sql
+    return sql.startswith("create") and "concurrently" in sql
 
 
 def _is_transaction_errored(cursor):
