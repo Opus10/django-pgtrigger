@@ -32,11 +32,12 @@ _ignore = threading.local()
 _schema = threading.local()
 
 
-def _is_concurrent_statement(sql):
+def _is_concurrent_statement(sql: str | bytes) -> bool:
     """
     True if the sql statement is concurrent and cannot be ran in a transaction
     """
     sql = sql.strip().lower() if sql else ""
+    sql = sql.decode() if isinstance(sql, bytes) else sql
     return sql.startswith("create") and "concurrently" in sql
 
 
@@ -91,6 +92,7 @@ def _inject_pgtrigger_ignore(execute, sql, params, many, context):
     """
     if _can_inject_variable(context["cursor"], sql):
         serialized_ignore = "{" + ",".join(_ignore.value) + "}"
+        sql = sql.decode() if isinstance(sql, bytes) else sql
         sql = f"SELECT set_config('pgtrigger.ignore', %s, true); {sql}"
         params = [serialized_ignore, *(params or ())]
 
