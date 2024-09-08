@@ -78,7 +78,7 @@ def _can_inject_variable(cursor, sql):
 
 def _execute_wrapper(execute_result):
     if utils.psycopg_maj_version == 3:
-        while execute_result.nextset():
+        while execute_result is not None and execute_result.nextset():
             pass
     return execute_result
 
