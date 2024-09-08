@@ -1,12 +1,21 @@
 import contextlib
 import re
 
+from django import __version__ as DJANGO_VERSION
 from django.apps import apps
 from django.db import transaction
 from django.db.migrations.operations.fields import AddField
 from django.db.migrations.operations.models import CreateModel, IndexOperation
 
 from pgtrigger import compiler, utils
+
+if DJANGO_VERSION >= "5.1":
+    from django.db.migrations.autodetector import OperationDependency
+
+    OPERATION_DEPENDENCY_CREATE = OperationDependency.Type.CREATE
+else:
+    OperationDependency = lambda *args: tuple((args))  # noqa: E731
+    OPERATION_DEPENDENCY_CREATE = True
 
 
 def _add_trigger(schema_editor, model, trigger):
@@ -139,13 +148,22 @@ def _inject_m2m_dependency_in_proxy(proxy_op):
     proxy models. Inject the dependency here
     """
     for base in proxy_op.bases:
+        # Ignore inherited bases that are not models or abstract
+        # https://github.com/Opus10/django-pgtrigger/issues/126
+        if not (isinstance(base, str) and "." in base):
+            continue
+
         model = apps.get_model(base)
         creator = model._meta.auto_created
         if creator:
             for field in creator._meta.many_to_many:
                 if field.remote_field.through == model:
                     app_label, model_name = creator._meta.label_lower.split(".")
-                    proxy_op._auto_deps.append((app_label, model_name, field.name, True))
+                    proxy_op._auto_deps.append(
+                        OperationDependency(
+                            app_label, model_name, field.name, OPERATION_DEPENDENCY_CREATE
+                        )
+                    )
 
 
 class MigrationAutodetectorMixin:
@@ -230,10 +248,13 @@ class MigrationAutodetectorMixin:
             }
 
             related_dependencies = [
-                (app_label, model_name, name, True) for name in sorted(related_fields)
+                OperationDependency(app_label, model_name, name, OPERATION_DEPENDENCY_CREATE)
+                for name in sorted(related_fields)
             ]
             # Depend on the model being created
-            related_dependencies.append((app_label, model_name, None, True))
+            related_dependencies.append(
+                OperationDependency(app_label, model_name, None, OPERATION_DEPENDENCY_CREATE)
+            )
 
             for trigger in model_state.options.pop("triggers", []):
                 self.add_operation(
@@ -265,7 +286,11 @@ class MigrationAutodetectorMixin:
                 self.add_operation(
                     app_label,
                     self._get_add_trigger_op(model=model, trigger=trigger),
-                    dependencies=[(app_label, model_name, None, True)],
+                    dependencies=[
+                        OperationDependency(
+                            app_label, model_name, None, OPERATION_DEPENDENCY_CREATE
+                        )
+                    ],
                 )
 
     def generate_deleted_proxies(self):
@@ -278,7 +303,11 @@ class MigrationAutodetectorMixin:
                 self.add_operation(
                     app_label,
                     RemoveTrigger(model_name=model_name, name=trigger.name),
-                    dependencies=[(app_label, model_name, None, True)],
+                    dependencies=[
+                        OperationDependency(
+                            app_label, model_name, None, OPERATION_DEPENDENCY_CREATE
+                        )
+                    ],
                 )
 
         super().generate_deleted_proxies()

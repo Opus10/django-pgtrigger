@@ -72,7 +72,7 @@ with transaction.atomic():
 
 When a deferrable trigger is declared, the `timing` attribute can be adjusted at runtime using [pgtrigger.constraints][]. This function mimics Postgres's `SET CONSTRAINTS` statement. Check [the Postgres docs for more info](https://www.postgresql.org/docs/current/sql-set-constraints.html).
 
-[pgtrigger.constraints][] takes the new timing value and a list of trigger URIs over which to apply the value. The value is in effect until the end of the transaction.
+[pgtrigger.constraints][] takes the new timing value and (optionally) a list of trigger URIs over which to apply the value. The value is in effect until the end of the transaction.
 
 Let's take our original example. We can set the trigger to immediately run, causing it to throw an error:
 

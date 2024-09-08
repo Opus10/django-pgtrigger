@@ -65,7 +65,7 @@ If triggers are new to you, don't worry. The [pgtrigger docs](https://django-pgt
 
 ## Compatibility
 
-`django-pgtrigger` is compatible with Python 3.8 - 3.12, Django 3.2 - 5.0, Psycopg 2 - 3, and Postgres 12 - 16.
+`django-pgtrigger` is compatible with Python 3.8 - 3.12, Django 4.2 - 5.1, Psycopg 2 - 3, and Postgres 13 - 16.
 
 ## Documentation
 
@@ -85,7 +85,6 @@ If triggers are new to you, don't worry. The [pgtrigger docs](https://django-pgt
 Install `django-pgtrigger` with:
 
     pip3 install django-pgtrigger
-
 After this, add `pgtrigger` to the `INSTALLED_APPS` setting of your Django project.
 
 ## Other Material
@@ -98,7 +97,7 @@ The [DjangoCon 2021 talk](https://www.youtube.com/watch?v=Tte3d4JjxCk) also brea
 
 For information on setting up django-pgtrigger for development and contributing changes, view [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Primary Authors
+## Creators
 
 - [Wes Kendall](https://github.com/wesleykendall)
 

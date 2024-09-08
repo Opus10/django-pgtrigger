@@ -1,7 +1,6 @@
 import datetime as dt
 
 import ddf
-import django
 import pytest
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -656,14 +655,7 @@ def test_trigger_conditions():
 )
 def test_changed_condition(condition, expected_sql):
     """Tests the pgtrigger.Changed condition utility"""
-    sql = condition.resolve(models.ChangedCondition)
-
-    # There are subtle SQL differences in django<4
-    if django.VERSION[0] < 4:
-        expected_sql = expected_sql.replace("(", "").replace(")", "")
-        sql = sql.replace("(", "").replace(")", "")
-
-    assert sql == expected_sql
+    assert condition.resolve(models.ChangedCondition) == expected_sql
 
 
 def test_changed_condition_bad_field():
