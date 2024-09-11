@@ -379,7 +379,7 @@ class TrackedModel(models.Model):
 With this statement-level trigger, we have the benefit that only one additional query is performed, even on bulk inserts to the tracked model. Here's some example code to illustrate what the results look like.
 
 ```python
-TrackedModel.objects.bulk_create([LoggedModel(field='old'), LoggedModel(field='old')])
+TrackedModel.objects.bulk_create([TrackedModel(field='old1'), TrackedModel(field='old2')])
 
 # Update all fields to "new"
 TrackedModel.objects.update(field='new')
@@ -388,10 +388,10 @@ TrackedModel.objects.update(field='new')
 print(HistoryModel.values('old_field', 'new_field'))
 
 >>> [{
-    'old_field': 'old',
+    'old_field': 'old1',
     'new_field': 'new'
 }, {
-    'old_field': 'old',
+    'old_field': 'old2',
     'new_field': 'new'
 }]
 ```
