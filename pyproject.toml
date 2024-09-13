@@ -28,7 +28,7 @@ packages = [
 exclude = [
   "*/tests/"
 ]
-version = "4.12.1"
+version = "4.12.2"
 description = "Postgres trigger support integrated with Django models."
 authors = ["Wes Kendall"]
 classifiers = [

@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.12.2 (2024-09-13)
+
+#### Fixes
+
+  - Add missing `py.typed`, add `__invert__` for type-checking onto `pgtrigger.Q` by [@max-muoto](https://github.com/max-muoto) in [#176](https://github.com/Opus10/django-pgtrigger/pull/176).
+  - Fix typo in statement-level trigger docs by [@g-nie](https://github.com/g-nie) in [#175](https://github.com/Opus10/django-pgtrigger/pull/175).
+
 ## 4.12.1 (2024-09-08)
 
 #### Fixes
