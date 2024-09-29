@@ -19,14 +19,14 @@ if utils.psycopg_maj_version == 2:
     import psycopg2.extensions
 elif utils.psycopg_maj_version == 3:
     import psycopg.pq
-    from psycopg import sql
+    import psycopg.sql as psycopg_sql
 else:
     raise AssertionError
 
 if TYPE_CHECKING:
     from pgtrigger import Timing
 
-_Query: TypeAlias = "str | bytes | sql.SQL | sql.Composed"
+_Query: TypeAlias = "str | bytes | psycopg_sql.SQL | psycopg_sql.Composed"
 _Connection: TypeAlias = "psycopg.Connection | psycopg2.extensions.connection"
 
 # All triggers currently being ignored
@@ -42,19 +42,19 @@ def _query_to_str(query: _Query, connection: _Connection) -> str:
         return query
     elif isinstance(query, bytes):
         return query.decode()
-    elif psycopg_3 and isinstance(query, (sql.SQL, sql.Composed)):
+    elif psycopg_3 and isinstance(query, (psycopg_sql.SQL, psycopg_sql.Composed)):
         return query.as_string(connection)
     else:
         raise AssertionError
 
 
-def _is_concurrent_statement(sql: _Query, connection: _Connection) -> bool:
+def _is_concurrent_statement(query: _Query, connection: _Connection) -> bool:
     """
     True if the sql statement is concurrent and cannot be ran in a transaction
     """
-    sql = _query_to_str(sql, connection)
-    sql = sql.strip().lower() if sql else ""
-    return sql.startswith("create") and "concurrently" in sql
+    query = _query_to_str(query, connection)
+    query = query.strip().lower() if query else ""
+    return query.startswith("create") and "concurrently" in query
 
 
 def _is_transaction_errored(cursor):

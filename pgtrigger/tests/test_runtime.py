@@ -246,7 +246,7 @@ def test_custom_db_table_ignore():
         (b"select count(*) from auth_user", (), 2),
         (SQL("select count(*) from auth_user where id = %s"), (1,), 3),
         (  # Formatting creates a composed object
-            SQL("select {lit}").format(lit=Literal(1)),
+            SQL("select count(*) from auth_user where id = {id}").format(id=1),
             (),
             3,
         ),
@@ -269,7 +269,6 @@ def test_inject_trigger_ignore(settings, mocker, sql, params, min_psycopg_versio
         with connection.cursor() as cursor:
             cursor.execute(sql, params)
             query = connection.queries[-1]
-
             assert query["sql"].startswith(expected_sql_1) or query["sql"].startswith(
                 expected_sql_2
             )
