@@ -11,6 +11,7 @@ from collections.abc import Generator
 from typing import TYPE_CHECKING, List, Union
 
 from django.db import connections
+from typing_extensions import TypeAlias
 
 from pgtrigger import registry, utils
 
@@ -18,12 +19,15 @@ if utils.psycopg_maj_version == 2:
     import psycopg2.extensions
 elif utils.psycopg_maj_version == 3:
     import psycopg.pq
+    from psycopg import sql
 else:
     raise AssertionError
 
 if TYPE_CHECKING:
     from pgtrigger import Timing
 
+_Query: TypeAlias = "str | bytes | sql.SQL | sql.Composed"
+_Connection: TypeAlias = "psycopg.Connection | psycopg2.extensions.connection"
 
 # All triggers currently being ignored
 _ignore = threading.local()
@@ -32,12 +36,24 @@ _ignore = threading.local()
 _schema = threading.local()
 
 
-def _is_concurrent_statement(sql: str | bytes) -> bool:
+def _query_to_str(query: _Query, connection: _Connection) -> str:
+    psycopg_3 = utils.psycopg_maj_version == 3
+    if isinstance(query, str):
+        return query
+    elif isinstance(query, bytes):
+        return query.decode()
+    elif psycopg_3 and isinstance(query, (sql.SQL, sql.Composed)):
+        return query.as_string(connection)
+    else:
+        raise AssertionError
+
+
+def _is_concurrent_statement(sql: _Query, connection: _Connection) -> bool:
     """
     True if the sql statement is concurrent and cannot be ran in a transaction
     """
+    sql = _query_to_str(sql, connection)
     sql = sql.strip().lower() if sql else ""
-    sql = sql.decode() if isinstance(sql, bytes) else sql
     return sql.startswith("create") and "concurrently" in sql
 
 
@@ -72,7 +88,7 @@ def _can_inject_variable(cursor, sql):
     """
     return (
         not getattr(cursor, "name", None)
-        and not _is_concurrent_statement(sql)
+        and not _is_concurrent_statement(sql, cursor.connection)
         and not _is_transaction_errored(cursor)
     )
 
@@ -92,7 +108,7 @@ def _inject_pgtrigger_ignore(execute, sql, params, many, context):
     """
     if _can_inject_variable(context["cursor"], sql):
         serialized_ignore = "{" + ",".join(_ignore.value) + "}"
-        sql = sql.decode() if isinstance(sql, bytes) else sql
+        sql = _query_to_str(sql, context["cursor"])
         sql = f"SELECT set_config('pgtrigger.ignore', %s, true); {sql}"
         params = [serialized_ignore, *(params or ())]
 

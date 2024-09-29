@@ -6,6 +6,14 @@ import pgtrigger
 import pgtrigger.utils
 from pgtrigger.tests import models, utils
 
+if pgtrigger.utils.psycopg_maj_version == 3:
+    from psycopg.sql import SQL, Literal
+else:
+    from unittest.mock import MagicMock
+
+    SQL = MagicMock()
+    Literal = MagicMock()
+
 
 @pytest.mark.django_db
 def test_schema():
@@ -228,20 +236,26 @@ def test_custom_db_table_ignore():
         assert not models.CustomTableName.objects.exists()
 
 
-@pytest.mark.skipif(
-    pgtrigger.utils.psycopg_maj_version == 3, reason="Psycopg2 preserves entire query"
-)
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    "sql, params",
+    "sql, params, min_psycopg_version",
     [
-        ("select count(*) from auth_user where id = %s", (1,)),
-        ("select count(*) from auth_user", ()),
-        (b"select count(*) from auth_user where id = %s", (1,)),
-        (b"select count(*) from auth_user", ()),
+        ("select count(*) from auth_user where id = %s", (1,), 2),
+        ("select count(*) from auth_user", (), 2),
+        (b"select count(*) from auth_user where id = %s", (1,), 2),
+        (b"select count(*) from auth_user", (), 2),
+        (SQL("select count(*) from auth_user where id = %s"), (1,), 3),
+        (  # Formatting creates a composed object
+            SQL("select {lit}").format(lit=Literal(1)),
+            (),
+            3,
+        ),
     ],
 )
-def test_inject_trigger_ignore(settings, mocker, sql, params):
+def test_inject_trigger_ignore(settings, mocker, sql, params, min_psycopg_version):
+    if pgtrigger.utils.psycopg_maj_version < min_psycopg_version:
+        pytest.skip("Psycopg version is less than {}".format(min_psycopg_version))
+
     settings.DEBUG = True
     expected_sql_base = "SELECT set_config('pgtrigger.ignore', '{ignored_triggers}', true)"
     # Order isn't deterministic, so we need to check for either order.
