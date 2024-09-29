@@ -48,13 +48,13 @@ def _query_to_str(query: _Query, connection: _Connection) -> str:
         raise AssertionError
 
 
-def _is_concurrent_statement(query: _Query, connection: _Connection) -> bool:
+def _is_concurrent_statement(sql: _Query, connection: _Connection) -> bool:
     """
     True if the sql statement is concurrent and cannot be ran in a transaction
     """
-    query = _query_to_str(query, connection)
-    query = query.strip().lower() if query else ""
-    return query.startswith("create") and "concurrently" in query
+    sql = _query_to_str(sql, connection)
+    sql = sql.strip().lower() if sql else ""
+    return sql.startswith("create") and "concurrently" in sql
 
 
 def _is_transaction_errored(cursor):
