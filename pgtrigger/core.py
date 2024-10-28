@@ -14,7 +14,6 @@ from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
 from django.db.models.sql.datastructures import BaseTable
 from django.db.utils import ProgrammingError
-from typing_extensions import Self
 
 from pgtrigger import compiler, features, registry, utils
 
@@ -337,9 +336,9 @@ class Q(models.Q, Condition):
 
     if TYPE_CHECKING:
 
-        def __or__(self, other: Self) -> Self: ...
-        def __and__(self, other: Self) -> Self: ...
-        def __invert__(self) -> Self: ...
+        def __or__(self, other: "Q") -> "Q": ...
+        def __and__(self, other: "Q") -> "Q": ...
+        def __invert__(self) -> "Q": ...
 
 
 class _Change(Condition):
