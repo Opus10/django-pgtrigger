@@ -17,6 +17,9 @@ from django.db.utils import ProgrammingError
 
 from pgtrigger import compiler, features, registry, utils
 
+if TYPE_CHECKING:
+    from typing_extensions import Self
+
 if utils.psycopg_maj_version == 2:
     import psycopg2.extensions
 elif utils.psycopg_maj_version == 3:
@@ -336,9 +339,9 @@ class Q(models.Q, Condition):
 
     if TYPE_CHECKING:
 
-        def __or__(self, other: "Q") -> "Q": ...
-        def __and__(self, other: "Q") -> "Q": ...
-        def __invert__(self) -> "Q": ...
+        def __or__(self, other: Self) -> Self: ...
+        def __and__(self, other: Self) -> Self: ...
+        def __invert__(self) -> Self: ...
 
 
 class _Change(Condition):
