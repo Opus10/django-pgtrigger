@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.13.0 (2024-11-01)
+
+#### Fixes
+
+  - Remove breaking `typing_extensions` import into a `TYPE_CHECKING` block by [@BillSchumacher](https://github.com/BillSchumacher) in [#181](https://github.com/Opus10/django-pgtrigger/pull/181)
+
+#### Changes
+
+  - Added Python 3.13 support, dropped Python 3.8. Added Postgres17 support by [@wesleykendall](https://github.com/wesleykendall) in [#182](https://github.com/Opus10/django-pgtrigger/pull/182).
+
 ## 4.12.2 (2024-09-13)
 
 #### Fixes
