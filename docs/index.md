@@ -58,7 +58,7 @@ Triggers are installed like other database objects. Run `python manage.py makemi
 
 ## Compatibility
 
-`django-pgtrigger` is compatible with Python 3.8 - 3.12, Django 4.2 - 5.1, Psycopg 2 - 3, and Postgres 12 - 16.
+`django-pgtrigger` is compatible with Python 3.9 - 3.13, Django 4.2 - 5.1, Psycopg 2 - 3, and Postgres 12 - 17.
 
 ## Next steps
 

@@ -46,6 +46,8 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  - toc:
+      permalink: true
 
 theme:
   custom_dir: docs/overrides
@@ -53,6 +55,7 @@ theme:
   logo: static/logo.png
   favicon: static/logo.png
   features:
+    - content.code.copy
     - navigation.footer
     - navigation.path
     - navigation.sections
