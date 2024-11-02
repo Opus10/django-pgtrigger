@@ -1,0 +1,24 @@
+.md-typeset__table {
+    min-width: 100%;
+}
+ 
+.md-typeset table:not([class]) {
+    display: table;
+}
+
+:root {
+    --md-primary-fg-color: #BD4D86;
+    --md-primary-fg-color--light: #BD4D86;
+    --md-primary-fg-color--dark: #BD4D86;
+}
+
+.md-footer {
+    background-color: #BD4D86;
+}
+.md-footer-meta {
+    background-color: #973E6B;
+}
+
+readthedocs-flyout {
+    display: none;
+}
