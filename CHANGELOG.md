@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.13.1 (2024-11-11)
+
+#### Fixes
+
+  - Properly support `psycopg.sql.SQL` and `psycopg.sql.Composed` objects for query execution when ignoring triggers by [@max-muoto](https://github.com/max-muoto) in [#177](https://github.com/Opus10/django-pgtrigger/pull/177).
+
 ## 4.13.0 (2024-11-01)
 
 #### Fixes
