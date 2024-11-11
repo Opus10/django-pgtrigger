@@ -270,7 +270,8 @@ def test_test_trigger_ignore_psycopg_sql_objects():
     with pgtrigger.ignore("tests.TestTrigger:protect_misc_insert"), connection.cursor() as cursor:
         cursor.execute(
             SQL(
-                "INSERT INTO tests_testtrigger (field, int_field, dt_field) VALUES ('misc_insert', 1, now())"
+                "INSERT INTO tests_testtrigger (field, int_field, dt_field)"
+                "VALUES ('misc_insert', 1, now())",
             )
         )
     # Test with a `sql.Composed` object (built through formatting)
