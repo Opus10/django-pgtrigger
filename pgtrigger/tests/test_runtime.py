@@ -244,7 +244,7 @@ def test_custom_db_table_ignore():
         (b"select count(*) from auth_user", ()),
     ],
 )
-def test_inject_trigger_ignore(settings, mocker, sql, params, min_psycopg_version):
+def test_inject_trigger_ignore(settings, mocker, sql, params):
     settings.DEBUG = True
     expected_sql_base = "SELECT set_config('pgtrigger.ignore', '{ignored_triggers}', true)"
     # Order isn't deterministic, so we need to check for either order.
