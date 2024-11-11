@@ -6,6 +6,13 @@ import pgtrigger
 import pgtrigger.utils
 from pgtrigger.tests import models, utils
 
+if pgtrigger.utils.psycopg_maj_version == 3:
+    from psycopg.sql import SQL, Identifier
+elif pgtrigger.utils.psycopg_maj_version == 2:
+    from psycopg2.sql import SQL, Identifier
+else:
+    raise AssertionError
+
 
 @pytest.mark.django_db
 def test_schema():
@@ -255,7 +262,26 @@ def test_inject_trigger_ignore(settings, mocker, sql, params):
         with connection.cursor() as cursor:
             cursor.execute(sql, params)
             query = connection.queries[-1]
-
             assert query["sql"].startswith(expected_sql_1) or query["sql"].startswith(
                 expected_sql_2
             )
+
+
+@pytest.mark.django_db
+def test_test_trigger_ignore_psycopg_sql_objects():
+    """Verify that native psycopg SQL objects are handled correctly when ignoring triggers."""
+    # Test with a `sql.SQL` object
+    with pgtrigger.ignore("tests.TestTrigger:protect_misc_insert"), connection.cursor() as cursor:
+        cursor.execute(
+            SQL(
+                "INSERT INTO tests_testtrigger (field, int_field, dt_field)"
+                "VALUES ('misc_insert', 1, now())",
+            )
+        )
+    # Test with a `sql.Composed` object (built through formatting)
+    with pgtrigger.ignore("tests.TestTrigger:protect_misc_insert"), connection.cursor() as cursor:
+        cursor.execute(
+            SQL(
+                "INSERT INTO {table} (field, int_field, dt_field) VALUES ('misc_insert', 1, now())"
+            ).format(table=Identifier("tests_testtrigger"))
+        )
