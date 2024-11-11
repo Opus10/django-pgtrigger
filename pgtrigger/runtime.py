@@ -11,7 +11,6 @@ from collections.abc import Generator
 from typing import TYPE_CHECKING, List, Union
 
 from django.db import connections
-from django.db.backends.utils import CursorWrapper
 
 from pgtrigger import registry, utils
 
@@ -25,6 +24,7 @@ else:
     raise AssertionError
 
 if TYPE_CHECKING:
+    from django.db.backends.utils import CursorWrapper
     from typing_extensions import TypeAlias
 
     from pgtrigger import Timing
