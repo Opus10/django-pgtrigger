@@ -263,6 +263,9 @@ def test_inject_trigger_ignore(settings, mocker, sql, params):
             )
 
 
+@pytest.mark.skipif(
+    pgtrigger.utils.psycopg_maj_version != 3, reason="Direct string conversion only supported in 3"
+)
 @pytest.mark.django_db
 def test_test_trigger_ignore_psycopg_sql_objects():
     """Verify that native psycopg SQL objects are handled correctly when ignoring triggers."""
