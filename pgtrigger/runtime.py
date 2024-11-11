@@ -45,7 +45,7 @@ def _query_to_str(query: _Query, cursor: CursorWrapper) -> str:
         return query.decode()
     elif isinstance(query, (psycopg_sql.SQL, psycopg_sql.Composed)):
         return query.as_string(cursor.connection)
-    else:
+    else:  # pragma: no cover
         raise TypeError(f"Unsupported query type: {type(query)}")
 
 
