@@ -14,9 +14,11 @@ from django.db.models.fields.related import RelatedField
 from django.db.models.sql import Query
 from django.db.models.sql.datastructures import BaseTable
 from django.db.utils import ProgrammingError
-from typing_extensions import Self
 
 from pgtrigger import compiler, features, registry, utils
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 if utils.psycopg_maj_version == 2:
     import psycopg2.extensions

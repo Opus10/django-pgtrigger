@@ -6,7 +6,7 @@ orbs:
       python:
         working_directory: /code
         docker:
-          - image: opus10/circleci-python-library:2024-04-17
+          - image: opus10/circleci-python-library:2024-10-26
             environment:
               # Ensure makefile commands are not wrapped in "docker compose run"
               EXEC_WRAPPER: ''
@@ -25,11 +25,11 @@ orbs:
         steps:
           - checkout
           - restore_cache:
-              key: v4-{{ checksum "poetry.lock" }} 
+              key: v5-{{ checksum "poetry.lock" }}
           - run: make dependencies
           - run: make full-test-suite
           - save_cache:
-              key: v4-{{ checksum "poetry.lock" }} 
+              key: v5-{{ checksum "poetry.lock" }}
               paths:
                 - /home/circleci/.cache/pypoetry/
                 - /code/.venv
@@ -46,7 +46,7 @@ jobs:
   test_pg_max:
     executor:
       name: opus10/python
-      pg_version: "16.4"
+      pg_version: "17.0"
     steps:
       - opus10/test
 
@@ -55,7 +55,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: v4-{{ checksum "poetry.lock" }} 
+          key: v5-{{ checksum "poetry.lock" }}
       - run: make dependencies
       - run: make lint
 
@@ -64,7 +64,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: v4-{{ checksum "poetry.lock" }}
+          key: v5-{{ checksum "poetry.lock" }}
       - run: make dependencies
       - run: make type-check || true
 
@@ -73,9 +73,8 @@ jobs:
     steps:
       - checkout
       - run: ssh-add -D
-      - run: echo "${GITHUB_DEVOPS_PRIVATE_SSH_KEY_BASE64}" | base64 --decode | ssh-add - > /dev/null
       - restore_cache:
-          key: v4-{{ checksum "poetry.lock" }} 
+          key: v5-{{ checksum "poetry.lock" }}
       - run: make dependencies
       - run: poetry run python devops.py deploy
 
