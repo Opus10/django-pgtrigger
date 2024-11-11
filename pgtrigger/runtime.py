@@ -46,7 +46,7 @@ def _query_to_str(query: _Query, cursor: CursorWrapper) -> str:
     elif isinstance(query, (psycopg_sql.SQL, psycopg_sql.Composed)):
         return query.as_string(cursor.connection)
     else:
-        raise AssertionError
+        raise TypeError(f"Unsupported query type: {type(query)}")
 
 
 def _is_concurrent_statement(sql: _Query, cursor: CursorWrapper) -> bool:
