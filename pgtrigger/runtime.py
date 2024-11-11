@@ -11,7 +11,6 @@ from collections.abc import Generator
 from typing import TYPE_CHECKING, List, Union
 
 from django.db import connections
-from typing_extensions import TypeAlias
 
 from pgtrigger import registry, utils
 
@@ -24,10 +23,12 @@ else:
     raise AssertionError
 
 if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
     from pgtrigger import Timing
 
-_Query: TypeAlias = "str | bytes | psycopg_sql.SQL | psycopg_sql.Composed"
-_Connection: TypeAlias = "psycopg.Connection | psycopg2.extensions.connection"
+_Query: "TypeAlias" = "str | bytes | psycopg_sql.SQL | psycopg_sql.Composed"
+_Connection: "TypeAlias" = "psycopg.Connection | psycopg2.extensions.connection"
 
 # All triggers currently being ignored
 _ignore = threading.local()
