@@ -7,12 +7,7 @@ import pgtrigger.utils
 from pgtrigger.tests import models, utils
 
 if pgtrigger.utils.psycopg_maj_version == 3:
-    from psycopg.sql import SQL, Literal
-else:
-    from unittest.mock import MagicMock
-
-    SQL = MagicMock()
-    Literal = MagicMock()
+    from psycopg.sql import SQL, Identifier
 
 
 @pytest.mark.django_db
@@ -236,26 +231,20 @@ def test_custom_db_table_ignore():
         assert not models.CustomTableName.objects.exists()
 
 
+@pytest.mark.skipif(
+    pgtrigger.utils.psycopg_maj_version == 3, reason="Psycopg2 preserves entire query"
+)
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    "sql, params, min_psycopg_version",
+    "sql, params",
     [
-        ("select count(*) from auth_user where id = %s", (1,), 2),
-        ("select count(*) from auth_user", (), 2),
-        (b"select count(*) from auth_user where id = %s", (1,), 2),
-        (b"select count(*) from auth_user", (), 2),
-        (SQL("select count(*) from auth_user where id = %s"), (1,), 3),
-        (  # Formatting creates a composed object
-            SQL("select count(*) from auth_user where id = {id}").format(id=1),
-            (),
-            3,
-        ),
+        ("select count(*) from auth_user where id = %s", (1,)),
+        ("select count(*) from auth_user", ()),
+        (b"select count(*) from auth_user where id = %s", (1,)),
+        (b"select count(*) from auth_user", ()),
     ],
 )
 def test_inject_trigger_ignore(settings, mocker, sql, params, min_psycopg_version):
-    if pgtrigger.utils.psycopg_maj_version < min_psycopg_version:
-        pytest.skip("Psycopg version is less than {}".format(min_psycopg_version))
-
     settings.DEBUG = True
     expected_sql_base = "SELECT set_config('pgtrigger.ignore', '{ignored_triggers}', true)"
     # Order isn't deterministic, so we need to check for either order.
@@ -272,3 +261,22 @@ def test_inject_trigger_ignore(settings, mocker, sql, params, min_psycopg_versio
             assert query["sql"].startswith(expected_sql_1) or query["sql"].startswith(
                 expected_sql_2
             )
+
+
+@pytest.mark.django_db
+def test_test_trigger_ignore_psycopg_sql_objects():
+    """Verify that native psycopg SQL objects are handled correctly when ignoring triggers."""
+    # Test with a `sql.SQL` object
+    with pgtrigger.ignore("tests.TestTrigger:protect_misc_insert"), connection.cursor() as cursor:
+        cursor.execute(
+            SQL(
+                "INSERT INTO tests_testtrigger (field, int_field, dt_field) VALUES ('misc_insert', 1, now())"
+            )
+        )
+    # Test with a `sql.Composed` object (built through formatting)
+    with pgtrigger.ignore("tests.TestTrigger:protect_misc_insert"), connection.cursor() as cursor:
+        cursor.execute(
+            SQL(
+                "INSERT INTO {table} (field, int_field, dt_field) VALUES ('misc_insert', 1, now())"
+            ).format(table=Identifier("tests_testtrigger"))
+        )
