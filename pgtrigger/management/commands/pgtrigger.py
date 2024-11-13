@@ -9,7 +9,8 @@ from pgtrigger import core, installation, registry, runtime
 
 def _setup_logging():  # pragma: no cover
     installation.LOGGER.addHandler(logging.StreamHandler())
-    installation.LOGGER.setLevel(logging.INFO)
+    if not installation.LOGGER.level:
+        installation.LOGGER.setLevel(logging.INFO)
 
 
 class SubCommands(BaseCommand):  # pragma: no cover
