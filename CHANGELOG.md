@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.13.2 (2024-11-18)
+
+#### Fixes
+
+  - Allow overriding of management command logger by [@max-prtsr](https://github.com/max-prtsr) in [#187](https://github.com/Opus10/django-pgtrigger/pull/187).
+
 ## 4.13.1 (2024-11-11)
 
 #### Fixes
