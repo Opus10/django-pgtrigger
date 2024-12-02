@@ -19,10 +19,6 @@ The [pgtrigger.Trigger][] object is the base class for all triggers in `django-p
 
         [pgtrigger.UpdateOf][] fires when columns appear in an `UPDATE` statement. It will not fire if other triggers update the columns. See the notes in the [Postgres docs](https://www.postgresql.org/docs/12/sql-createtrigger.html) for more information.
 
-    !!! note
-
-        Some conditions cannot be combined. For example, [pgtrigger.UpdateOf][] cannot be combined with other operations.
-
 * **when**
 
     When the trigger should run in relation to the operation. [pgtrigger.Before][] executes the trigger before the operation, and vice versa for [pgtrigger.After][]. [pgtrigger.InsteadOf][] is used for SQL views.
