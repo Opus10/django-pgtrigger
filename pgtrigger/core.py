@@ -525,22 +525,23 @@ class Func:
         Returns:
             The rendered SQL.
         """
-        kwargs = dict(
-            meta=model._meta,
-            fields=utils.AttrDict({field.name: field for field in model._meta.fields}),
-            columns=utils.AttrDict({field.name: field.column for field in model._meta.fields}),
-            reset_ignore=(
-                '''
+        kwargs = {
+            "meta": model._meta,
+            "fields": utils.AttrDict({field.name: field for field in model._meta.fields}),
+            "columns": utils.AttrDict({field.name: field.column for field in model._meta.fields}),
+            "reset_ignore": (
+                """
                 IF _prev_ignore IS NOT NULL AND (_prev_ignore = '') IS NOT TRUE THEN
                     PERFORM set_config('pgtrigger.ignore', _prev_ignore, true);
                 ELSE
                     PERFORM set_config('pgtrigger.ignore', '', true);
                 END IF;
-                '''
-                if trigger.ignores_others else ''
-            )
-        ) | self.kwargs
-        
+                """
+                if trigger.ignores_others
+                else ""
+            ),
+        } | self.kwargs
+
         return self.func.format(**kwargs)
 
 
@@ -632,15 +633,15 @@ class Trigger:
             if not isinstance(self.func, Func):
                 raise ValueError(
                     'Invalid "func" attribute. Triggers that ignore others must provide '
-                    f'an instance of pgtrigger.Func(). Received {type(self.func)} instead'
+                    f"an instance of pgtrigger.Func(). Received {type(self.func)} instead"
                 )
-        
-            if  not '{reset_ignore}' in self.func.func:
-                raise ValueError(f'Trigger "{self}" ignores other triggers, however, '
-                                 'placeholder {reset_ignore} was not found in the function '
-                                 f'body. Please refer to: https://django-pgtrigger.readthedocs.io/en/{ver}/ignoring_triggers/#ignore-other-triggers-within-a-trigger')
-        
-        
+
+            if "{reset_ignore}" not in self.func.func:
+                raise ValueError(
+                    f'Trigger "{self}" ignores other triggers, however, '
+                    "placeholder {reset_ignore} was not found in the function "
+                    f"body. Please refer to: https://django-pgtrigger.readthedocs.io/en/{ver}/ignoring_triggers/#ignore-other-triggers-within-a-trigger"
+                )
 
     def __str__(self) -> str:  # pragma: no cover
         return self.name
@@ -707,13 +708,13 @@ class Trigger:
             be shown in the DECLARE. For example [('row_data', 'JSONB')]
         """
         declare = self.declare or []
-        
+
         if self.ignore_others is not None:
-            declare.append(('_prev_ignore', 'text'))
+            declare.append(("_prev_ignore", "text"))
             declare.append(self.declare_local_ignore(self.ignore_others))
-            
+
         return declare
-    
+
     def declare_local_ignore(self, ignore: list[str]) -> tuple[str, str]:
         """Given a list of trigger URIs compile the value for `_local_ignore`
         variable of the trigger function
@@ -728,12 +729,16 @@ class Trigger:
         tuple[str, str]
             `_local_ignore` variable declaration and initial value for the DECLARE block
         """
-        local_ignore = '{' + ','.join(
-            f'{model._meta.db_table}:{(pgid:=trigger.get_pgid(model))},{pgid}'
-            for model, trigger in registry.registered(*ignore)
-        ) + '}'
-        return ('_local_ignore', f"text[] = '{local_ignore}'")
-    
+        local_ignore = (
+            "{"
+            + ",".join(
+                f"{model._meta.db_table}:{(pgid:=trigger.get_pgid(model))},{pgid}"
+                for model, trigger in registry.registered(*ignore)
+            )
+            + "}"
+        )
+        return ("_local_ignore", f"text[] = '{local_ignore}'")
+
     @property
     def ignores_others(self) -> bool:
         """True if the trigger is initialized with local trigger ignores"""
@@ -741,8 +746,7 @@ class Trigger:
 
     def render_local_ignore(self):
         if self.ignores_others:
-            return (
-                '''
+            return """
                 BEGIN
                     SELECT CURRENT_SETTING('pgtrigger.ignore', true) INTO _prev_ignore;
                     EXCEPTION WHEN OTHERS THEN
@@ -753,9 +757,8 @@ class Trigger:
                 END IF;
 
                 PERFORM set_config('pgtrigger.ignore', _local_ignore::text, true);
-                '''
-            )
-        return ''
+                """
+        return ""
 
     def get_func(self, model: type[models.Model]) -> Union[str, Func]:
         """

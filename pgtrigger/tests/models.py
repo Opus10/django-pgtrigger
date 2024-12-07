@@ -266,12 +266,7 @@ class Topic(models.Model):
     comment_count = models.PositiveIntegerField(default=0)
 
     class Meta:
-        triggers = [
-            pgtrigger.ReadOnly(
-                name='read_only_comment_count',
-                fields=['comment_count']
-            )
-        ]
+        triggers = [pgtrigger.ReadOnly(name="read_only_comment_count", fields=["comment_count"])]
 
 
 class Comment(models.Model):
@@ -282,22 +277,21 @@ class Comment(models.Model):
         triggers = [
             pgtrigger.Trigger(
                 func=pgtrigger.Func(
-                    '''
+                    """
                     UPDATE "{db_table}"
                         SET "{comment_count}" = "{comment_count}" + 1
                     WHERE
                         "{db_table}"."{topic_pk}" = NEW."{columns.topic}";
                     {reset_ignore}
                     RETURN NEW;
-                    ''',
-                    db_table = Topic._meta.db_table,
-                    comment_count = Topic._meta.get_field('comment_count').get_attname_column()[1],
-                    topic_pk = Topic._meta.pk.get_attname_column()[1]                   
-                ),    
-                ignore_others=['tests.Topic:read_only_comment_count'],
+                    """,
+                    db_table=Topic._meta.db_table,
+                    comment_count=Topic._meta.get_field("comment_count").get_attname_column()[1],
+                    topic_pk=Topic._meta.pk.get_attname_column()[1],
+                ),
+                ignore_others=["tests.Topic:read_only_comment_count"],
                 when=pgtrigger.Before,
                 operation=pgtrigger.Insert,
-                name='increment_comment_count'
+                name="increment_comment_count",
             ),
         ]
-

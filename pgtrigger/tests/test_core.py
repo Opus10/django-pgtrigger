@@ -10,6 +10,7 @@ import pgtrigger
 from pgtrigger import core
 from pgtrigger.tests import models, utils
 
+
 def test_func():
     """Tests using custom Func object"""
     trigger = pgtrigger.Trigger(
@@ -728,47 +729,48 @@ def test_func_is_func_when_ignores_others():
     when using `ignore_others`. Because the user needs to use `{reset_ignore}`
     placeholder, so that `pgtrigger.ignore()` works as expected"""
 
-    with pytest.raises(ValueError,
-                       match='Invalid "func" attribute. Triggers that ignore others'):
-        pgtrigger.Trigger(name='ignorant-trigger',
-                          func='RETURN NEW',
-                          ignore_others=['app.Model:trigger'],
-                          when=pgtrigger.Before,
-                          operation=pgtrigger.Insert)
-        
-    with pytest.raises(ValueError,
-                       match='placeholder {reset_ignore} was not found in the function body'):
-        pgtrigger.Trigger(name='ignorant-trigger',
-                          func=pgtrigger.Func('RETURN NEW'),
-                          ignore_others=['app.Model:trigger'],
-                          when=pgtrigger.Before,
-                          operation=pgtrigger.Insert)
-        
+    with pytest.raises(ValueError, match='Invalid "func" attribute. Triggers that ignore others'):
+        pgtrigger.Trigger(
+            name="ignorant-trigger",
+            func="RETURN NEW",
+            ignore_others=["app.Model:trigger"],
+            when=pgtrigger.Before,
+            operation=pgtrigger.Insert,
+        )
+
+    with pytest.raises(
+        ValueError, match="placeholder {reset_ignore} was not found in the function body"
+    ):
+        pgtrigger.Trigger(
+            name="ignorant-trigger",
+            func=pgtrigger.Func("RETURN NEW"),
+            ignore_others=["app.Model:trigger"],
+            when=pgtrigger.Before,
+            operation=pgtrigger.Insert,
+        )
+
 
 @pytest.mark.django_db(transaction=True)
 def test_ignore_others():
     """
     Test that igore others succesfully ignores the
     `read_only_comment_count` trigger on `models.Topic`
-    
+
     Test that the custom trigger on `models.Comment` updates the comment counter on `models.Topic`
 
     Test that `pgtrigger.ignore` works as expected
     """
     test_topic = ddf.G(models.Topic)
-    test_message = ddf.G(models.Comment, topic=test_topic.pk)
+    ddf.G(models.Comment, topic=test_topic.pk)
 
     test_topic.refresh_from_db()
     assert test_topic.comment_count == 1
 
-
-    with pgtrigger.ignore('tests.Topic:read_only_comment_count'):
+    with pgtrigger.ignore("tests.Topic:read_only_comment_count"):
         ddf.G(models.Comment, topic=test_topic.pk)
         test_topic.comment_count = 10
         test_topic.save()
 
-
-    with utils.raises_trigger_error('Cannot update'):
+    with utils.raises_trigger_error("Cannot update"):
         test_topic.comment_count = 20
         test_topic.save()
-        

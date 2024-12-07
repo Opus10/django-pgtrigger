@@ -119,7 +119,7 @@ class UpsertTriggerSql(collections.UserString):
         condition=_unset,
         execute=_unset,
         hash=None,
-        local_ignore='',
+        local_ignore="",
     ):
         """Initialize the SQL and store it in the `.data` attribute."""
         self.kwargs = {
