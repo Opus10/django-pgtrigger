@@ -27,6 +27,7 @@ elif utils.psycopg_maj_version == 3:
 else:
     raise AssertionError
 
+from .version import __version__ as ver
 
 # Postgres only allows identifiers to be 63 chars max. Since "pgtrigger_"
 # is the prefix for trigger names, and since an additional "_" and
@@ -510,10 +511,11 @@ class Func:
     possible to do inline SQL in the `Meta` of a model and reference its properties.
     """
 
-    def __init__(self, func):
+    def __init__(self, func: str, **kwargs):
         self.func = func
+        self.kwargs = kwargs
 
-    def render(self, model: models.Model) -> str:
+    def render(self, model: type[models.Model], trigger: Trigger) -> str:
         """
         Render the SQL of the function.
 
@@ -523,9 +525,23 @@ class Func:
         Returns:
             The rendered SQL.
         """
-        fields = utils.AttrDict({field.name: field for field in model._meta.fields})
-        columns = utils.AttrDict({field.name: field.column for field in model._meta.fields})
-        return self.func.format(meta=model._meta, fields=fields, columns=columns)
+        kwargs = dict(
+            meta=model._meta,
+            fields=utils.AttrDict({field.name: field for field in model._meta.fields}),
+            columns=utils.AttrDict({field.name: field.column for field in model._meta.fields}),
+            reset_ignore=(
+                '''
+                IF _prev_ignore IS NOT NULL AND (_prev_ignore = '') IS NOT TRUE THEN
+                    PERFORM set_config('pgtrigger.ignore', _prev_ignore, true);
+                ELSE
+                    PERFORM set_config('pgtrigger.ignore', '', true);
+                END IF;
+                '''
+                if trigger.ignores_others else ''
+            )
+        ) | self.kwargs
+        
+        return self.func.format(**kwargs)
 
 
 # Allows Trigger methods to be used as context managers, mostly for
@@ -559,6 +575,7 @@ class Trigger:
     func: Func | str | None = None
     declare: list[tuple[str, str]] | None = None
     timing: Timing | None = None
+    ignore_others: list[str] | None = None
 
     def __init__(
         self,
@@ -572,6 +589,7 @@ class Trigger:
         func: Func | str | None = None,
         declare: List[Tuple[str, str]] | None = None,
         timing: Timing | None = None,
+        ignore_others: list[str] | None = None,
     ) -> None:
         self.name = name or self.name
         self.level = level or self.level
@@ -582,6 +600,7 @@ class Trigger:
         self.func = func or self.func
         self.declare = declare or self.declare
         self.timing = timing or self.timing
+        self.ignore_others = ignore_others or self.ignore_others
 
         if not self.level or not isinstance(self.level, Level):
             raise ValueError(f'Invalid "level" attribute: {self.level}')
@@ -609,6 +628,20 @@ class Trigger:
 
         self.validate_name()
 
+        if self.ignores_others:
+            if not isinstance(self.func, Func):
+                raise ValueError(
+                    'Invalid "func" attribute. Triggers that ignore others must provide '
+                    f'an instance of pgtrigger.Func(). Received {type(self.func)} instead'
+                )
+        
+            if  not '{reset_ignore}' in self.func.func:
+                raise ValueError(f'Trigger "{self}" ignores other triggers, however, '
+                                 'placeholder {reset_ignore} was not found in the function '
+                                 f'body. Please refer to: https://django-pgtrigger.readthedocs.io/en/{ver}/ignoring_triggers/#ignore-other-triggers-within-a-trigger')
+        
+        
+
     def __str__(self) -> str:  # pragma: no cover
         return self.name
 
@@ -627,7 +660,7 @@ class Trigger:
                 " Only alphanumeric characters, hyphens, and underscores are allowed."
             )
 
-    def get_pgid(self, model: models.Model) -> str:
+    def get_pgid(self, model: type[models.Model]) -> str:
         """The ID of the trigger and function object in postgres
 
         All objects are prefixed with "pgtrigger_" in order to be
@@ -650,7 +683,7 @@ class Trigger:
         # and pruning tasks.
         return pgid.lower()
 
-    def get_condition(self, model: models.Model) -> Condition:
+    def get_condition(self, model: type[models.Model]) -> Condition:
         """Get the condition of the trigger.
 
         Args:
@@ -661,7 +694,7 @@ class Trigger:
         """
         return self.condition
 
-    def get_declare(self, model: models.Model) -> List[Tuple[str, str]]:
+    def get_declare(self, model: type[models.Model]) -> List[Tuple[str, str]]:
         """
         Gets the DECLARE part of the trigger function if any variables
         are used.
@@ -673,9 +706,58 @@ class Trigger:
             A list of variable name / type tuples that will
             be shown in the DECLARE. For example [('row_data', 'JSONB')]
         """
-        return self.declare or []
+        declare = self.declare or []
+        
+        if self.ignore_others is not None:
+            declare.append(('_prev_ignore', 'text'))
+            declare.append(self.declare_local_ignore(self.ignore_others))
+            
+        return declare
+    
+    def declare_local_ignore(self, ignore: list[str]) -> tuple[str, str]:
+        """Given a list of trigger URIs compile the value for `_local_ignore`
+        variable of the trigger function
 
-    def get_func(self, model: models.Model) -> Union[str, Func]:
+        Parameters
+        ----------
+        ignore : list[str]
+            List of trigger URIs
+
+        Returns
+        -------
+        tuple[str, str]
+            `_local_ignore` variable declaration and initial value for the DECLARE block
+        """
+        local_ignore = '{' + ','.join(
+            f'{model._meta.db_table}:{(pgid:=trigger.get_pgid(model))},{pgid}'
+            for model, trigger in registry.registered(*ignore)
+        ) + '}'
+        return ('_local_ignore', f"text[] = '{local_ignore}'")
+    
+    @property
+    def ignores_others(self) -> bool:
+        """True if the trigger is initialized with local trigger ignores"""
+        return self.ignore_others is not None
+
+    def render_local_ignore(self):
+        if self.ignores_others:
+            return (
+                '''
+                BEGIN
+                    SELECT CURRENT_SETTING('pgtrigger.ignore', true) INTO _prev_ignore;
+                    EXCEPTION WHEN OTHERS THEN
+                END;
+
+                IF _prev_ignore IS NOT NULL AND (_prev_ignore = '') IS NOT TRUE THEN
+                    SELECT _local_ignore || _prev_ignore::text[] INTO _local_ignore;
+                END IF;
+
+                PERFORM set_config('pgtrigger.ignore', _local_ignore::text, true);
+                '''
+            )
+        return ''
+
+    def get_func(self, model: type[models.Model]) -> Union[str, Func]:
         """
         Returns the trigger function that comes between the BEGIN and END
         clause.
@@ -690,7 +772,7 @@ class Trigger:
             raise ValueError("Must define func attribute or implement get_func")
         return self.func
 
-    def get_uri(self, model: models.Model) -> str:
+    def get_uri(self, model: type[models.Model]) -> str:
         """The URI for the trigger.
 
         Args:
@@ -702,7 +784,7 @@ class Trigger:
 
         return f"{model._meta.app_label}.{model._meta.object_name}:{self.name}"
 
-    def render_condition(self, model: models.Model) -> str:
+    def render_condition(self, model: type[models.Model]) -> str:
         """Renders the condition SQL in the trigger declaration.
 
         Args:
@@ -721,7 +803,7 @@ class Trigger:
 
         return resolved
 
-    def render_declare(self, model: models.Model) -> str:
+    def render_declare(self, model: type[models.Model]) -> str:
         """Renders the DECLARE of the trigger function, if any.
 
         Args:
@@ -740,7 +822,7 @@ class Trigger:
 
         return rendered_declare
 
-    def render_execute(self, model: models.Model) -> str:
+    def render_execute(self, model: type[models.Model]) -> str:
         """
         Renders what should be executed by the trigger. This defaults
         to the trigger function.
@@ -753,7 +835,7 @@ class Trigger:
         """
         return f"{self.get_pgid(model)}()"
 
-    def render_func(self, model: models.Model) -> str:
+    def render_func(self, model: type[models.Model]) -> str:
         """
         Renders the func.
 
@@ -766,11 +848,11 @@ class Trigger:
         func = self.get_func(model)
 
         if isinstance(func, Func):
-            return func.render(model)
-        else:
-            return func
+            return func.render(model, self)
 
-    def compile(self, model: models.Model) -> compiler.Trigger:
+        return func
+
+    def compile(self, model: type[models.Model]) -> compiler.Trigger:
         """
         Create a compiled representation of the trigger. useful for migrations.
 
@@ -796,10 +878,11 @@ class Trigger:
                 level=self.level,
                 condition=self.render_condition(model),
                 execute=self.render_execute(model),
+                local_ignore=self.render_local_ignore(),
             ),
         )
 
-    def allow_migrate(self, model: models.Model, database: Union[str, None] = None) -> bool:
+    def allow_migrate(self, model: type[models.Model], database: Union[str, None] = None) -> bool:
         """True if the trigger for this model can be migrated.
 
         Defaults to using the router's allow_migrate.
@@ -830,7 +913,7 @@ class Trigger:
     def exec_sql(
         self,
         sql: str,
-        model: models.Model,
+        model: type[models.Model],
         database: Union[str, None] = None,
         fetchall: bool = False,
     ) -> Any:
@@ -849,7 +932,7 @@ class Trigger:
             return utils.exec_sql(str(sql), database=database, fetchall=fetchall)
 
     def get_installation_status(
-        self, model: models.Model, database: Union[str, None] = None
+        self, model: type[models.Model], database: Union[str, None] = None
     ) -> Tuple[str, Union[bool, None]]:
         """Returns the installation status of a trigger.
 
@@ -922,7 +1005,7 @@ class Trigger:
 
         return _cleanup_on_exit(lambda: self.register(*models))
 
-    def install(self, model: models.Model, database: Union[str, None] = None):
+    def install(self, model: type[models.Model], database: Union[str, None] = None):
         """Installs the trigger for a model.
 
         Args:
@@ -934,7 +1017,7 @@ class Trigger:
             self.exec_sql(install_sql, model, database=database)
         return _cleanup_on_exit(lambda: self.uninstall(model, database=database))
 
-    def uninstall(self, model: models.Model, database: Union[str, None] = None):
+    def uninstall(self, model: type[models.Model], database: Union[str, None] = None):
         """Uninstalls the trigger for a model.
 
         Args:
@@ -947,7 +1030,7 @@ class Trigger:
             lambda: self.install(model, database=database)
         )
 
-    def enable(self, model: models.Model, database: Union[str, None] = None):
+    def enable(self, model: type[models.Model], database: Union[str, None] = None):
         """Enables the trigger for a model.
 
         Args:
@@ -960,7 +1043,7 @@ class Trigger:
             lambda: self.disable(model, database=database)
         )
 
-    def disable(self, model: models.Model, database: Union[str, None] = None):
+    def disable(self, model: type[models.Model], database: Union[str, None] = None):
         """Disables the trigger for a model.
 
         Args:

@@ -53,3 +53,66 @@ If you're ignoring triggers and handling database errors, there are two ways to 
 
 1. Wrap the outer transaction in `with pgtrigger.ignore.session():` so that the session is completed outside the transaction.
 2. Wrap the inner `try/except` in `with transaction.atomic():` so that the errored part of the transaction is rolled back before the [pgtrigger.ignore][] context manager ends.
+
+
+## Ignore other triggers within a trigger
+
+Provide an `ignore_others` list of trigger URIs you would like to ignore while executing
+a certain trigger. See the example below for details:
+
+The `increment_comment_count` trigger will update the `comment_count` on a topic, instead of calculating
+the count each time a topic is queried. Let's assume you are fixing a Justin Bieber Instagram
+[bug](https://www.wired.com/2015/11/how-instagram-solved-its-justin-bieber-problem/). However we have
+also protected the `comment_count` with a `pgtrigger.ReadOnly(name='read_only_comment_count')` trigger.
+
+In this case you would provide a `ignore_others=['tests.Topic:read_only_comment_count']` to the
+`increment_comment_count` trigger.
+
+```python
+class Topic(models.Model):
+    name = models.CharField(max_length=100)
+    comment_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        triggers = [
+            pgtrigger.ReadOnly(
+                name='read_only_comment_count',
+                fields=['comment_count']
+            )
+        ]
+
+
+class Comment(models.Model):
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
+    # Other fields
+
+    class Meta:
+        triggers = [
+            pgtrigger.Trigger(
+                func=pgtrigger.Func(
+                    '''
+                    UPDATE "{db_table}"
+                        SET "{comment_count}" = "{comment_count}" + 1
+                    WHERE
+                        "{db_table}"."{topic_pk}" = NEW."{columns.topic}";
+                    {reset_ignore}
+                    RETURN NEW;
+                    ''',
+                    db_table = Topic._meta.db_table,
+                    comment_count = Topic._meta.get_field('comment_count').get_attname_column()[1],
+                    topic_pk = Topic._meta.pk.get_attname_column()[1]                   
+                ),    
+                ignore_others=['tests.Topic:read_only_comment_count'],
+                when=pgtrigger.Before,
+                operation=pgtrigger.Insert,
+                name='increment_comment_count'
+            ),
+        ]
+```
+
+!!! important
+
+    Remember to use the `{reset_ignore}` placeholder in the trigger function before you return
+    from any branch. Without it the triggers you have ignored will persist throughout the session.
+
+It is mandatory to provide an instace of `pgtrigger.Func` to the `func` parameter.
