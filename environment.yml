@@ -1,0 +1,11 @@
+name: django-pgtrigger
+channels:
+  - conda-forge
+dependencies:
+  - python==3.13.0
+  - poetry==1.8.4
+  - pip==24.2
+  - postgresql==17.0
+variables:
+  DATABASE_URL: "postgres://postgres@localhost:5432/pgtrigger_local"
+  EXEC_WRAPPER: ""

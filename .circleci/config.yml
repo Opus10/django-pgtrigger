@@ -1,0 +1,112 @@
+version: 2.1
+
+orbs:
+  opus10:
+    executors:
+      python:
+        working_directory: /code
+        docker:
+          - image: opus10/circleci-python-library:2024-10-26
+            environment:
+              # Ensure makefile commands are not wrapped in "docker compose run"
+              EXEC_WRAPPER: ''
+              DATABASE_URL: postgres://root@localhost/circle_test?sslmode=disable
+          - image: cimg/postgres:<<parameters.pg_version>>
+            environment:
+              POSTGRES_USER: root
+              POSTGRES_DB: circle_test
+              POSTGRES_PASSWORD: password
+        parameters:
+          pg_version:
+            type: "string"
+            default: "14.4"
+    commands:
+      test:
+        steps:
+          - checkout
+          - restore_cache:
+              key: v5-{{ checksum "poetry.lock" }}
+          - run: make dependencies
+          - run: make full-test-suite
+          - save_cache:
+              key: v5-{{ checksum "poetry.lock" }}
+              paths:
+                - /home/circleci/.cache/pypoetry/
+                - /code/.venv
+                - /code/.tox
+
+jobs:
+  test_pg_min:
+    executor:
+      name: opus10/python
+      pg_version: "13.16"
+    steps:
+      - opus10/test
+
+  test_pg_max:
+    executor:
+      name: opus10/python
+      pg_version: "17.0"
+    steps:
+      - opus10/test
+
+  lint:
+    executor: opus10/python
+    steps:
+      - checkout
+      - restore_cache:
+          key: v5-{{ checksum "poetry.lock" }}
+      - run: make dependencies
+      - run: make lint
+
+  type_check:
+    executor: opus10/python
+    steps:
+      - checkout
+      - restore_cache:
+          key: v5-{{ checksum "poetry.lock" }}
+      - run: make dependencies
+      - run: make type-check || true
+
+  deploy:
+    executor: opus10/python
+    steps:
+      - checkout
+      - run: ssh-add -D
+      - restore_cache:
+          key: v5-{{ checksum "poetry.lock" }}
+      - run: make dependencies
+      - run: poetry run python devops.py deploy
+
+workflows:
+  version: 2
+  on_commit:
+    jobs:
+      - test_pg_min:
+          filters:
+            tags:
+              only: /.*/
+      - test_pg_max:
+          filters:
+            tags:
+              only: /.*/
+      - lint:
+          filters:
+            tags:
+              only: /.*/
+      - type_check:
+          filters:
+            tags:
+              only: /.*/
+      - deploy:
+          context: python-library
+          requires:
+            - test_pg_min
+            - test_pg_max
+            - lint
+            - type_check
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /.*/
