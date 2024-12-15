@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.13.3 (2024-12-15)
+
+#### Changes
+
+  - Changed project ownership to `AmbitionEng` by [@wesleykendall](https://github.com/wesleykendall) in [#189](https://github.com/AmbitionEng/django-pgtrigger/pull/189).
+
 ## 4.13.2 (2024-11-18)
 
 #### Fixes
