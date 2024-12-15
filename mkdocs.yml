@@ -1,8 +1,8 @@
 site_name: django-pgtrigger
 docs_dir: docs
 
-repo_name: Opus10/django-pgtrigger
-repo_url: https://github.com/Opus10/django-pgtrigger
+repo_name: AmbitionEng/django-pgtrigger
+repo_url: https://github.com/AmbitionEng/django-pgtrigger
 
 plugins:
   - search
@@ -52,8 +52,8 @@ markdown_extensions:
 theme:
   custom_dir: docs/overrides
   name: material
-  logo: static/logo.png
-  favicon: static/logo.png
+  logo: static/dark_logo.png
+  favicon: static/light_logo.png
   features:
     - content.code.copy
     - navigation.footer
