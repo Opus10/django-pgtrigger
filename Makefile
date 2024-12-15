@@ -96,7 +96,7 @@ db-setup:
 # Sets up a conda development environment
 .PHONY: conda-create
 conda-create:
-	-conda env create -f environment.yml --force
+	-conda env create -f environment.yml -y
 	$(EXEC_WRAPPER) poetry config virtualenvs.create false --local
 
 

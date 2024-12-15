@@ -29,7 +29,7 @@ exclude = [
 ]
 version = "0.0.0"
 description = "Postgres trigger support integrated with Django models."
-authors = ["Opus 10 Engineering"]
+authors = ["Ambition Engineering"]
 classifiers = [
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
@@ -47,8 +47,8 @@ classifiers = [
 ]
 license = "BSD-3-Clause"
 readme = "README.md"
-homepage = "https://github.com/Opus10/django-pgtrigger"
-repository = "https://github.com/Opus10/django-pgtrigger"
+homepage = "https://github.com/AmbitionEng/django-pgtrigger"
+repository = "https://github.com/AmbitionEng/django-pgtrigger"
 documentation = "https://django-pgtrigger.readthedocs.io"
 
 [tool.poetry.dependencies]
