@@ -259,3 +259,39 @@ class ChangedCondition(models.Model):
     fk_field = models.ForeignKey("auth.User", null=True, on_delete=models.CASCADE)
     char_pk_fk_field = models.ForeignKey(CharPk, null=True, on_delete=models.CASCADE)
     m2m_field = models.ManyToManyField(User, related_name="+")
+
+
+class Topic(models.Model):
+    name = models.CharField(max_length=100)
+    comment_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        triggers = [pgtrigger.ReadOnly(name="read_only_comment_count", fields=["comment_count"])]
+
+
+class Comment(models.Model):
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
+    # Other fields
+
+    class Meta:
+        triggers = [
+            pgtrigger.Trigger(
+                func=pgtrigger.Func(
+                    """
+                    UPDATE "{db_table}"
+                        SET "{comment_count}" = "{comment_count}" + 1
+                    WHERE
+                        "{db_table}"."{topic_pk}" = NEW."{columns.topic}";
+                    {reset_ignore}
+                    RETURN NEW;
+                    """,
+                    db_table=Topic._meta.db_table,
+                    comment_count=Topic._meta.get_field("comment_count").get_attname_column()[1],
+                    topic_pk=Topic._meta.pk.get_attname_column()[1],
+                ),
+                ignore_others=["tests.Topic:read_only_comment_count"],
+                when=pgtrigger.Before,
+                operation=pgtrigger.Insert,
+                name="increment_comment_count",
+            ),
+        ]

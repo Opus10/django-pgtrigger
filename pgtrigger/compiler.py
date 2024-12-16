@@ -65,6 +65,7 @@ class UpsertTriggerSql(collections.UserString):
                             RETURN NEW;
                         END IF;
                     END IF;
+                    {local_ignore}
                     {func}
                 END;
             $$ LANGUAGE plpgsql;
@@ -118,6 +119,7 @@ class UpsertTriggerSql(collections.UserString):
         condition=_unset,
         execute=_unset,
         hash=None,
+        local_ignore="",
     ):
         """Initialize the SQL and store it in the `.data` attribute."""
         self.kwargs = {
