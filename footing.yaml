@@ -1,7 +1,7 @@
 _extensions:
 - jinja2_time.TimeExtension
 _template: git@github.com:Opus10/public-django-app-template.git
-_version: 072543e27d8b506a6628f7793798609c62d6a8ae
+_version: b7d2321846eeeb120ea9455597ddcf9bd8b5e7a4
 check_types_in_ci: 'False'
 is_django: 'True'
 module_name: pgtrigger

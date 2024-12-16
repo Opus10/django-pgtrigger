@@ -1,24 +1,28 @@
 .md-typeset__table {
-    min-width: 100%;
+  min-width: 100%;
 }
- 
+
 .md-typeset table:not([class]) {
-    display: table;
+  display: table;
 }
 
 :root {
-    --md-primary-fg-color: #BD4D86;
-    --md-primary-fg-color--light: #BD4D86;
-    --md-primary-fg-color--dark: #BD4D86;
+  --md-primary-fg-color: #1d1f29;
+  --md-primary-fg-color--light: #1d1f29;
+  --md-primary-fg-color--dark: #1d1f29;
+}
+
+.md-content {
+--md-typeset-a-color: #00bc70;
 }
 
 .md-footer {
-    background-color: #BD4D86;
+  background-color: #1d1f29;
 }
 .md-footer-meta {
-    background-color: #973E6B;
+  background-color: #1d1f29;
 }
 
 readthedocs-flyout {
-    display: none;
+  display: none;
 }
